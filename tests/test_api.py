@@ -69,7 +69,7 @@ class ProductionApiTests(unittest.TestCase):
         output = json.dumps({
             "format": {"duration": "60.0"},
             "streams": [
-                {"codec_type": "video", "width": 1280, "height": 720},
+                {"codec_type": "video", "width": 1280, "height": 720, "avg_frame_rate": "24/1"},
                 {"codec_type": "audio"}
             ]
         })
@@ -82,6 +82,23 @@ class ProductionApiTests(unittest.TestCase):
         self.assertEqual(result["height"], 720)
         self.assertTrue(result["has_audio"])
         self.assertEqual(result["duration_seconds"], 60.0)
+        self.assertEqual(result["fps"], 24.0)
+
+    def test_mp4_verification_rejects_wrong_frame_rate(self):
+        project = {"duration_seconds": 60, "aspect_ratio": "16:9"}
+        output = json.dumps({
+            "format": {"duration": "60.0"},
+            "streams": [
+                {"codec_type": "video", "width": 1280, "height": 720, "avg_frame_rate": "12/1"},
+                {"codec_type": "audio"}
+            ]
+        })
+        with patch("app.main.shutil.which", return_value="/usr/bin/ffprobe"):
+            with patch("app.main.subprocess.run", return_value=SimpleNamespace(
+                returncode=0, stdout=output, stderr=""
+            )):
+                with self.assertRaisesRegex(RuntimeError, "frame-rate verification"):
+                    verify_mp4(Path("final.mp4"), project)
 
     def test_mp4_verification_rejects_wrong_duration(self):
         project = {"duration_seconds": 60, "aspect_ratio": "16:9"}
