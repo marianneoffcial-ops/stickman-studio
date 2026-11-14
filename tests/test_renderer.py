@@ -5,7 +5,7 @@ from pathlib import Path
 from PIL import Image
 
 from app.story import make_project
-from worker.render import render_project, dimensions, draw_frame, character_scale
+from worker.render import render_project, dimensions, draw_frame, character_scale, synthesize_ambience, atmosphere_particles
 
 
 class RenderSmokeTests(unittest.TestCase):
@@ -88,6 +88,34 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertEqual(story_prop_kind("a hanging lantern"), "lantern")
         self.assertEqual(story_prop_kind("a leather-bound journal"), "ledger")
         self.assertEqual(story_prop_kind("a weathered telescope"), "telescope")
+
+    def test_atmospheric_particles_move_between_frames_and_remain_deterministic(self):
+        scene = {"visual": "A storm of rain over the harbour", "scene_index": 3}
+        first = atmosphere_particles(scene, 0, 48, 1280, 720)
+        later = atmosphere_particles(scene, 24, 48, 1280, 720)
+        repeated = atmosphere_particles(scene, 0, 48, 1280, 720)
+        self.assertEqual(first, repeated)
+        self.assertNotEqual(first, later)
+        self.assertEqual(len(first), 58)
+        self.assertTrue(all(kind == "rain" for kind, _, _ in first))
+
+    def test_ambience_is_scene_aware_and_fades_at_both_ends(self):
+        import tempfile
+        import wave
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "ambience.wav"
+            synthesize_ambience({"visual": "rain over a city street", "scene_index": 8}, path, .5)
+            with wave.open(str(path), "rb") as audio:
+                self.assertEqual(audio.getframerate(), 24000)
+                self.assertEqual(audio.getnframes(), 12000)
+                frames = audio.readframes(audio.getnframes())
+            import array
+            samples = array.array("h")
+            samples.frombytes(frames)
+            self.assertLess(abs(samples[0]), 20)
+            self.assertLess(abs(samples[-1]), 20)
+            self.assertGreater(max(samples), 0)
+            self.assertLess(min(samples), 0)
 
     def test_one_scene_produces_mp4_and_thumbnail(self):
         project = make_project(
