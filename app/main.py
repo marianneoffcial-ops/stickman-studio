@@ -132,9 +132,9 @@ def create_dual_production(req:DualProductionRequest):
  return {
   "topic":topic,
   "short":{"project_id":short["project_id"],"duration_seconds":60,"aspect_ratio":"9:16",
-           "scene_count":short["scene_count"],"script_word_count":short["script_word_count"],"job":short_job},
+           "scene_count":short["scene_count"],"script_word_count":short["script_word_count"],"thumbnail_prompt":short["thumbnail_prompt"],"job":short_job},
   "long":{"project_id":long["project_id"],"duration_seconds":600,"aspect_ratio":"16:9",
-          "scene_count":long["scene_count"],"script_word_count":long["script_word_count"],"job":long_job},
+          "scene_count":long["scene_count"],"script_word_count":long["script_word_count"],"thumbnail_prompt":long["thumbnail_prompt"],"job":long_job},
   "sources":short_research["sources"]
  }
 

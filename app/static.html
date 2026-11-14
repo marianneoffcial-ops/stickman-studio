@@ -53,9 +53,9 @@ $("dualProduction").onclick=async()=>{
  try{
   const r=await fetch("/api/production/topic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({topic:selected})});
   const d=await r.json();if(!r.ok)throw new Error(d.detail||"Dual production could not start");
-  dualJobs={short:d.short.job.job_id,long:d.long.job.job_id,shortProject:d.short.project_id,longProject:d.long.project_id};
+  dualJobs={short:d.short.job.job_id,long:d.long.job.job_id,shortProject:d.short.project_id,longProject:d.long.project_id,shortThumbnail:d.short.thumbnail_prompt,longThumbnail:d.long.thumbnail_prompt}; project={project_id:d.long.project_id,thumbnail_prompt:d.long.thumbnail_prompt};
   $("renderState").textContent="BOTH VIDEOS QUEUED";
-  $("renderDetail").textContent="60-second vertical Short: "+d.short.scene_count+" scenes. 10-minute landscape video: "+d.long.scene_count+" scenes. Both are rendering independently.";
+  $("renderDetail").textContent="60-second vertical Short: "+d.short.scene_count+" scenes. 10-minute landscape video: "+d.long.scene_count+" scenes. The 60-second Short renders first, followed by the 10-minute video on the free CPU worker.";
   $("videoLinks").innerHTML="";step(6);pollDualJobs();
  }catch(e){$("researchStatus").textContent=e.message;b.disabled=false;}
 };
@@ -76,7 +76,7 @@ async function pollDualJobs(){
   const shortDone=["completed","failed"].includes(sj.status);
   const longDone=["completed","failed"].includes(lj.status);
   if(!shortDone||!longDone)pollTimer=setTimeout(pollDualJobs,5000);
-  else if(sj.status==="completed"&&lj.status==="completed")$("renderDetail").textContent="Both MP4 files passed the server's output-file verification. Review them before publishing.";
+  else if(sj.status==="completed"&&lj.status==="completed"){$("renderDetail").textContent="Both MP4 files passed server output checks. Review both videos before publishing.";$("thumbPrompt").textContent=dualJobs.longThumbnail;$("thumbnailImage").innerHTML="";const img=document.createElement("img");img.className="preview";img.src="/api/projects/"+dualJobs.longProject+"/thumbnail";img.alt="Long-form 16:9 thumbnail";$("thumbnailImage").appendChild(img);$("step8Action").classList.remove("hidden");step(7);}
   else $("renderDetail").textContent="Rendering finished with at least one failed job. Any completed video is still available above; inspect the error details.";
  }catch(e){$("renderDetail").textContent=e.message;pollTimer=setTimeout(pollDualJobs,7000);}
 }

@@ -205,14 +205,6 @@ def draw_background(im,d,index,phase,scene=None):
             sx=int(w*(.16+j*.055))
             d.line((sx,int(h*.42),sx,int(h*.72)),fill=(139,105,65),width=max(3,int(w*.004)))
             d.ellipse((sx-int(w*.006),int(h*.405),sx+int(w*.006),int(h*.43)),fill=(177,145,82),outline=INK)
-    # paper grain and scanlines
-    grain=Image.new("RGBA",(w,h),(0,0,0,0)); gd=ImageDraw.Draw(grain)
-    rng=random.Random(index+17)
-    for _ in range(max(150,w*h//9500)):
-        x=rng.randrange(w); y=rng.randrange(h)
-        gd.point((x,y),fill=(30,28,22,rng.randrange(8,24)))
-    for y in range(0,h,5): gd.line((0,y,w,y),fill=(30,28,22,12),width=1)
-    im.paste(Image.alpha_composite(im.convert("RGBA"),grain).convert("RGB"))
 def draw_story_details(im,d,index,phase,scene):
     """Add large, legible story-specific ink illustrations to each scene."""
     w,h=im.size
@@ -369,17 +361,23 @@ def draw_story_details(im,d,index,phase,scene):
             d.ellipse((x,y-h*.035,x+w*.025,y+h*.005),fill=(104,104,94),outline=ink,width=2)
             d.polygon([(x+w*.005,y),(x+w*.02,y),(x+w*.026,y+h*.09),(x,y+h*.09)],fill=(104,104,94),outline=ink)
 
+_TEXTURE_CACHE = {}
+
 def apply_house_texture(im,scene_index):
-    """Apply one stable paper-grain and scanline layer over every rendered element."""
+    """Reuse one subtle paper-grain overlay for every frame in a scene."""
     w,h=im.size
-    overlay=Image.new("RGBA",(w,h),(0,0,0,0)); d=ImageDraw.Draw(overlay)
-    rng=random.Random(scene_index+1701)
-    for _ in range(max(220,w*h//7200)):
-        x=rng.randrange(w); y=rng.randrange(h)
-        alpha=rng.randrange(5,15)
-        d.point((x,y),fill=(38,34,27,alpha))
-    for y in range(0,h,5):
-        d.line((0,y,w,y),fill=(32,30,26,9),width=1)
+    key=(w,h,scene_index)
+    overlay=_TEXTURE_CACHE.get(key)
+    if overlay is None:
+        overlay=Image.new("RGBA",(w,h),(0,0,0,0)); d=ImageDraw.Draw(overlay)
+        rng=random.Random(scene_index+1701)
+        for _ in range(max(700,w*h//90000)):
+            x=rng.randrange(w); y=rng.randrange(h)
+            d.point((x,y),fill=(38,34,27,rng.randrange(5,15)))
+        for y in range(0,h,5):
+            d.line((0,y,w,y),fill=(32,30,26,9),width=1)
+        _TEXTURE_CACHE.clear()
+        _TEXTURE_CACHE[key]=overlay
     im.paste(Image.alpha_composite(im.convert("RGBA"),overlay).convert("RGB"))
 
 def draw_frame(scene,project,frame,total_frames,out):
