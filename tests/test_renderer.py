@@ -94,6 +94,30 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertAlmostEqual(x_fraction, .16)
         self.assertAlmostEqual(y_fraction, .82)
 
+    def test_scene_semantics_exclude_style_boilerplate_and_use_word_boundaries(self):
+        from worker.render import scene_description, contains_any
+        scene = {
+            "title": "A quiet boat crossing",
+            "visual": "A small boat crosses a calm sea at dawn.",
+            "visual_prompt": "Background and story action: A small boat crosses a calm sea at dawn. "
+                             "Shot composition: wide view. Restrained cinematic style, no photorealism."
+        }
+        meaning = scene_description(scene)
+        self.assertNotIn("restrained", meaning)
+        self.assertTrue(contains_any(meaning, ("boat", "sea")))
+        self.assertFalse(contains_any(meaning, ("train", "railway", "locomotive")))
+
+    def test_boat_scene_uses_sea_atmosphere_not_false_train_steam(self):
+        from worker.render import atmosphere_particles, ambience_profile
+        scene = {
+            "title": "A quiet boat crossing",
+            "visual": "A small boat crosses a calm sea at dawn.",
+            "visual_prompt": "A restrained hand-inked illustrated scene."
+        }
+        particles = atmosphere_particles(scene, 0, 48, 1280, 720)
+        self.assertTrue(all(kind == "dust" for kind, _, _ in particles))
+        self.assertEqual(ambience_profile(scene), (430, 54, .72))
+
     def test_story_prop_classifier_covers_distinct_objects(self):
         from worker.render import story_prop_kind
         self.assertEqual(story_prop_kind("a folded nautical chart"), "map")

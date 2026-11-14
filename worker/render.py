@@ -166,6 +166,25 @@ def draw_person(d,x,y,scale,color,phase,pose=0,role='',action='idle',expression=
     d.arc((hx-29*q,hy-39*q,hx+18*q,hy+2*q),185,270,fill=INK,width=max(2,int(3*q)))
     d.line((hx-22*q,hy-29*q,hx-8*q,hy-43*q,hx+4*q,hy-31*q),fill=INK,width=max(2,int(3*q)))
 
+def scene_description(scene):
+    """Return scene meaning without repeated visual-style or safety instructions."""
+    scene = scene or {}
+    title = str(scene.get("title", "")).strip()
+    visual = str(scene.get("visual", "")).strip()
+    if not visual:
+        prompt = str(scene.get("visual_prompt", ""))
+        match = re.search(r"Background and story action:\s*(.*?)\s*Shot composition:", prompt, re.I | re.S)
+        visual = match.group(1).strip() if match else prompt
+    return (title + " " + visual).strip().lower()
+
+
+def contains_any(text, terms):
+    """Match complete words/phrases, avoiding false positives such as restrained/train."""
+    value = str(text or "").lower()
+    return any(re.search(r"(?<![a-z0-9])" + re.escape(term.lower()) + r"(?![a-z0-9])", value)
+               for term in terms)
+
+
 def draw_background(im,d,index,phase,scene=None):
     w,h=im.size; base=PALETTE[index%len(PALETTE)]
     im.paste(base,(0,0,w,h))
@@ -174,13 +193,13 @@ def draw_background(im,d,index,phase,scene=None):
     d.polygon([(0,horizon),(w*.16,h*.42),(w*.31,horizon),(w*.5,h*.35),(w*.68,horizon),(w*.86,h*.46),(w,horizon),(w,h),(0,h)],fill=(133,139,124),outline=INK,width=4)
     d.rectangle((0,horizon,w,h),fill=(184,176,151))
     # scene-specific landmark silhouettes
-    prompt=((scene or {}).get('visual_prompt','')+' '+(scene or {}).get('visual','')+' '+(scene or {}).get('title','')).lower()
-    if any(k in prompt for k in ('ship','vessel','boat','ocean','sea','sail')): mode=2
-    elif any(k in prompt for k in ('library','archive','book','scholar','manuscript','document','ledger')): mode=3
-    elif any(k in prompt for k in ('map','atlas','chart','route','letter','close-up','close up')): mode=5
-    elif any(k in prompt for k in ('mosque','palace','temple','cathedral','monument','architecture')): mode=0
-    elif any(k in prompt for k in ('market','street','city','cairo','town','crowd')): mode=1
-    elif any(k in prompt for k in ('snow','ice','antarctic','winter','mountain','desert','sahara','dune')): mode=4
+    prompt=scene_description(scene)
+    if contains_any(prompt, ('ship','vessel','boat','ocean','sea','sail')): mode=2
+    elif contains_any(prompt, ('library','archive','book','scholar','manuscript','document','ledger')): mode=3
+    elif contains_any(prompt, ('map','atlas','chart','route','letter','close-up','close up')): mode=5
+    elif contains_any(prompt, ('mosque','palace','temple','cathedral','monument','architecture')): mode=0
+    elif contains_any(prompt, ('market','street','city','cairo','town','crowd')): mode=1
+    elif contains_any(prompt, ('snow','ice','antarctic','winter','mountain','desert','sahara','dune')): mode=4
     else: mode=index%6
     if mode==0: # old tower
         x=int(w*.72); bw=int(w*.13)
@@ -215,41 +234,41 @@ def draw_background(im,d,index,phase,scene=None):
         d.arc((w*.61,h*.15,w*.88,h*.48),180,360,fill=INK,width=5)
         d.rectangle((w*.70,h*.40,w*.79,h*.74),fill=(65,68,62),outline=INK,width=3)
     # Distinct foreground props keyed to the actual storyboard description
-    if any(k in prompt for k in ('camel','caravan','desert','sahara','dune')):
+    if contains_any(prompt, ('camel','caravan','desert','sahara','dune')):
         for j in range(3):
             cx=int(w*(.20+j*.25)); cy=int(h*.64)
             d.ellipse((cx-24,cy-18,cx+28,cy+20),fill=(139,119,91),outline=INK,width=3)
             d.arc((cx-8,cy-44,cx+24,cy+4),180,350,fill=INK,width=4)
             d.line((cx+18,cy-12,cx+31,cy-35),fill=INK,width=3)
-    if any(k in prompt for k in ('map','atlas','chart','route')):
+    if contains_any(prompt, ('map','atlas','chart','route')):
         d.rounded_rectangle((w*.12,h*.27,w*.48,h*.58),radius=8,fill=(220,207,174),outline=INK,width=4)
         for j in range(5): d.arc((w*(.16+j*.045),h*.31,w*(.31+j*.045),h*.54),20,250,fill=(112,103,82),width=2)
         d.line((w*.18,h*.50,w*.40,h*.35),fill=(139,72,57),width=4)
-    if any(k in prompt for k in ('market','merchant','shop','gold','coin')):
+    if contains_any(prompt, ('market','merchant','shop','gold','coin')):
         for j in range(3):
             xx=w*(.58+j*.11)
             d.rectangle((xx,h*.49,xx+w*.075,h*.67),fill=(151,124,88),outline=INK,width=3)
             d.arc((xx+4,h*.44,xx+w*.07,h*.57),180,360,fill=INK,width=3)
-    if any(k in prompt for k in ('mosque','palace','temple','monument')):
+    if contains_any(prompt, ('mosque','palace','temple','monument')):
         d.rectangle((w*.54,h*.43,w*.87,h*.70),fill=(184,171,145),outline=INK,width=4)
         d.arc((w*.61,h*.29,w*.80,h*.56),180,360,fill=INK,width=4)
         for xx in (.61,.70,.79): d.rectangle((w*xx,h*.53,w*(xx+.035),h*.70),fill=(72,72,65),outline=INK,width=2)
-    if any(k in prompt for k in ('snow','winter','ice','antarctic')):
+    if contains_any(prompt, ('snow','winter','ice','antarctic')):
         rng_snow=random.Random(index+91)
         for _ in range(35):
             sx=rng_snow.randrange(w); sy=rng_snow.randrange(int(h*.62))
             d.ellipse((sx,sy,sx+3,sy+3),fill=(238,234,219))
     # Scene-specific narrative props for the Mansa Musa brief and related historical stories.
-    if any(k in prompt for k in ('throne','emperor','crowned','king','sovereign')):
+    if contains_any(prompt, ('throne','emperor','crowned','king','sovereign')):
         tx,ty=int(w*.48),int(h*.53)
         d.rectangle((tx,ty,tx+int(w*.14),int(h*.74)),fill=(112,86,57),outline=INK,width=4)
         d.arc((tx,ty-int(h*.13),tx+int(w*.14),ty+int(h*.12)),180,360,fill=INK,width=5)
         d.rectangle((tx+int(w*.025),ty+int(h*.06),tx+int(w*.115),ty+int(h*.19)),fill=(157,132,87),outline=INK,width=3)
-    if any(k in prompt for k in ('gold','nugget','gold dust','golden')):
+    if contains_any(prompt, ('gold','nugget','gold dust','golden')):
         for j in range(7):
             gx=int(w*(.57+(j%4)*.055)); gy=int(h*(.66-(j//4)*.025))
             d.ellipse((gx,gy,gx+int(w*.045),gy+int(h*.035)),fill=(171,139,76),outline=INK,width=2)
-    if any(k in prompt for k in ('staff','scepter','banner')):
+    if contains_any(prompt, ('staff','scepter','banner')):
         for j in range(3):
             sx=int(w*(.16+j*.055))
             d.line((sx,int(h*.42),sx,int(h*.72)),fill=(139,105,65),width=max(3,int(w*.004)))
@@ -272,7 +291,7 @@ def story_prop_kind(prompt):
         (("scale","brass weight"),"scale"),
     ]
     for terms,kind in rules:
-        if any(term in p for term in terms):
+        if contains_any(p, terms):
             return kind
     return "object"
 
@@ -411,9 +430,9 @@ def draw_primary_story_prop(d,w,h,kind,phase=0.0,center_x=.70,center_y=.49,size_
 def draw_story_details(im,d,index,phase,scene):
     """Add large, legible story-specific ink illustrations to each scene."""
     w,h=im.size
-    p=(scene.get("visual_prompt","")+" "+scene.get("visual","")+" "+scene.get("title","")).lower()
+    p=scene_description(scene)
     ink=INK
-    if any(k in p for k in ("night","midnight","moon","stars")):
+    if contains_any(p, ("night","midnight","moon","stars")):
         d.ellipse((w*.78,h*.08,w*.88,h*.22),fill=(225,218,195),outline=ink,width=4)
         rng=random.Random(index+310)
         for _ in range(18):
@@ -425,11 +444,11 @@ def draw_story_details(im,d,index,phase,scene):
         for j in range(3):
             yy=h*(.18+j*.06)
             d.arc((w*(.27+j*.12),yy,w*(.42+j*.12),yy+h*.07),190,345,fill=(125,128,115),width=2)
-    if any(k in p for k in ("coast","sea","ocean","ship","flight","aircraft","plane","mountain")):
+    if contains_any(p, ("coast","sea","ocean","ship","flight","aircraft","plane","mountain")):
         for j in range(3):
             bx=w*(.61+j*.045)+math.sin(phase+j)*w*.002; by=h*(.25+j*.025)
             d.arc((bx,by,bx+w*.018,by+h*.012),190,345,fill=ink,width=2)
-    if any(k in p for k in ("train","railway","locomotive","carriage")):
+    if contains_any(p, ("train","railway","locomotive","carriage")):
         y=h*.66; x=w*.60
         d.rectangle((x,y-h*.16,w*.94,y),fill=(105,108,100),outline=ink,width=4)
         for j in range(2):
@@ -438,20 +457,20 @@ def draw_story_details(im,d,index,phase,scene):
         for xx in (x+w*.06,x+w*.25):
             d.ellipse((xx,y-h*.035,xx+w*.055,y+h*.045),fill=(63,65,60),outline=ink,width=4)
         d.line((w*.54,h*.76,w*.98,h*.76),fill=ink,width=3)
-    elif any(k in p for k in ("aircraft","airplane","plane","parachute","flight","pilot")):
+    elif contains_any(p, ("aircraft","airplane","plane","parachute","flight","pilot")):
         x=w*(.69+math.sin(phase)*.006); y=h*.36
         d.polygon([(x,y),(x+w*.20,y-h*.018),(x+w*.12,y+h*.018),(x+w*.07,y+h*.012)],fill=(119,124,116),outline=ink)
         if "parachute" in p:
             px=w*.81; py=h*.18
             d.arc((px-w*.06,py-h*.045,px+w*.06,py+h*.055),180,360,fill=ink,width=4)
             d.line((px-w*.05,py,px,py+h*.14,px+w*.05,py),fill=ink,width=2)
-    elif any(k in p for k in ("prison","cell","alcatraz","bars","jail")):
+    elif contains_any(p, ("prison","cell","alcatraz","bars","jail")):
         x,y=w*.72,h*.34
         d.rectangle((x,y,x+w*.19,h*.72),fill=(99,103,96),outline=ink,width=5)
         for j in range(5):
             xx=x+w*(.025+j*.035); d.line((xx,y,xx,h*.72),fill=(43,46,43),width=4)
         d.rectangle((x+w*.04,h*.56,x+w*.15,h*.70),fill=(174,163,139),outline=ink,width=3)
-    elif any(k in p for k in ("clock","watch","time","hour","minute")):
+    elif contains_any(p, ("clock","watch","time","hour","minute")):
         x,y=w*.77,h*.42; r=min(w,h)*.105
         d.ellipse((x-r,y-r,x+r,y+r),fill=(220,211,190),outline=ink,width=5)
         for j in range(12):
@@ -460,65 +479,65 @@ def draw_story_details(im,d,index,phase,scene):
         a=phase*.05
         d.line((x,y,x+math.sin(a)*r*.55,y-math.cos(a)*r*.55),fill=ink,width=4)
         d.line((x,y,x+r*.48,y+r*.20),fill=ink,width=3)
-    elif any(k in p for k in ("museum","painting","artwork","gallery","portrait")):
+    elif contains_any(p, ("museum","painting","artwork","gallery","portrait")):
         x,y=w*.70,h*.30
         d.rectangle((x,y,x+w*.20,y+h*.31),fill=(111,89,65),outline=ink,width=5)
         d.rectangle((x+w*.018,y+h*.025,x+w*.182,y+h*.285),fill=(211,198,170),outline=ink,width=3)
         d.arc((x+w*.055,y+h*.06,x+w*.15,y+h*.25),180,350,fill=(115,120,105),width=4)
-    elif any(k in p for k in ("telegraph","cable","wire","signal","message")):
+    elif contains_any(p, ("telegraph","cable","wire","signal","message")):
         for x in (w*.68,w*.91):
             d.line((x,h*.28,x,h*.70),fill=ink,width=5)
             d.line((x-w*.025,h*.34,x+w*.025,h*.34),fill=ink,width=4)
         d.arc((w*.68,h*.29,w*.91,h*.49),180,360,fill=(78,82,75),width=3)
-    elif any(k in p for k in ("spacecraft","rocket","moon landing","lunar","astronaut")):
+    elif contains_any(p, ("spacecraft","rocket","moon landing","lunar","astronaut")):
         x,y=w*.78,h*.39
         d.polygon([(x,y-h*.12),(x+w*.035,y-h*.04),(x+w*.035,y+h*.10),(x-w*.01,y+h*.10),(x-w*.01,y-h*.04)],fill=(193,187,169),outline=ink,width=4)
         d.polygon([(x-w*.01,y-h*.04),(x-w*.045,y+h*.04),(x-w*.01,y+h*.035)],fill=(147,139,120),outline=ink)
         d.polygon([(x+w*.035,y-h*.04),(x+w*.07,y+h*.04),(x+w*.035,y+h*.035)],fill=(147,139,120),outline=ink)
-    elif any(k in p for k in ("mine","mining","tunnel","underground","cave")):
+    elif contains_any(p, ("mine","mining","tunnel","underground","cave")):
         x,y=w*.70,h*.38
         d.arc((x,y-h*.13,x+w*.22,y+h*.20),180,360,fill=ink,width=6)
         d.rectangle((x,y,x+w*.22,h*.72),fill=(83,85,78),outline=ink,width=4)
         d.rectangle((x+w*.045,y+h*.10,x+w*.175,h*.72),fill=(48,51,48),outline=ink,width=3)
-    elif any(k in p for k in ("book","manuscript","letter","document","ledger","archive","library","paper")):
+    elif contains_any(p, ("book","manuscript","letter","document","ledger","archive","library","paper")):
         x,y=w*.68,h*.49
         d.polygon([(x,y),(x+w*.17,y-h*.035),(x+w*.19,y+h*.15),(x+w*.02,y+h*.19)],fill=(220,207,176),outline=ink)
         for j in range(3):
             d.line((x+w*.03,y+h*(.035+j*.04),x+w*.15,y+h*(.005+j*.04)),fill=(119,108,88),width=2)
-    elif any(k in p for k in ("door","room","office","meeting","desk","council")):
+    elif contains_any(p, ("door","room","office","meeting","desk","council")):
         x,y=w*.75,h*.30
         d.rectangle((x,y,x+w*.16,h*.72),fill=(139,119,91),outline=ink,width=5)
         d.arc((x+w*.02,y-h*.06,x+w*.14,y+h*.13),180,360,fill=ink,width=4)
         d.ellipse((x+w*.13,h*.52,x+w*.145,h*.54),fill=(225,210,174),outline=ink)
     # Distinct, readable illustrated motifs for historical events that do not fit
     # the broad transport / archive categories above. Keep these symbolic and safe.
-    if any(k in p for k in ("molasses","flood","overflow","rising water","inundat")):
+    if contains_any(p, ("molasses","flood","overflow","rising water","inundat")):
         # Layered wave bands and a small street-side tank make the event legible.
         for j in range(4):
             yy=h*(.57+j*.045)+math.sin(phase*1.4+j)*h*.006
             d.arc((w*.04,yy,w*.62,yy+h*.12),185,350,fill=(105,77,55),width=max(3,int(w*.003)))
         d.rectangle((w*.72,h*.34,w*.88,h*.60),fill=(125,111,91),outline=ink,width=5)
         d.arc((w*.72,h*.27,w*.88,h*.43),180,360,fill=ink,width=4)
-    if any(k in p for k in ("volcano","eruption","ash cloud","pompeii")):
+    if contains_any(p, ("volcano","eruption","ash cloud","pompeii")):
         d.polygon([(w*.54,h*.69),(w*.68,h*.35),(w*.77,h*.48),(w*.87,h*.27),(w*.98,h*.69)],
                   fill=(112,108,96),outline=ink)
         d.ellipse((w*.68,h*.13,w*.91,h*.35),fill=(151,145,128),outline=ink,width=3)
         for j in range(5):
             xx=w*(.70+j*.045)
             d.ellipse((xx,h*(.20+(j%2)*.035),xx+w*.025,h*(.24+(j%2)*.035)),fill=(151,145,128))
-    if any(k in p for k in ("canal","lock gate","waterway","panama")):
+    if contains_any(p, ("canal","lock gate","waterway","panama")):
         d.polygon([(w*.50,h*.38),(w*.68,h*.38),(w*.84,h*.76),(w*.35,h*.76)],
                   fill=(137,153,145),outline=ink)
         for xx in (.53,.76):
             d.line((w*xx,h*.35,w*xx,h*.72),fill=(83,86,79),width=6)
         d.line((w*.37,h*.58,w*.82,h*.58),fill=(83,86,79),width=4)
-    if any(k in p for k in ("telegraph","morse","telegram","transatlantic cable","signal")):
+    if contains_any(p, ("telegraph","morse","telegram","transatlantic cable","signal")):
         for j in range(7):
             xx=w*(.10+j*.12)
             d.line((xx,h*.45,xx,h*.69),fill=ink,width=3)
             d.ellipse((xx-w*.008,h*.42,xx+w*.008,h*.46),fill=(154,137,105),outline=ink)
         d.arc((w*.10,h*.32,w*.82,h*.62),190,350,fill=(71,77,71),width=3)
-    if any(k in p for k in ("smog","fog","pollution","industrial haze","soot")):
+    if contains_any(p, ("smog","fog","pollution","industrial haze","soot")):
         for j in range(5):
             yy=h*(.25+j*.075)+math.sin(phase+j)*h*.008
             d.arc((w*(.12+j*.035),yy,w*(.82-j*.025),yy+h*.12),180,350,
@@ -527,27 +546,27 @@ def draw_story_details(im,d,index,phase,scene):
             xx=w*(.60+j*.09)
             d.rectangle((xx,h*.43,xx+w*.055,h*.70),fill=(116,116,105),outline=ink,width=3)
             d.rectangle((xx+w*.012,h*.30,xx+w*.027,h*.44),fill=(92,95,88),outline=ink,width=2)
-    if any(k in p for k in ("arctic","expedition","ice floe","polar","franklin")):
+    if contains_any(p, ("arctic","expedition","ice floe","polar","franklin")):
         for j in range(4):
             xx=w*(.52+j*.11); yy=h*(.57+(j%2)*.07)
             d.polygon([(xx,yy),(xx+w*.10,yy-h*.035),(xx+w*.18,yy),(xx+w*.11,yy+h*.035)],
                       fill=(206,208,195),outline=ink)
         d.line((w*.72,h*.18,w*.72,h*.55),fill=ink,width=4)
         d.polygon([(w*.72,h*.20),(w*.84,h*.40),(w*.72,h*.40)],fill=(208,201,180),outline=ink)
-    if any(k in p for k in ("library of alexandria","ancient library","scroll","papyrus")):
+    if contains_any(p, ("library of alexandria","ancient library","scroll","papyrus")):
         for j in range(5):
             xx=w*(.56+j*.075)
             d.rectangle((xx,h*.35,xx+w*.052,h*.70),fill=(135,112,83),outline=ink,width=3)
             for k in range(3):
                 yy=h*(.40+k*.085)
                 d.line((xx+w*.009,yy,xx+w*.043,yy),fill=(218,205,177),width=3)
-    if any(k in p for k in ("earthquake","san francisco","collapsed building","rebuilding")):
+    if contains_any(p, ("earthquake","san francisco","collapsed building","rebuilding")):
         for j in range(3):
             xx=w*(.58+j*.12)
             d.polygon([(xx,h*.70),(xx,h*.43),(xx+w*.08,h*.38),(xx+w*.10,h*.70)],
                       fill=(157,148,128),outline=ink)
             d.line((xx+w*.025,h*.48,xx+w*.045,h*.54,xx+w*.035,h*.61),fill=ink,width=3)
-    if any(k in p for k in ("race to the south pole","south pole","antarctic race")):
+    if contains_any(p, ("race to the south pole","south pole","antarctic race")):
         for j in range(3):
             xx=w*(.60+j*.10); yy=h*(.58+(j%2)*.035)
             d.line((xx,yy,xx,yy-h*.16),fill=ink,width=3)
@@ -562,7 +581,7 @@ def draw_story_details(im,d,index,phase,scene):
     for _ in range(18):
         x=rng.uniform(.03,.97)*w; y=rng.uniform(.73,.94)*h
         d.line((x,y,x+rng.uniform(.008,.025)*w,y-rng.uniform(.001,.009)*h),fill=(113,111,96),width=1)
-    if any(k in p for k in ("street","city","market","crowd","harbour","port")):
+    if contains_any(p, ("street","city","market","crowd","harbour","port")):
         for j in range(4):
             x=w*(.03+j*.13); y=h*.69
             d.ellipse((x,y-h*.035,x+w*.025,y+h*.005),fill=(104,104,94),outline=ink,width=2)
@@ -684,17 +703,17 @@ def blend_scene_transition(previous,current,frame,transition_frames=3):
 
 def atmosphere_particles(scene,frame,total_frames,width,height):
     """Return deterministic, gently moving environmental particles for a story beat."""
-    prompt=(str(scene.get("visual",""))+" "+str(scene.get("title",""))+" "+str(scene.get("visual_prompt",""))).lower()
+    prompt=scene_description(scene)
     progress=max(0.0,frame/max(1,total_frames-1))
     rng=random.Random(int(scene.get("scene_index",0))+41)
     particles=[]
-    if any(k in prompt for k in ("snow","winter","ice","antarctic")):
+    if contains_any(prompt, ("snow","winter","ice","antarctic")):
         kind="snow"; count=34
-    elif any(k in prompt for k in ("rain","storm","wet")):
+    elif contains_any(prompt, ("rain","storm","wet")):
         kind="rain"; count=58
-    elif any(k in prompt for k in ("steam","factory","train","engine","smoke","fog")):
+    elif contains_any(prompt, ("steam","factory","train","engine","smoke","fog")):
         kind="steam"; count=18
-    elif any(k in prompt for k in ("wind","dust","desert","sea","ocean","ship")):
+    elif contains_any(prompt, ("wind","dust","desert","sea","ocean","ship")):
         kind="dust"; count=16
     else:
         kind="dust"; count=8
@@ -743,7 +762,7 @@ def draw_frame(scene,project,frame,total_frames,out):
     phase=2*math.pi*frame/max(1,total_frames)
     draw_background(im,d,int(scene.get("scene_index",0)),phase,scene)
     draw_story_details(im,d,int(scene.get("scene_index",0)),phase,scene)
-    prompt=(scene.get("visual_prompt","")+" "+scene.get("visual","")+" "+scene.get("title","")).lower()
+    prompt=scene_description(scene)
     draw_atmosphere(d,scene,frame,total_frames,w,h)
     camera=(scene.get("camera","") or "").lower()
     # Framing follows the output orientation and the semantic shot selected
@@ -781,12 +800,12 @@ def draw_frame(scene,project,frame,total_frames,out):
 def ambience_profile(scene):
     """Choose a restrained sound-bed profile from the illustrated environment."""
     prompt=(str(scene.get("visual",""))+" "+str(scene.get("title",""))+" "+str(scene.get("visual_prompt",""))).lower()
-    if any(k in prompt for k in ("rain","storm","wet")): return (640,92,.62)
-    if any(k in prompt for k in ("sea","ocean","ship","harbour","port")): return (430,54,.72)
-    if any(k in prompt for k in ("wind","desert","snow","mountain","antarctic")): return (360,66,.58)
-    if any(k in prompt for k in ("machine","factory","engine","train","clock","workshop")): return (250,78,.42)
-    if any(k in prompt for k in ("library","archive","room","office","court","interior")): return (105,38,.25)
-    if any(k in prompt for k in ("market","street","crowd","city")): return (185,120,.30)
+    if contains_any(prompt, ("rain","storm","wet")): return (640,92,.62)
+    if contains_any(prompt, ("sea","ocean","ship","harbour","port")): return (430,54,.72)
+    if contains_any(prompt, ("wind","desert","snow","mountain","antarctic")): return (360,66,.58)
+    if contains_any(prompt, ("machine","factory","engine","train","clock","workshop")): return (250,78,.42)
+    if contains_any(prompt, ("library","archive","room","office","court","interior")): return (105,38,.25)
+    if contains_any(prompt, ("market","street","crowd","city")): return (185,120,.30)
     return (125,46,.30)
 
 
@@ -916,7 +935,7 @@ def render_project(project,outdir:Path,progress_callback=None):
     thumbnail_scene=dict(first_scene)
     thumbnail_scene["camera"]=""
     draw_story_details(thumb_im,td,0,0,thumbnail_scene)
-    prop_prompt=(first_scene.get("visual_prompt","")+" "+first_scene.get("visual","")+" "+first_scene.get("title",""))
+    prop_prompt=scene_description(first_scene)
     draw_primary_story_prop(td,1280,720,story_prop_kind(prop_prompt),0.0,center_x=.56,center_y=.49,size_factor=.72)
     name=(first_scene.get("characters") or ["Narrator"])[0]
     color=project.get("characters",{}).get(name,{}).get("color","#34465a")
