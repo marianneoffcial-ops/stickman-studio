@@ -153,7 +153,9 @@ class RenderSmokeTests(unittest.TestCase):
         draw_frame(project["scenes"][0], project, 0, 2, frame)
         with Image.open(frame) as image:
             self.assertEqual(image.size, (1280, 720))
-        output = render_project(project, output_dir)
+        progress = []
+        output = render_project(project, output_dir, progress_callback=lambda done, total: progress.append((done, total)))
+        self.assertEqual(progress, [(1, 1)])
         self.assertTrue(output.exists())
         self.assertGreater(output.stat().st_size, 2048)
         self.assertTrue((output_dir / "thumbnail.jpg").exists())
