@@ -307,7 +307,7 @@ def draw_primary_story_prop(d,w,h,kind):
             d.line((cx-unit*.13,yy,cx+unit*(.08 if j%3==0 else .13),yy),fill=(119,111,94),width=2)
         d.rectangle((cx-unit*.12,cy-unit*.16,cx+unit*.12,cy-unit*.12),outline=(132,77,62),width=2)
     elif kind=="telescope":
-        d.line((cx-unit*.20,cy+unit*.10,cx+unit*.17,cy-unit*.10),fill=ink,width=unit*.07)
+        d.line((cx-unit*.20,cy+unit*.10,cx+unit*.17,cy-unit*.10),fill=ink,width=max(5,int(unit*.07)))
         d.line((cx-unit*.19,cy+unit*.055,cx+unit*.19,cy-unit*.15),fill=(163,148,118),width=max(5,int(unit*.035)))
         d.ellipse((cx+unit*.12,cy-unit*.20,cx+unit*.22,cy-unit*.10),fill=(191,184,162),outline=ink,width=4)
         d.line((cx,cy+unit*.07,cx-unit*.04,cy+unit*.20),fill=ink,width=4)
