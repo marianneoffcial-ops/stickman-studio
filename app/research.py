@@ -106,7 +106,7 @@ def research_topic(topic, duration_seconds):
         "generator": "search",
         "gsrsearch": topic,
         "gsrnamespace": 0,
-        "gsrlimit": 4,
+        "gsrlimit": 10,
         "prop": "extracts|info",
         "explaintext": 1,
         "exsectionformat": "plain",
@@ -130,12 +130,12 @@ def research_topic(topic, duration_seconds):
     if len(" ".join(sentences).split()) < target_words * 0.82:
         for page in pages[1:]:
             sentences.extend(_sentences(page.get("extract", "")))
-            if len(" ".join(sentences).split()) >= target_words * 1.15:
+            if len(" ".join(sentences).split()) >= target_words:
                 break
     words = " ".join(sentences).split()
-    if len(words) < target_words * 0.82:
+    if len(words) < target_words:
         raise ValueError(
-            f"The free research sources provide only {len(words)} usable words, but a {duration_seconds}-second narration needs about {target_words}. "
+            f"The free research sources provide only {len(words)} usable words, but a complete {duration_seconds}-second narration needs {target_words}. "
             "Choose a shorter duration or a topic with more documented material. The engine will not invent missing facts."
         )
     selected = words[:target_words]
