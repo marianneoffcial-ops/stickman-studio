@@ -34,6 +34,13 @@ def create(req:Request):
  JOBS[j]={"job_id":j,"project_id":p["project_id"],"status":"queued","created_at":time.time()}
  threading.Thread(target=work,args=(j,p),daemon=True).start()
  return {"project":p,"job":JOBS[j]}
+
+@app.get("/api/projects/{project_id}/thumbnail")
+def thumbnail(project_id):
+ path=PROJECTS/project_id/"thumbnail.jpg"
+ if not path.exists(): raise HTTPException(404,"Thumbnail not ready")
+ return FileResponse(path,media_type="image/jpeg",filename="thumbnail.jpg")
+
 @app.get("/api/jobs/{job_id}")
 def status(job_id):
  if job_id not in JOBS: raise HTTPException(404,"Job not found")
