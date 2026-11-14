@@ -16,12 +16,15 @@ A Docker-ready FastAPI application that follows the user's eight-step Stickman E
 ## API
 
 - `GET /` — browser workflow
-- `GET /health` — health and renderer metadata
+- `GET /health` — health, queue and renderer metadata
+- `GET /ready` — readiness checks for FFmpeg, TTS and writable project storage
 - `GET /api/ideas` — curated real-story idea pool
 - `POST /api/research` — source-linked research and timed narration
 - `POST /api/prepare` — preview the character sheet and animation prompts
 - `POST /api/projects` — queue an MP4 render
-- `GET /api/jobs/{job_id}` — render status
+- `GET /api/jobs` — paginated render history
+- `GET /api/jobs/{job_id}` — render status, scene progress and output verification metadata
+- `GET /api/projects/{project_id}` — project and associated job status
 - `GET /api/jobs/{job_id}/download` — finished MP4
 - `GET /api/projects/{project_id}/thumbnail` — matching 16:9 thumbnail
 
@@ -37,6 +40,18 @@ A Docker-ready FastAPI application that follows the user's eight-step Stickman E
 The renderer is deterministic PIL/FFmpeg vector animation, not a neural video-generation model. It creates a restrained motion-comic with camera movement and simple character/environment animation; it cannot guarantee the organic, frame-to-frame hand-inked animation quality of a modern generative video model. The free research text is assembled from retrieved encyclopedia material with citations, not a human-quality paraphrase or independent fact-check. Review source links and narration before publication.
 
 Railway's current production service has no attached persistent volume. Rendered files and in-memory job state may be lost on a container restart. Adding persistent storage may incur cost, so this repository does not enable or provision a volume automatically.
+
+## Production reliability improvements
+
+- Render requests are validated before entering the queue; draft projects with missing scene narration cannot be exported as finished videos.
+- A single bounded CPU render queue prevents simultaneous long renders from exhausting the free worker.
+- Job metadata is atomically written beside each project, restored when the process starts with the same data directory, and interrupted jobs are clearly marked rather than reported as completed.
+- The browser receives scene-by-scene progress, elapsed time, and a percentage for both single and dual-video production.
+- Finished MP4 files are checked with FFprobe for readable video and audio streams, exact output dimensions, and duration before the download endpoint becomes available.
+- Project and job identifiers are validated as UUIDs, output paths are constrained to their project directory, and supplied source links must use HTTP or HTTPS.
+- The queue and job history are exposed through paginated API endpoints; /ready reports missing runtime dependencies separately from basic process health.
+
+The Railway service currently has no persistent volume. These metadata improvements survive an application-process restart only when the configured data directory itself survives; they do not make generated MP4 files durable across Railway redeploys without persistent storage.
 
 ## Local run
 
