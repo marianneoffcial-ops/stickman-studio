@@ -45,13 +45,13 @@ CAMERAS = [
 ]
 
 def _sentences(text):
-    text = re.sub(r"\\s+", " ", (text or "")).strip()
+    text = re.sub(r"\s+", " ", (text or "")).strip()
     if not text:
         return []
-    return [p.strip() for p in re.split(r"(?<=[.!?])\\s+", text) if p.strip()]
+    return [p.strip() for p in re.split(r"(?<=[.!?])\s+", text) if p.strip()]
 
 def _chunk_script(script, count):
-    words = re.findall(r"\\S+", script or "")
+    words = re.findall(r"\S+", script or "")
     if not words:
         return []
     sentences = _sentences(script)
@@ -87,15 +87,15 @@ def _between(text, start, end):
 
 def parse_production_brief(brief):
     """Parse the user's two-part production brief into independent Shorts and long-form packages."""
-    raw = (brief or "").replace("\\r", "")
+    raw = (brief or "").replace("\r", "")
     short_script = _between(raw, "1. Voiceover Script", "2. Character & Asset Sheet")
     long_script = _between(raw, "Chapter Structure & Voiceover Script", "2. Character Sheet & Thumbnail")
     short_section = _between(raw, "3. Animation Prompts", "PART 2:")
-    short_scenes = re.findall(r"Scene\\s+\\d+\\s*\\([^)]*\\):\\s*(.*?)(?=\\n\\s*\\d+\\.\\s*Scene|$)", short_section, re.S)
+    short_scenes = re.findall(r"Scene\s+\d+\s*\([^)]*\):\s*(.*?)(?=\n\s*\d+\.\s*Scene|$)", short_section, re.S)
     long_section = _between(raw, "3. Act-by-Act Visual Storyboard Prompts", "(Note:")
-    long_anchors = re.findall(r"•\\s*Act\\s+[^:]+:\\s*(.*?)(?=\\n•\\s*Act|$)", long_section, re.S)
-    short_scenes = [re.sub(r"\\s+", " ", x).strip() for x in short_scenes if x.strip()]
-    long_anchors = [re.sub(r"\\s+", " ", x).strip() for x in long_anchors if x.strip()]
+    long_anchors = re.findall(r"•\s*Act\s+[^:]+:\s*(.*?)(?=\n•\s*Act|$)", long_section, re.S)
+    short_scenes = [re.sub(r"\s+", " ", x).strip() for x in short_scenes if x.strip()]
+    long_anchors = [re.sub(r"\s+", " ", x).strip() for x in long_anchors if x.strip()]
     if not short_script:
         short_script = _between(raw, "Voiceover Script", "Character & Asset Sheet")
     if not long_script:
@@ -103,10 +103,10 @@ def parse_production_brief(brief):
         if long_script:
             long_script = "Act I: The Hidden Empire of Gold " + long_script
     if not long_anchors:
-        long_anchors = [re.sub(r"\\s+", " ", x).strip() for x in re.findall(r"•\\s*Act\\s+[^:]+:\\s*(.*)", long_section) if x.strip()]
+        long_anchors = [re.sub(r"\s+", " ", x).strip() for x in re.findall(r"•\s*Act\s+[^:]+:\s*(.*)", long_section) if x.strip()]
     combined = short_script + " " + long_script
     topic = ""
-    for pattern in (r"\\bHis name was ([A-Z][A-Za-z]+(?:\\s+[A-Z][A-Za-z]+){0,3})", r"\\bstory of ([A-Z][A-Za-z]+(?:\\s+[A-Z][A-Za-z]+){0,3})", r"\\babout ([A-Z][A-Za-z]+(?:\\s+[A-Z][A-Za-z]+){0,3})"):
+    for pattern in (r"\bHis name was ([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,3})", r"\bstory of ([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,3})", r"\babout ([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,3})"):
         match = re.search(pattern, combined)
         if match:
             topic = match.group(1).strip(" .,:;")
@@ -117,14 +117,14 @@ def parse_production_brief(brief):
         "topic": topic,
         "short_script": short_script,
         "long_script": long_script,
-        "short_storyboard": "\\n".join(short_scenes),
-        "long_storyboard": "\\n".join(long_anchors),
+        "short_storyboard": "\n".join(short_scenes),
+        "long_storyboard": "\n".join(long_anchors),
         "short_scene_count": len(short_scenes),
         "long_anchor_count": len(long_anchors)
     }
 
 def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=None, storyboard=None):
-    topic = re.sub(r"\\s+", " ", (topic or "Untitled story")).strip()[:500]
+    topic = re.sub(r"\s+", " ", (topic or "Untitled story")).strip()[:500]
     duration = int(duration_seconds)
     count = max(1, math.ceil(duration / 4))
     script = (narration_script or "").strip()
@@ -136,8 +136,8 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
         narration = chunks[i] if i < len(chunks) else ""
         if not narration:
             narration = f"[SCRIPT REQUIRED] Write researched narration for this moment in {topic}. This is not publish-ready."
-        visual = re.sub(r"^Aspect ratio\\s+\\d+:\\d+\\.\\s*", "", anchor)
-        visual = re.sub(r"\\s*Hand-inked 2D.*$", "", visual)
+        visual = re.sub(r"^Aspect ratio\s+\d+:\d+\.\s*", "", anchor)
+        visual = re.sub(r"\s*Hand-inked 2D.*$", "", visual)
         if not visual:
             visual = f"Distinct story beat about {topic}; show a new action, location or meaningful object."
         camera = CAMERAS[i % len(CAMERAS)]
@@ -146,7 +146,7 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
         scenes.append({
             "scene_id": f"scene_{i+1:03d}", "title": title, "duration": min(4, duration-i*4),
             "narration": narration, "visual": visual,
-            "visual_prompt": f"{HOUSE_STYLE}\\nStory context: {topic}.\\nShot: {visual}.\\nCamera: {camera}. Keep every frame readable and story-specific.",
+            "visual_prompt": f"{HOUSE_STYLE}\nStory context: {topic}.\nShot: {visual}.\nCamera: {camera}. Keep every frame readable and story-specific.",
             "camera": camera, "characters": [characters[i % len(characters)]],
             "action": ["walk","look","study","turn","point","gesture","observe","present"][i % 8]
         })
