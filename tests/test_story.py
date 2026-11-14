@@ -45,6 +45,9 @@ class StoryTimingTests(unittest.TestCase):
         from app.story import _scene_action
         self.assertEqual(_scene_action("The team discovers an unexpected clue.", 0), "reveal")
         self.assertEqual(_scene_action("The council considers a careful plan.", 1), "ponder")
+        self.assertEqual(_scene_action("A quiet ordinary morning.", 0), "observe")
+        self.assertEqual(_scene_action("The river passed beneath the old bridge.", 3), "observe")
+        self.assertEqual(_scene_action("The village opened its doors at sunrise.", 5), "observe")
 
     def test_narrative_beats_select_distinct_facial_expressions(self):
         from app.story import _scene_expression
