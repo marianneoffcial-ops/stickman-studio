@@ -306,6 +306,19 @@ def draw_story_details(im,d,index,phase,scene):
             d.ellipse((x,y-h*.035,x+w*.025,y+h*.005),fill=(104,104,94),outline=ink,width=2)
             d.polygon([(x+w*.005,y),(x+w*.02,y),(x+w*.026,y+h*.09),(x,y+h*.09)],fill=(104,104,94),outline=ink)
 
+def apply_house_texture(im,scene_index):
+    """Apply one stable paper-grain and scanline layer over every rendered element."""
+    w,h=im.size
+    overlay=Image.new("RGBA",(w,h),(0,0,0,0)); d=ImageDraw.Draw(overlay)
+    rng=random.Random(scene_index+1701)
+    for _ in range(max(220,w*h//7200)):
+        x=rng.randrange(w); y=rng.randrange(h)
+        alpha=rng.randrange(5,15)
+        d.point((x,y),fill=(38,34,27,alpha))
+    for y in range(0,h,5):
+        d.line((0,y,w,y),fill=(32,30,26,9),width=1)
+    im.paste(Image.alpha_composite(im.convert("RGBA"),overlay).convert("RGB"))
+
 def draw_frame(scene,project,frame,total_frames,out):
     w,h=dimensions(project.get("aspect_ratio","16:9"))
     im=Image.new("RGB",(w,h),PAPER); d=ImageDraw.Draw(im)
@@ -354,6 +367,7 @@ def draw_frame(scene,project,frame,total_frames,out):
         color=project.get("characters",{}).get(name,{}).get("color","#34465a")
         rgb=tuple(int(color[k:k+2],16) for k in (1,3,5))
         draw_person(d,x,y,scale,rgb,phase+j,int(scene.get("scene_index",0))%3,name,action)
+    apply_house_texture(im,int(scene.get("scene_index",0)))
     # The brief prohibits burned-in titles, captions and subtitles.
     vign=Image.new("L",(w,h),0); vd=ImageDraw.Draw(vign)
     vd.ellipse((-w*.12,-h*.12,w*1.12,h*1.12),fill=230)
