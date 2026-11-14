@@ -620,6 +620,14 @@ def camera_crop_box(width,height,camera="",frame=0,total_frames=1):
             int(round(left+crop_w)),int(round(top+crop_h)))
 
 
+def blend_scene_transition(previous,current,frame,transition_frames=3):
+    """Cross-dissolve the opening frames of a scene from the prior scene's final frame."""
+    if previous is None or transition_frames <= 0 or frame >= transition_frames:
+        return current
+    progress=(frame+1)/transition_frames
+    return Image.blend(previous.convert("RGB"),current.convert("RGB"),progress)
+
+
 def draw_frame(scene,project,frame,total_frames,out):
     # Draw above delivery resolution, then downsample once with Lanczos. This
     # smooths the hand-inked linework and small facial details without changing
@@ -715,6 +723,7 @@ def render_project(project,outdir:Path):
     if not ffmpeg: raise RuntimeError("FFmpeg is not installed in the cloud worker")
     clips=[]; audios=[]; sd=outdir/"scenes"; sd.mkdir(exist_ok=True)
     voice_engine=None
+    previous_scene_frame=None
     for i,scene in enumerate(project["scenes"]):
         scene["scene_index"]=i
         wav=sd/f"voice_{i:03d}.wav"
@@ -735,7 +744,16 @@ def render_project(project,outdir:Path):
             with wave.open(str(wav),"rb") as wf:
                 speech_seconds=wf.getnframes()/float(wf.getframerate())
         frames_dir=sd/f"frames_{i:03d}"; frames_dir.mkdir(exist_ok=True)
-        for f in range(frames): draw_frame(scene,project,f,frames,frames_dir/f"frame_{f:05d}.png")
+        for f in range(frames):
+            frame_path=frames_dir/f"frame_{f:05d}.png"
+            draw_frame(scene,project,f,frames,frame_path)
+            if i > 0 and f < 3 and previous_scene_frame is not None:
+                with Image.open(frame_path) as current_image:
+                    transitioned=blend_scene_transition(previous_scene_frame,current_image,f,3)
+                    transitioned.save(frame_path,quality=94)
+        # Retain only one decoded frame between scenes for a short visual dissolve.
+        with Image.open(frames_dir/f"frame_{frames-1:05d}.png") as last_image:
+            previous_scene_frame=last_image.convert("RGB").copy()
         clip=sd/f"clip_{i:03d}.mp4"
         width,height=dimensions(project.get("aspect_ratio","16:9"))
         camera=(scene.get("camera","") or "").lower()
