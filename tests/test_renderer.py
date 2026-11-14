@@ -27,6 +27,22 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertGreater(portrait, landscape)
         self.assertLess(character_scale(1920, 1080, "wide silhouette"), landscape)
 
+    def test_closeup_prioritizes_story_object_over_character(self):
+        from worker.render import scene_composition
+        width, height = dimensions("16:9")
+        normal = scene_composition(width, height, "medium character")
+        closeup = scene_composition(width, height, "close-up of a story-specific object")
+        self.assertLess(closeup[0], normal[0])
+        self.assertLess(closeup[1], .25)
+        self.assertGreater(closeup[2], .75)
+
+    def test_closeup_camera_crop_focuses_right_side_story_prop(self):
+        from worker.render import scene_composition
+        width, height = dimensions("16:9")
+        scale, x_fraction, y_fraction = scene_composition(width, height, "close-up of a story-specific object")
+        self.assertAlmostEqual(x_fraction, .16)
+        self.assertAlmostEqual(y_fraction, .82)
+
     def test_one_scene_produces_mp4_and_thumbnail(self):
         project = make_project(
             "A quiet boat crossing",
