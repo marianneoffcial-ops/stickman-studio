@@ -36,6 +36,20 @@ class RenderSmokeTests(unittest.TestCase):
                         role="Narrator", action="observe", expression=expression)
             self.assertEqual(image.size, (240, 300))
 
+    def test_semantic_gesture_poses_render_distinct_silhouettes(self):
+        from worker.render import draw_person
+        from PIL import Image, ImageDraw, ImageChops
+        poses = ("walk", "write", "carry", "raise", "point", "gesture")
+        images = []
+        for action in poses:
+            image = Image.new("RGB", (320, 360), (220, 211, 190))
+            draw_person(ImageDraw.Draw(image), 160, 280, .75, (52,70,90), 0.6,
+                        role="Narrator", action=action)
+            images.append(image)
+        for index, image in enumerate(images[1:], 1):
+            self.assertIsNotNone(ImageChops.difference(images[0], image).getbbox(),
+                                 msg=f"{poses[index]} should differ visually from walk")
+
     def test_closeup_prioritizes_story_object_over_character(self):
         from worker.render import scene_composition
         width, height = dimensions("16:9")
