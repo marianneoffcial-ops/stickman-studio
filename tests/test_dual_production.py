@@ -1,5 +1,9 @@
+import os
+import tempfile
 import unittest
 from unittest.mock import patch
+
+os.environ["DATA_DIR"] = tempfile.mkdtemp(prefix="stickman-dual-test-")
 
 from app.main import DualProductionRequest, create_dual_production
 
