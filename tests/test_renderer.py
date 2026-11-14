@@ -2,7 +2,7 @@ import json
 import subprocess
 import unittest
 from pathlib import Path
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from app.story import make_project
 from worker.render import render_project, dimensions, draw_frame, character_scale, synthesize_ambience, atmosphere_particles, draw_primary_story_prop
