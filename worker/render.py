@@ -198,6 +198,18 @@ def scene_transport_kind(prompt):
     return "none"
 
 
+
+def scene_background_mode(prompt,index=0):
+    """Return one dominant environment for a scene's background illustration."""
+    if contains_any(prompt, ('ship','vessel','boat','ocean','sea','sail')): return 2
+    if contains_any(prompt, ('library','archive','book','scholar','manuscript','document','ledger')): return 3
+    if contains_any(prompt, ('map','atlas','chart','route','letter','close-up','close up')): return 5
+    if contains_any(prompt, ('mosque','palace','temple','cathedral','monument','architecture')): return 0
+    if contains_any(prompt, ('market','street','city','cairo','town','crowd')): return 1
+    if contains_any(prompt, ('snow','ice','antarctic','winter','mountain','desert','sahara','dune')): return 4
+    return index%6
+
+
 def draw_background(im,d,index,phase,scene=None,closeup=False):
     w,h=im.size; base=PALETTE[index%len(PALETTE)]
     im.paste(base,(0,0,w,h))
@@ -220,13 +232,7 @@ def draw_background(im,d,index,phase,scene=None,closeup=False):
     d.rectangle((0,horizon,w,h),fill=(184,176,151))
     # scene-specific landmark silhouettes
     prompt=scene_description(scene)
-    if contains_any(prompt, ('ship','vessel','boat','ocean','sea','sail')): mode=2
-    elif contains_any(prompt, ('library','archive','book','scholar','manuscript','document','ledger')): mode=3
-    elif contains_any(prompt, ('map','atlas','chart','route','letter','close-up','close up')): mode=5
-    elif contains_any(prompt, ('mosque','palace','temple','cathedral','monument','architecture')): mode=0
-    elif contains_any(prompt, ('market','street','city','cairo','town','crowd')): mode=1
-    elif contains_any(prompt, ('snow','ice','antarctic','winter','mountain','desert','sahara','dune')): mode=4
-    else: mode=index%6
+    mode=scene_background_mode(prompt,index)
     if mode==0: # old tower
         x=int(w*.72); bw=int(w*.13)
         d.rectangle((x,h*.25,x+bw,h*.73),fill=(157,151,132),outline=INK,width=5)
