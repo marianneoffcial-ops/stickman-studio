@@ -28,6 +28,10 @@ class StoryTimingTests(unittest.TestCase):
         project = make_project("A test story", 60, "1:1", " ".join(["A fact."] * 150), "\n".join([f"Scene {i}" for i in range(15)]))
         self.assertTrue(all(HOUSE_STYLE in s["visual_prompt"] for s in project["scenes"]))
         self.assertTrue(all(s["action"] for s in project["scenes"]))
+        self.assertIn("character_sheet_prompt", project)
+        self.assertIn("locked_character_block", project)
+        self.assertEqual(len(project["animation_prompts"]), 15)
+        self.assertIn("thumbnail_prompt", project)
 
 
 if __name__ == "__main__":
