@@ -71,7 +71,7 @@ class RenderSmokeTests(unittest.TestCase):
         stepping = Image.new("RGB", (240, 300), (220, 211, 190))
         draw_person(ImageDraw.Draw(grounded), 120, 120, .55, (52,70,90), 0.0,
                     role="Narrator", action="walk")
-        draw_person(ImageDraw.Draw(stepping), 120, 120, .55, (52,70,90), math.pi/2,
+        draw_person(ImageDraw.Draw(stepping), 120, 120, .55, (52,70,90), 1.57079632679,
                     role="Narrator", action="walk")
         # Lower-leg and foot region must change as the alternating step lifts.
         diff = ImageChops.difference(grounded.crop((65, 215, 190, 295)),
