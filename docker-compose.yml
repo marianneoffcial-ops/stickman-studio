@@ -1,0 +1,11 @@
+services:
+  stickman-studio:
+    build: .
+    ports: ["8000:8000"]
+    environment:
+      DATA_DIR: /data
+      MAX_VIDEO_SECONDS: "600"
+    volumes:
+      - studio_data:/data
+volumes:
+  studio_data:
