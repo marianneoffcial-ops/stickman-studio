@@ -16,7 +16,7 @@ app=FastAPI(title="Stickman Studio AI",version="3.0.0")
 class Request(BaseModel):
  topic:str=Field(min_length=3,max_length=500)
  duration_seconds:int=Field(default=60,ge=15,le=int(os.getenv("MAX_VIDEO_SECONDS","600")))
- aspect_ratio:str=Field(default="16:9",pattern=r"^(16:9|9:16|1:1)$")
+ aspect_ratio:str=Field(default="16:9",pattern=r"^\d{1,2}:\d{1,2}$")
  narration_script:str=Field(default="",max_length=30000)
  storyboard:str=Field(default="",max_length=16000)
  research_sources:list[dict]=Field(default_factory=list,max_length=12)
