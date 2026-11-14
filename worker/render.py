@@ -28,39 +28,95 @@ def font(size,bold=False):
         if Path(p).exists(): return ImageFont.truetype(p,size)
     return ImageFont.load_default()
 def draw_person(d,x,y,scale,color,phase,pose=0,role='',action='idle'):
-    """Consistently inked stick figure with restrained, scene-specific keyframed motion."""
-    q=scale; sw=max(2,int(5*q)); limb=max(3,int(7*q))
-    cx=x; cy=y-151*q; r=34*q
-    d.ellipse((cx-r,cy-r,cx+r,cy+r),fill=(244,240,226),outline=INK,width=sw)
-    d.ellipse((cx-16*q,cy-5*q,cx-8*q,cy+5*q),fill=INK); d.ellipse((cx+8*q,cy-5*q,cx+16*q,cy+5*q),fill=INK)
-    d.arc((cx-19*q,cy-19*q,cx-5*q,cy-10*q),190,340,fill=INK,width=max(2,int(2*q)))
-    d.arc((cx+5*q,cy-19*q,cx+19*q,cy-10*q),200,350,fill=INK,width=max(2,int(2*q)))
-    d.arc((cx-11*q,cy+7*q,cx+11*q,cy+23*q),5,170,fill=INK,width=max(2,int(2*q)))
-    d.arc((cx-31*q,cy-39*q,cx+22*q,cy+1*q),185,270,fill=INK,width=max(2,int(3*q)))
-    d.line((cx-21*q,cy-30*q,cx-7*q,cy-43*q,cx+5*q,cy-31*q),fill=INK,width=max(2,int(3*q)))
-    shoulder_y=y-104*q
-    d.rounded_rectangle((x-29*q,y-119*q,x+29*q,y+8*q),radius=int(13*q),fill=color,outline=INK,width=sw)
-    if role.lower() in ('emperor','official'): d.line((x,y-110*q,x,y-12*q),fill=(193,174,133),width=max(2,int(3*q)))
-    elif role.lower() in ('scholar','architect'): d.line((x-17*q,y-84*q,x+17*q,y-84*q),fill=(211,198,166),width=max(2,int(3*q)))
-    wave=math.sin(phase)
+    """Draw a consistent inked character with articulated, gently animated limbs."""
+    q=scale
+    outline=max(2,int(5*q)); limb=max(3,int(7*q))
+    cx=float(x); head_y=float(y-151*q); radius=34*q
+    breath=math.sin(phase*2)*2.0*q
+    head_tilt=math.sin(phase*1.4)*2.0*q
+    # Neck and compact jacket silhouette
+    d.line((cx,head_y+radius-1*q,cx,y-119*q),fill=INK,width=max(3,int(6*q)))
+    torso=[(cx-22*q,y-118*q),(cx+22*q,y-118*q),(cx+30*q,y-91*q),
+           (cx+26*q,y+4*q),(cx-26*q,y+4*q),(cx-30*q,y-91*q)]
+    d.polygon(torso,fill=color,outline=INK)
+    d.line((cx-22*q,y-118*q,cx+22*q,y-118*q),fill=INK,width=max(2,int(3*q)))
+    # Subtle seams and folds keep the clothing from reading as a plain rectangle.
+    d.line((cx-14*q,y-83*q,cx-9*q,y-22*q),fill=tuple(max(0,int(c*.78)) for c in color),width=max(1,int(2*q)))
+    d.line((cx+15*q,y-70*q,cx+11*q,y-36*q),fill=tuple(min(255,int(c*1.12)) for c in color),width=max(1,int(2*q)))
+    if role.lower() in ('emperor','official'):
+        d.line((cx,y-111*q,cx,y-10*q),fill=(193,174,133),width=max(2,int(3*q)))
+    elif role.lower() in ('scholar','architect'):
+        d.line((cx-17*q,y-84*q,cx+17*q,y-84*q),fill=(211,198,166),width=max(2,int(3*q)))
+    sway=math.sin(phase)
+    shoulder_l=(cx-25*q,y-100*q+breath); shoulder_r=(cx+25*q,y-100*q+breath)
+    hip_l=(cx-12*q,y+1*q); hip_r=(cx+12*q,y+1*q)
+    # Jointed arms: shoulder, elbow and hand positions change smoothly by action.
     if action=='walk':
-        arm_a=wave*25*q; leg_a=wave*24*q
-        left=(x-28*q,shoulder_y,x-54*q+arm_a,y-25*q); right=(x+28*q,shoulder_y,x+54*q-arm_a,y-25*q)
+        arm=26*q*sway; leg=25*q*sway
+        elbows=[(cx-43*q+arm*.35,y-65*q),(cx+43*q-arm*.35,y-65*q)]
+        hands=[(cx-48*q+arm,y-26*q),(cx+48*q-arm,y-26*q)]
     elif action in ('point','present'):
-        left=(x-28*q,shoulder_y,x-55*q,y-36*q); right=(x+28*q,shoulder_y,x+66*q,y-105*q+wave*4*q); leg_a=wave*3*q
+        leg=3*q*sway
+        elbows=[(cx-43*q,y-64*q),(cx+46*q,y-116*q)]
+        hands=[(cx-54*q,y-34*q),(cx+76*q,y-129*q+4*q*sway)]
     elif action in ('study','observe'):
-        left=(x-28*q,shoulder_y,x-39*q,y-48*q); right=(x+28*q,shoulder_y,x+39*q,y-48*q); leg_a=wave*2*q
+        leg=2*q*sway
+        elbows=[(cx-36*q,y-68*q),(cx+36*q,y-68*q)]
+        hands=[(cx-28*q,y-45*q),(cx+28*q,y-45*q)]
     elif action=='turn':
-        left=(x-28*q,shoulder_y,x-52*q+wave*5*q,y-12*q); right=(x+28*q,shoulder_y,x+48*q-wave*5*q,y-22*q); leg_a=wave*5*q
+        leg=7*q*sway
+        elbows=[(cx-43*q+5*q*sway,y-59*q),(cx+42*q-5*q*sway,y-68*q)]
+        hands=[(cx-52*q+6*q*sway,y-18*q),(cx+48*q-6*q*sway,y-29*q)]
     elif action=='gesture':
-        left=(x-28*q,shoulder_y,x-63*q,y-72*q+wave*7*q); right=(x+28*q,shoulder_y,x+62*q,y-65*q-wave*7*q); leg_a=wave*3*q
+        leg=4*q*sway
+        elbows=[(cx-46*q,y-83*q+7*q*sway),(cx+46*q,y-80*q-7*q*sway)]
+        hands=[(cx-67*q,y-104*q+10*q*sway),(cx+68*q,y-101*q-10*q*sway)]
     else:
-        left=(x-28*q,shoulder_y,x-48*q+wave*5*q,y-5*q); right=(x+28*q,shoulder_y,x+48*q-wave*5*q,y-5*q); leg_a=wave*5*q
-    d.line(left,fill=INK,width=limb); d.ellipse((left[2]-3*q,left[3]-3*q,left[2]+3*q,left[3]+3*q),fill=INK)
-    d.line(right,fill=INK,width=limb); d.ellipse((right[2]-3*q,right[3]-3*q,right[2]+3*q,right[3]+3*q),fill=INK)
-    d.line((x,y+5*q,x-27*q-leg_a,y+178*q),fill=INK,width=limb); d.line((x,y+5*q,x+27*q+leg_a,y+178*q),fill=INK,width=limb)
-    d.line((x-27*q-leg_a,y+178*q,x-12*q-leg_a,y+178*q),fill=INK,width=max(2,int(5*q)))
-    d.line((x+27*q+leg_a,y+178*q,x+42*q+leg_a,y+178*q),fill=INK,width=max(2,int(5*q)))
+        leg=5*q*sway
+        elbows=[(cx-40*q+5*q*sway,y-60*q),(cx+40*q-5*q*sway,y-60*q)]
+        hands=[(cx-49*q+6*q*sway,y-8*q),(cx+49*q-6*q*sway,y-8*q)]
+    for shoulder,elbow,hand in ((shoulder_l,elbows[0],hands[0]),(shoulder_r,elbows[1],hands[1])):
+        d.line((shoulder,elbow,hand),fill=INK,width=limb,joint='curve')
+        rr=max(2,3*q)
+        d.ellipse((elbow[0]-rr,elbow[1]-rr,elbow[0]+rr,elbow[1]+rr),fill=INK)
+        d.ellipse((hand[0]-rr,hand[1]-rr,hand[0]+rr,hand[1]+rr),fill=INK)
+        # Small cuff marks make hand/arm direction legible at normal viewing size.
+        d.line((hand[0]-3*q,hand[1],hand[0]+3*q,hand[1]),fill=(224,216,195),width=max(1,int(2*q)))
+    # Bent legs with knees and simple shoes; gait is synchronized with the arm swing.
+    knee_l=(cx-20*q-leg*.55,y+83*q); knee_r=(cx+20*q+leg*.55,y+83*q)
+    foot_l=(cx-34*q-leg,y+174*q); foot_r=(cx+34*q+leg,y+174*q)
+    d.line((hip_l,knee_l,foot_l),fill=INK,width=limb,joint='curve')
+    d.line((hip_r,knee_r,foot_r),fill=INK,width=limb,joint='curve')
+    for px,py in (knee_l,knee_r):
+        rr=max(2,3*q); d.ellipse((px-rr,py-rr,px+rr,py+rr),fill=INK)
+    d.line((foot_l[0],foot_l[1],foot_l[0]+15*q,foot_l[1]),fill=INK,width=max(3,int(7*q)))
+    d.line((foot_r[0],foot_r[1],foot_r[0]+15*q,foot_r[1]),fill=INK,width=max(3,int(7*q)))
+    # Round head, expressive brows and a blink on a slow cycle.
+    hx=cx+head_tilt; hy=head_y+breath*.35
+    d.ellipse((hx-radius,hy-radius,hx+radius,hy+radius),fill=(244,240,226),outline=INK,width=outline)
+    blink=(math.sin(phase*1.7+0.6)>.985)
+    eye_y=hy-4*q
+    if blink:
+        d.line((hx-17*q,eye_y,hx-8*q,eye_y),fill=INK,width=max(2,int(3*q)))
+        d.line((hx+8*q,eye_y,hx+17*q,eye_y),fill=INK,width=max(2,int(3*q)))
+    else:
+        d.ellipse((hx-17*q,eye_y-4*q,hx-8*q,eye_y+5*q),fill=INK)
+        d.ellipse((hx+8*q,eye_y-4*q,hx+17*q,eye_y+5*q),fill=INK)
+    # Brows and mouth vary subtly with the performed action.
+    brow_l=(hx-20*q,hy-18*q,hx-5*q,hy-10*q)
+    brow_r=(hx+5*q,hy-18*q,hx+20*q,hy-10*q)
+    d.arc(brow_l,195,340,fill=INK,width=max(2,int(2*q)))
+    d.arc(brow_r,200,345,fill=INK,width=max(2,int(2*q)))
+    if action in ('study','observe','turn'):
+        d.arc((hx-10*q,hy+8*q,hx+10*q,hy+20*q),195,345,fill=INK,width=max(2,int(2*q)))
+    elif action in ('gesture','point','present'):
+        d.arc((hx-10*q,hy+7*q,hx+10*q,hy+23*q),5,175,fill=INK,width=max(2,int(2*q)))
+    else:
+        d.arc((hx-10*q,hy+7*q,hx+10*q,hy+21*q),10,170,fill=INK,width=max(2,int(2*q)))
+    # A few loose, repeatable hair strokes finish the hand-inked silhouette.
+    d.arc((hx-29*q,hy-39*q,hx+18*q,hy+2*q),185,270,fill=INK,width=max(2,int(3*q)))
+    d.line((hx-22*q,hy-29*q,hx-8*q,hy-43*q,hx+4*q,hy-31*q),fill=INK,width=max(2,int(3*q)))
+
 def draw_background(im,d,index,phase,scene=None):
     w,h=im.size; base=PALETTE[index%len(PALETTE)]
     im.paste(base,(0,0,w,h))
