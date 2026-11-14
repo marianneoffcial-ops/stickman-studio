@@ -151,6 +151,10 @@ def _lead_for_topic(topic):
     if any(k in t for k in ("pompeii","rome","emperor","ancient")): return "Scholar"
     return "Lead"
 
+def _locked_character_block(role):
+    costume=CHARACTERS.get(role,CHARACTERS["Lead"])["costume"]
+    return ("One recurring simple stick figure with a large perfectly round white head, small solid black oval eyes, thin curved eyebrow strokes, one simple curved mouth, no nose, and a few loose ink hair strokes; minimal softly rounded body, wearing exactly a "+costume+", with simple dark footwear and no changing accessories or proportions.")
+
 def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=None, storyboard=None):
     topic = re.sub(r"\s+", " ", (topic or "Untitled story")).strip()[:500]
     duration = int(duration_seconds)
@@ -159,6 +163,7 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
     anchors = [x.strip() for x in (storyboard or "").splitlines() if x.strip()]
     chunks = _chunk_script(script, count)
     lead = _lead_for_topic(topic)
+    locked = _locked_character_block(lead)
     scenes = []
     for i in range(count):
         anchor = anchors[min(len(anchors)-1, int(i * len(anchors) / count))] if anchors else ""
@@ -170,18 +175,51 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
         if not visual:
             visual = f"Distinct story beat about {topic}; show a new action, location or meaningful object."
         camera = CAMERAS[i % len(CAMERAS)]
+        action = _scene_action(visual, i)
         title = re.sub(r"^.*?shot of ", "", visual, flags=re.I)[:52].strip(" .,:;") or f"Scene {i+1:03d}"
+        visual_prompt = (
+            f"This is a {min(4, duration-i*4)}-second hand-inked 2D animated clip in {aspect_ratio}. "
+            f"{locked} Background and story action: {visual}. Shot composition: {camera}. "
+            f"One clear action: {action}. {HOUSE_STYLE} "
+            "Audio is diegetic ambient sound only — no voice, no narration, no dialogue, no music. "
+            "Only sounds present in the scene such as wind, footsteps, distant rumble, rain, machinery or room tone. "
+            "Keep the camera locked or moving only in a very slow push; character design, clothing and proportions never change; "
+            "texture overlay and vignette stay consistent; no glitching, warping, morphing, flickering, extra limbs, duplicate or unintended characters, "
+            "on-screen text, subtitles or watermark. Visual safety: use generic people and places only; no real named people, flags, insignia, logos, "
+            "violence, injury, death, blood or weapons being fired; use restrained objects, empty spaces, distant silhouettes or aftermath."
+        )
         scenes.append({
             "scene_id": f"scene_{i+1:03d}", "title": title, "duration": min(4, duration-i*4),
-            "narration": narration, "visual": visual,
-            "visual_prompt": f"{visual}\n{HOUSE_STYLE}\nVisual safety: use generic people and places only; no real named person, flags, insignia, logos, violence, injury, death, blood, or weapons being fired. Show events through restrained objects, empty spaces, distant silhouettes or aftermath.",
-            "camera": camera, "characters": [lead],
-            "action": _scene_action(visual, i)
+            "narration": narration, "visual": visual, "visual_prompt": visual_prompt,
+            "camera": camera, "characters": [lead], "action": action
         })
+    final_duration = duration - 4*(count-1)
+    character_sheet_prompt = (
+        f"Create one character sheet in {aspect_ratio} on a plain flat neutral background, with no environments or scenery. "
+        "Top row: the recurring character in front, three-quarter, side and back full-body views, evenly spaced. "
+        "Middle row: five head-only expressions labelled NEUTRAL, CONCERNED, SURPRISED, WEARY and RESOLVED. "
+        "Bottom row: five full-body poses labelled STANDING, WALKING, SITTING, LOOKING UP and TURNING AWAY. "
+        f"Character design: {locked} {HOUSE_STYLE} "
+        "Plain flat neutral background throughout, no scenery, no props beyond what the character wears or carries, no text beyond row and pose labels, no watermark, no logos, no additional characters."
+    )
+    thumbnail_prompt = (
+        f"Create a 16:9 YouTube thumbnail for {topic}. Place the recurring character from this locked design on one side in an expressive pose: {locked} "
+        "Fill the rest with one simple illustrated story object, scene or landscape described generically. "
+        "Use a short bold all-caps headline of no more than four words, heavy condensed lettering, hard contrast and large simple shapes readable at 200 pixels wide. "
+        f"{HOUSE_STYLE} No small details that disappear at thumbnail size, no watermark, no logos."
+    )
+    agent_instruction = (
+        f"Generate {count} clips for one continuous film in {aspect_ratio}. Use the same character design, ink style, muted palette, texture and vignette in every clip. "
+        f"Scenes 1 through {count-1} are exactly 4 seconds each; the final scene is exactly {final_duration} seconds so the film totals {duration} seconds. "
+        "Generate every scene in order without pausing for confirmation. Keep each clip's audio to diegetic ambient sound only; narration is a separate aligned voiceover track."
+    )
     return {
       "project_id": str(uuid.uuid4()), "title": topic[:90].title(), "topic": topic,
       "duration_seconds": duration, "aspect_ratio": aspect_ratio, "language": "English",
-      "style": HOUSE_STYLE, "characters": CHARACTERS, "scenes": scenes,
+      "style": HOUSE_STYLE, "characters": CHARACTERS, "lead_character": lead,
+      "locked_character_block": locked, "character_sheet_prompt": character_sheet_prompt,
+      "animation_agent_instruction": agent_instruction, "thumbnail_prompt": thumbnail_prompt,
+      "scenes": scenes, "animation_prompts": [scene["visual_prompt"] for scene in scenes],
       "status": "queued", "scene_count": count, "thumbnail_path": None,
       "script_word_count": len(script.split()), "script_supplied": bool(script),
       "storyboard_anchor_count": len(anchors),
