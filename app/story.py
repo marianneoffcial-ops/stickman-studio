@@ -169,7 +169,7 @@ def _scene_camera(visual, index):
     v=(visual or "").lower()
     rules=[
       (("map","atlas","route","chart","plan","blueprint","geography"),"overhead illustrated map composition with gentle pan"),
-      (("letter","telegram","message","document","manuscript","book","ledger","key","coin","artifact","photograph","evidence","diary"),"close-up of a story-specific object with slow push-in"),
+      (("letter","telegram","message","document","manuscript","book","ledger","key","coin","artifact","photograph","evidence","diary","compass","lantern","telescope","satchel","travel chest","journal","newspaper","timetable","gear","mechanism","balance scale"),"close-up of a story-specific object with slow push-in"),
       (("tower","palace","cathedral","monument","bridge","dam","lighthouse","skyscraper","architecture"),"low-angle architectural view with slow tilt upward"),
       (("room","office","council","meeting","court","laboratory","workshop","archive","library","interior"),"interior tableau with subtle camera drift"),
       (("walk","walking","journey","travel","crossing","crosses","escape","expedition","march","railway","train","ship","vessel","caravan"),"side-on tracking composition with figures crossing frame"),
