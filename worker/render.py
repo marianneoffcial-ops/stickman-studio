@@ -381,7 +381,12 @@ def apply_house_texture(im,scene_index):
     im.paste(Image.alpha_composite(im.convert("RGBA"),overlay).convert("RGB"))
 
 def draw_frame(scene,project,frame,total_frames,out):
-    w,h=dimensions(project.get("aspect_ratio","16:9"))
+    # Draw above delivery resolution, then downsample once with Lanczos. This
+    # smooths the hand-inked linework and small facial details without changing
+    # the exported frame size or asking the free CPU worker for a GPU.
+    output_w,output_h=dimensions(project.get("aspect_ratio","16:9"))
+    render_scale=1.5
+    w,h=int(round(output_w*render_scale)),int(round(output_h*render_scale))
     im=Image.new("RGB",(w,h),PAPER); d=ImageDraw.Draw(im)
     phase=2*math.pi*frame/max(1,total_frames)
     draw_background(im,d,int(scene.get("scene_index",0)),phase,scene)
@@ -434,7 +439,9 @@ def draw_frame(scene,project,frame,total_frames,out):
     vd.ellipse((-w*.12,-h*.12,w*1.12,h*1.12),fill=230)
     vign=vign.filter(ImageFilter.GaussianBlur(max(10,int(w*.07))))
     dark=Image.new("RGB",(w,h),(15,16,15)); im=Image.composite(im,dark,vign)
-    im.save(out,quality=92)
+    # Keep the public video dimensions unchanged; only the drawing pass is larger.
+    im=im.resize((output_w,output_h),Image.Resampling.LANCZOS)
+    im.save(out,quality=94)
 def synthesize_ambience(scene,destination,duration):
     """Create a quiet, non-musical diegetic bed using only Python's standard library."""
     prompt=((scene.get("visual","")+" "+scene.get("title","")).lower())
