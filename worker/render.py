@@ -213,11 +213,105 @@ def draw_background(im,d,index,phase,scene=None):
         gd.point((x,y),fill=(30,28,22,rng.randrange(8,24)))
     for y in range(0,h,5): gd.line((0,y,w,y),fill=(30,28,22,12),width=1)
     im.paste(Image.alpha_composite(im.convert("RGBA"),grain).convert("RGB"))
+def draw_story_details(im,d,index,phase,scene):
+    """Add large, legible story-specific ink illustrations to each scene."""
+    w,h=im.size
+    p=(scene.get("visual_prompt","")+" "+scene.get("visual","")+" "+scene.get("title","")).lower()
+    ink=INK
+    if any(k in p for k in ("night","midnight","moon","stars")):
+        d.ellipse((w*.78,h*.08,w*.88,h*.22),fill=(225,218,195),outline=ink,width=4)
+        rng=random.Random(index+310)
+        for _ in range(18):
+            x=rng.uniform(.05,.95)*w; y=rng.uniform(.04,.32)*h
+            d.line((x-3,y,x+3,y),fill=(93,98,91),width=2)
+            d.line((x,y-3,x,y+3),fill=(93,98,91),width=1)
+    else:
+        d.ellipse((w*.08,h*.10,w*.17,h*.24),fill=(211,197,164),outline=ink,width=4)
+        for j in range(3):
+            yy=h*(.18+j*.06)
+            d.arc((w*(.27+j*.12),yy,w*(.42+j*.12),yy+h*.07),190,345,fill=(125,128,115),width=2)
+    if any(k in p for k in ("coast","sea","ocean","ship","flight","aircraft","plane","mountain")):
+        for j in range(3):
+            bx=w*(.61+j*.045)+math.sin(phase+j)*w*.002; by=h*(.25+j*.025)
+            d.arc((bx,by,bx+w*.018,by+h*.012),190,345,fill=ink,width=2)
+    if any(k in p for k in ("train","railway","locomotive","carriage")):
+        y=h*.66; x=w*.60
+        d.rectangle((x,y-h*.16,w*.94,y),fill=(105,108,100),outline=ink,width=4)
+        for j in range(2):
+            xx=x+w*(.025+j*.13)
+            d.rectangle((xx,y-h*.12,xx+w*.08,y-h*.055),fill=(211,201,177),outline=ink,width=3)
+        for xx in (x+w*.06,x+w*.25):
+            d.ellipse((xx,y-h*.035,xx+w*.055,y+h*.045),fill=(63,65,60),outline=ink,width=4)
+        d.line((w*.54,h*.76,w*.98,h*.76),fill=ink,width=3)
+    elif any(k in p for k in ("aircraft","airplane","plane","parachute","flight","pilot")):
+        x=w*(.69+math.sin(phase)*.006); y=h*.36
+        d.polygon([(x,y),(x+w*.20,y-h*.018),(x+w*.12,y+h*.018),(x+w*.07,y+h*.012)],fill=(119,124,116),outline=ink)
+        if "parachute" in p:
+            px=w*.81; py=h*.18
+            d.arc((px-w*.06,py-h*.045,px+w*.06,py+h*.055),180,360,fill=ink,width=4)
+            d.line((px-w*.05,py,px,py+h*.14,px+w*.05,py),fill=ink,width=2)
+    elif any(k in p for k in ("prison","cell","alcatraz","bars","jail")):
+        x,y=w*.72,h*.34
+        d.rectangle((x,y,x+w*.19,h*.72),fill=(99,103,96),outline=ink,width=5)
+        for j in range(5):
+            xx=x+w*(.025+j*.035); d.line((xx,y,xx,h*.72),fill=(43,46,43),width=4)
+        d.rectangle((x+w*.04,h*.56,x+w*.15,h*.70),fill=(174,163,139),outline=ink,width=3)
+    elif any(k in p for k in ("clock","watch","time","hour","minute")):
+        x,y=w*.77,h*.42; r=min(w,h)*.105
+        d.ellipse((x-r,y-r,x+r,y+r),fill=(220,211,190),outline=ink,width=5)
+        for j in range(12):
+            a=math.tau*j/12
+            d.ellipse((x+math.sin(a)*r*.82-2,y-math.cos(a)*r*.82-2,x+math.sin(a)*r*.82+2,y-math.cos(a)*r*.82+2),fill=ink)
+        a=phase*.05
+        d.line((x,y,x+math.sin(a)*r*.55,y-math.cos(a)*r*.55),fill=ink,width=4)
+        d.line((x,y,x+r*.48,y+r*.20),fill=ink,width=3)
+    elif any(k in p for k in ("museum","painting","artwork","gallery","portrait")):
+        x,y=w*.70,h*.30
+        d.rectangle((x,y,x+w*.20,y+h*.31),fill=(111,89,65),outline=ink,width=5)
+        d.rectangle((x+w*.018,y+h*.025,x+w*.182,y+h*.285),fill=(211,198,170),outline=ink,width=3)
+        d.arc((x+w*.055,y+h*.06,x+w*.15,y+h*.25),180,350,fill=(115,120,105),width=4)
+    elif any(k in p for k in ("telegraph","cable","wire","signal","message")):
+        for x in (w*.68,w*.91):
+            d.line((x,h*.28,x,h*.70),fill=ink,width=5)
+            d.line((x-w*.025,h*.34,x+w*.025,h*.34),fill=ink,width=4)
+        d.arc((w*.68,h*.29,w*.91,h*.49),180,360,fill=(78,82,75),width=3)
+    elif any(k in p for k in ("spacecraft","rocket","moon landing","lunar","astronaut")):
+        x,y=w*.78,h*.39
+        d.polygon([(x,y-h*.12),(x+w*.035,y-h*.04),(x+w*.035,y+h*.10),(x-w*.01,y+h*.10),(x-w*.01,y-h*.04)],fill=(193,187,169),outline=ink,width=4)
+        d.polygon([(x-w*.01,y-h*.04),(x-w*.045,y+h*.04),(x-w*.01,y+h*.035)],fill=(147,139,120),outline=ink)
+        d.polygon([(x+w*.035,y-h*.04),(x+w*.07,y+h*.04),(x+w*.035,y+h*.035)],fill=(147,139,120),outline=ink)
+    elif any(k in p for k in ("mine","mining","tunnel","underground","cave")):
+        x,y=w*.70,h*.38
+        d.arc((x,y-h*.13,x+w*.22,y+h*.20),180,360,fill=ink,width=6)
+        d.rectangle((x,y,x+w*.22,h*.72),fill=(83,85,78),outline=ink,width=4)
+        d.rectangle((x+w*.045,y+h*.10,x+w*.175,h*.72),fill=(48,51,48),outline=ink,width=3)
+    elif any(k in p for k in ("book","manuscript","letter","document","ledger","archive","library","paper")):
+        x,y=w*.68,h*.49
+        d.polygon([(x,y),(x+w*.17,y-h*.035),(x+w*.19,y+h*.15),(x+w*.02,y+h*.19)],fill=(220,207,176),outline=ink)
+        for j in range(3):
+            d.line((x+w*.03,y+h*(.035+j*.04),x+w*.15,y+h*(.005+j*.04)),fill=(119,108,88),width=2)
+    elif any(k in p for k in ("door","room","office","meeting","desk","council")):
+        x,y=w*.75,h*.30
+        d.rectangle((x,y,x+w*.16,h*.72),fill=(139,119,91),outline=ink,width=5)
+        d.arc((x+w*.02,y-h*.06,x+w*.14,y+h*.13),180,360,fill=ink,width=4)
+        d.ellipse((x+w*.13,h*.52,x+w*.145,h*.54),fill=(225,210,174),outline=ink)
+    # Light foreground hatching adds imperfect hand-inked contours without clutter.
+    rng=random.Random(index+909)
+    for _ in range(18):
+        x=rng.uniform(.03,.97)*w; y=rng.uniform(.73,.94)*h
+        d.line((x,y,x+rng.uniform(.008,.025)*w,y-rng.uniform(.001,.009)*h),fill=(113,111,96),width=1)
+    if any(k in p for k in ("street","city","market","crowd","harbour","port")):
+        for j in range(4):
+            x=w*(.03+j*.13); y=h*.69
+            d.ellipse((x,y-h*.035,x+w*.025,y+h*.005),fill=(104,104,94),outline=ink,width=2)
+            d.polygon([(x+w*.005,y),(x+w*.02,y),(x+w*.026,y+h*.09),(x,y+h*.09)],fill=(104,104,94),outline=ink)
+
 def draw_frame(scene,project,frame,total_frames,out):
     w,h=dimensions(project.get("aspect_ratio","16:9"))
     im=Image.new("RGB",(w,h),PAPER); d=ImageDraw.Draw(im)
     phase=2*math.pi*frame/max(1,total_frames)
     draw_background(im,d,int(scene.get("scene_index",0)),phase,scene)
+    draw_story_details(im,d,int(scene.get("scene_index",0)),phase,scene)
     prompt=(scene.get("visual_prompt","")+" "+scene.get("visual","")+" "+scene.get("title","")).lower()
     rng=random.Random(int(scene.get("scene_index",0))+41)
     if any(k in prompt for k in ("snow","winter","ice","antarctic")):
