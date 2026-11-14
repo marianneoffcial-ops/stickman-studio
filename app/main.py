@@ -11,6 +11,7 @@ DATA=Path(os.getenv("DATA_DIR","/data"))
 PROJECTS=DATA/"projects"
 PROJECTS.mkdir(parents=True,exist_ok=True)
 JOBS={}
+RENDER_LOCK=threading.Lock()
 app=FastAPI(title="Stickman Studio AI",version="3.0.0")
 
 class Request(BaseModel):
@@ -35,6 +36,10 @@ def save(path,obj):
  path.write_text(json.dumps(obj,ensure_ascii=False,indent=2),encoding="utf-8")
 
 def work(job_id,project):
+ with RENDER_LOCK:
+  _render_work(job_id,project)
+
+def _render_work(job_id,project):
  job=JOBS[job_id]
  job["status"]="rendering"
  try:
