@@ -40,6 +40,29 @@ class StoryTimingTests(unittest.TestCase):
         self.assertLessEqual(len(project["thumbnail_headline"].split()), 4)
         self.assertIn("exactly 2 seconds", project["animation_agent_instruction"])
 
+
+    def test_scene_camera_matches_story_objects_and_locations(self):
+        from app.story import _scene_camera
+        self.assertIn("overhead", _scene_camera("A folded map shows the expedition route.", 0))
+        self.assertIn("close-up", _scene_camera("A sealed letter is opened on a desk.", 1))
+        self.assertIn("low-angle", _scene_camera("The new bridge rises above the river.", 2))
+        self.assertIn("tracking", _scene_camera("The crew travels across the sea.", 3))
+
+    def test_storyboard_beats_produce_multiple_camera_angles(self):
+        project = make_project(
+            "A test story", 32, "16:9", " ".join(["A fact."] * 80),
+            "\n".join([
+                "A folded map shows the route.",
+                "A sealed letter rests on a desk.",
+                "A bridge rises above the river.",
+                "The crew travels across the sea.",
+                "A quiet archive holds old books.",
+                "A wide city street at dawn."
+            ])
+        )
+        cameras = [scene["camera"] for scene in project["scenes"]]
+        self.assertGreaterEqual(len(set(cameras)), 4)
+
     def test_idea_pool_has_enough_fresh_topics(self):
         self.assertGreaterEqual(len(IDEAS), 20)
         self.assertEqual(len({x[0] for x in IDEAS}), len(IDEAS))
