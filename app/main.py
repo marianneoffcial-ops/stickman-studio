@@ -71,7 +71,17 @@ def health():
 
 @app.get("/api/ideas")
 def ideas():
- return {"ideas":[{"title":title,"hook":hook} for title,hook in IDEAS]}
+ categories = {
+  "history": {"The Lost City of Pompeii","The Great Fire of London","The Great Stink of 1858","The First Transatlantic Telegraph Cable","The Panama Canal","The Great Library of Alexandria","The Race to Decode the Rosetta Stone","The Great Emu War"},
+  "documentary": {"The Race to Reach the South Pole","The Franklin Expedition","The 1904 Olympic Marathon","The 1952 Great Smog of London","The Chilean Miners Rescue","The 1906 San Francisco Earthquake","The 1969 Moon Landing","The Apollo 13 Rescue"},
+  "true crime": {"The Great Escape from Alcatraz","The Man Who Sold the Eiffel Tower","The Mystery of D. B. Cooper","The Great Train Robbery of 1963","The Isabella Stewart Gardner Museum Heist","The Han van Meegeren Art Forgery"},
+  "remarkable true events": {"The Great Molasses Flood of 1919","The Cuban Missile Crisis Officer","The 1914 Christmas Truce","Operation Mincemeat","The Tunguska Event","The 1972 Andes Flight Disaster","The First Transatlantic Telegraph Cable"}
+ }
+ result=[]
+ for title,hook in IDEAS:
+  category=next((name for name,items in categories.items() if title in items),"history")
+  result.append({"title":title,"hook":hook,"category":category})
+ return {"ideas":result}
 
 @app.post("/api/research")
 def research(req:ResearchRequest):
