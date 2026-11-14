@@ -1,4 +1,3 @@
-import tempfile
 import unittest
 from pathlib import Path
 
@@ -15,11 +14,12 @@ class RenderSmokeTests(unittest.TestCase):
             "The small boat crossed the quiet grey sea.",
             "Wide view of a small boat crossing a calm sea at dawn."
         )
-        with tempfile.TemporaryDirectory() as temp:
-            output = render_project(project, Path(temp))
-            self.assertTrue(output.exists())
-            self.assertGreater(output.stat().st_size, 2048)
-            self.assertTrue((Path(temp) / "thumbnail.jpg").exists())
+        output_dir = Path("artifacts/smoke")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output = render_project(project, output_dir)
+        self.assertTrue(output.exists())
+        self.assertGreater(output.stat().st_size, 2048)
+        self.assertTrue((output_dir / "thumbnail.jpg").exists())
 
 
 if __name__ == "__main__":
