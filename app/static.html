@@ -21,7 +21,7 @@ img.preview{max-width:100%;border-radius:10px;border:1px solid #555;margin-top:1
 
 <section class="panel hidden" id="step2"><div class="tag">STEP 2</div><h2>What aspect ratio do you want?</h2><p class="muted">1. 16:9 — YouTube / Landscape<br>2. 9:16 — Shorts, TikTok &amp; Reels<br>3. 1:1 — Square<br>Reply with 1, 2, 3, or type your own aspect ratio.</p><div class="choices" id="ratios"><button data-value="16:9" class="active">1 · 16:9</button><button data-value="9:16">2 · 9:16</button><button data-value="1:1">3 · 1:1</button></div><label for="customRatio">Or type your own aspect ratio (for example 4:5)</label><input id="customRatio" placeholder="16:9"><div class="actions"><button id="toDuration">Continue</button></div></section>
 
-<section class="panel hidden" id="step3"><div class="tag">STEP 3</div><h2>How long do you want the video to be?</h2><p class="muted">Choose: 15 seconds · 30 seconds · 45 seconds · 60 seconds, or enter any custom duration up to 600 seconds.</p><div class="choices" id="lengths"><button data-value="15">15 seconds</button><button data-value="30">30 seconds</button><button data-value="45">45 seconds</button><button data-value="60" class="active">60 seconds</button></div><label for="customLength">Custom duration in seconds</label><input id="customLength" type="number" min="15" max="600" placeholder="60"><div class="actions"><button id="research">Research story and write voiceover</button></div><p class="muted" id="researchStatus"></p></section>
+<section class="panel hidden" id="step3"><div class="tag">STEP 3</div><h2>How long do you want the video to be?</h2><p class="muted">Choose: 15 seconds · 30 seconds · 45 seconds · 60 seconds, or enter any custom duration up to 600 seconds.</p><div class="choices" id="lengths"><button data-value="15">15 seconds</button><button data-value="30">30 seconds</button><button data-value="45">45 seconds</button><button data-value="60" class="active">60 seconds</button></div><label for="customLength">Custom duration in seconds</label><input id="customLength" type="number" min="15" max="600" placeholder="60"><div class="actions"><button id="research">Research story and write voiceover</button></div><p class="muted" id="researchStatus"></p><div class="actions"><button id="dualProduction">Generate BOTH: 60-second Short + 10-minute video</button></div><p class="muted">Automatic formats: vertical 9:16 Short and landscape 16:9 full video. Both are researched and rendered separately.</p></section>
 
 <section class="panel hidden" id="step4"><div class="tag">STEP 4 — VOICEOVER SCRIPT</div><h2>Researched narration</h2><p class="muted" id="scriptMeta"></p><div class="output" id="script"></div><h3>Research sources</h3><ul class="sources" id="sources"></ul><p class="muted" id="license"></p><p class="muted">Type 'next' for your character sheet.</p><div class="actions"><button id="toCharacter">next</button></div></section>
 
@@ -36,7 +36,7 @@ img.preview{max-width:100%;border-radius:10px;border:1px solid #555;margin-top:1
 <script>
 const $=id=>document.getElementById(id);
 const labels=["Ideas","Aspect ratio","Length","Voiceover","Character sheet","Animation","Thumbnail","Reset"];
-let pool=[],used=new Set(),selected="",ratio="16:9",duration=60,researchData=null,project=null,jobId=null,pollTimer=null;
+let pool=[],used=new Set(),selected="",ratio="16:9",duration=60,researchData=null,project=null,jobId=null,pollTimer=null;let dualJobs=null;
 function step(n){for(let i=1;i<=8;i++)$("step"+i).classList.toggle("hidden",i!==n);document.querySelectorAll(".stepdot").forEach((el,i)=>el.classList.toggle("active",i===n-1));$("step"+n).scrollIntoView({behavior:"smooth",block:"start"});}
 function buildBar(){ $("stepbar").innerHTML="";labels.forEach((x,i)=>{const d=document.createElement("span");d.className="stepdot";d.textContent=(i+1)+" · "+x;$("stepbar").appendChild(d);});}
 function shuffle(a){return a.map(x=>[Math.random(),x]).sort((x,y)=>x[0]-y[0]).map(x=>x[1]);}
@@ -47,6 +47,39 @@ $("chooseIdea").onclick=()=>{selected=$("custom").value.trim()||selected;if(!sel
 $("ratios").onclick=e=>{const b=e.target.closest("button[data-value]");if(!b)return;ratio=b.dataset.value;$("customRatio").value=ratio;document.querySelectorAll("#ratios button").forEach(x=>x.classList.toggle("active",x===b));$("customRatio").value=ratio;};
 $("toDuration").onclick=()=>{const custom=$("customRatio").value.trim();if(custom){if(!/^\d{1,2}:\d{1,2}$/.test(custom)){alert("Use a ratio such as 16:9 or 4:5.");return;}const parts=custom.split(":").map(Number);if(!parts[0]||!parts[1]||parts[0]/parts[1]<.33||parts[0]/parts[1]>3){alert("That aspect ratio is outside the supported range.");return;}ratio=custom;}step(3);};
 $("lengths").onclick=e=>{const b=e.target.closest("button[data-value]");if(!b)return;duration=+b.dataset.value;$("customLength").value="";document.querySelectorAll("#lengths button").forEach(x=>x.classList.toggle("active",x===b));};
+$("dualProduction").onclick=async()=>{
+ const b=$("dualProduction");b.disabled=true;
+ $("researchStatus").textContent="Researching both formats from free public sources, then starting two separate renders…";
+ try{
+  const r=await fetch("/api/production/topic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({topic:selected})});
+  const d=await r.json();if(!r.ok)throw new Error(d.detail||"Dual production could not start");
+  dualJobs={short:d.short.job.job_id,long:d.long.job.job_id,shortProject:d.short.project_id,longProject:d.long.project_id};
+  $("renderState").textContent="BOTH VIDEOS QUEUED";
+  $("renderDetail").textContent="60-second vertical Short: "+d.short.scene_count+" scenes. 10-minute landscape video: "+d.long.scene_count+" scenes. Both are rendering independently.";
+  $("videoLinks").innerHTML="";step(6);pollDualJobs();
+ }catch(e){$("researchStatus").textContent=e.message;b.disabled=false;}
+};
+async function pollDualJobs(){
+ if(!dualJobs)return;
+ try{
+  const [sr,lr]=await Promise.all([fetch("/api/jobs/"+dualJobs.short),fetch("/api/jobs/"+dualJobs.long)]);
+  const [sj,lj]=await Promise.all([sr.json(),lr.json()]);
+  $("renderState").textContent="SHORT: "+sj.status.toUpperCase()+" · LONG: "+lj.status.toUpperCase();
+  $("renderDetail").textContent=(sj.error?"Short error: "+sj.error+" ":"Short: "+(sj.status==="completed"?"ready":"rendering")+" · ")+(lj.error?"Long error: "+lj.error:"Long: "+(lj.status==="completed"?"ready":"rendering"));
+  const links=[];
+  for(const [label,j,pid] of [["Download 60-second vertical Short",sj,dualJobs.shortProject],["Download 10-minute landscape video",lj,dualJobs.longProject]]){
+   if(j.status==="completed"){
+    links.push('<p><a class="button" href="'+j.output+'">'+label+'</a> · <a href="/api/projects/'+pid+'/thumbnail">thumbnail</a></p>');
+   }
+  }
+  $("videoLinks").innerHTML=links.join("");
+  const shortDone=["completed","failed"].includes(sj.status);
+  const longDone=["completed","failed"].includes(lj.status);
+  if(!shortDone||!longDone)pollTimer=setTimeout(pollDualJobs,5000);
+  else if(sj.status==="completed"&&lj.status==="completed")$("renderDetail").textContent="Both MP4 files passed the server's output-file verification. Review them before publishing.";
+  else $("renderDetail").textContent="Rendering finished with at least one failed job. Any completed video is still available above; inspect the error details.";
+ }catch(e){$("renderDetail").textContent=e.message;pollTimer=setTimeout(pollDualJobs,7000);}
+}
 $("research").onclick=async()=>{duration=+$("customLength").value||duration;if(duration<15||duration>600){alert("Duration must be between 15 and 600 seconds.");return;}const b=$("research");b.disabled=true;$("researchStatus").textContent="Researching the topic using free public sources…";try{const r=await fetch("/api/research",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({topic:selected,duration_seconds:duration})});const d=await r.json();if(!r.ok)throw new Error(d.detail||"Research failed");researchData=d;selected=d.topic;$("script").textContent=d.narration_script;$("scriptMeta").textContent=d.scene_count+" scenes · "+d.script_word_count+" narration words · "+duration+" seconds · "+ratio;$("sources").innerHTML="";(d.sources||[]).forEach(s=>{const li=document.createElement("li");const a=document.createElement("a");a.href=s.url;a.target="_blank";a.rel="noopener";a.textContent=s.title;li.appendChild(a);$("sources").appendChild(li);});$("license").textContent=d.source_license+" "+d.research_note;$("researchStatus").textContent="";step(4);}catch(e){$("researchStatus").textContent=e.message;}finally{b.disabled=false;}};
 $("toCharacter").onclick=async()=>{const b=$("toCharacter");b.disabled=true;try{const r=await fetch("/api/prepare",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload())});const d=await r.json();if(!r.ok)throw new Error(d.detail||"Could not prepare character");project=d.project;$("characterPrompt").textContent=project.character_sheet_prompt;$("lockedCharacter").textContent=project.locked_character_block;step(5);}catch(e){alert(e.message);}finally{b.disabled=false;}};
 $("toAnimation").onclick=()=>{if(!project){alert("Character sheet is not ready.");return;}$("sceneMeta").textContent=project.scene_count+" prompts · "+duration+" seconds · "+ratio+" · one narration beat per scene";$("agentInstruction").textContent=project.animation_agent_instruction;$("animationPrompts").innerHTML="";project.animation_prompts.forEach((p,i)=>{const box=document.createElement("div");box.className="prompt";const head=document.createElement("strong");head.textContent="Scene "+(i+1)+" · "+project.scenes[i].duration+" sec";const body=document.createElement("div");body.textContent=p;box.append(head,body);$("animationPrompts").appendChild(box);});step(6);startRender();};
