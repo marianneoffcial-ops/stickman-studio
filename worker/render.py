@@ -279,7 +279,16 @@ def draw_primary_story_prop(d,w,h,kind,phase=0.0,center_x=.70,center_y=.49,size_
                   fill=(221,208,177),outline=ink)
         d.line((cx-unit*.16,cy+unit*.075,cx-unit*.07,cy-unit*.035,cx+unit*.02,cy+unit*.045,
                 cx+unit*.14,cy-unit*.075),fill=(143,75,59),width=max(3,int(unit*.008)))
+        # A small moving marker makes the route legible without adding labels.
+        marker_x=cx-unit*.13+((phase%math.tau)/math.tau)*unit*.24
+        marker_y=cy+unit*.035-math.sin((phase%math.tau))*unit*.045
+        d.ellipse((marker_x-unit*.012,marker_y-unit*.012,marker_x+unit*.012,marker_y+unit*.012),fill=(143,75,59))
         d.ellipse((cx+unit*.105,cy-unit*.11,cx+unit*.15,cy-unit*.065),outline=ink,width=3)
+        # A tiny route marker travels along the inked path as the map is studied.
+        marker=(phase%(math.tau))/math.tau
+        mx=cx-unit*.16+marker*unit*.30
+        my=cy+unit*.075-math.sin(marker*math.pi)*unit*.11
+        d.ellipse((mx-unit*.014,my-unit*.014,mx+unit*.014,my+unit*.014),fill=(143,75,59),outline=ink,width=2)
     elif kind=="letter":
         d.rounded_rectangle((cx-unit*.18,cy-unit*.19,cx+unit*.18,cy+unit*.19),radius=int(unit*.012),
                             fill=(225,214,187),outline=ink,width=5)
@@ -287,6 +296,9 @@ def draw_primary_story_prop(d,w,h,kind,phase=0.0,center_x=.70,center_y=.49,size_
             yy=cy-unit*.10+j*unit*.045
             d.line((cx-unit*.12,yy,cx+unit*(.07 if j%2 else .12),yy-unit*.006),fill=(124,113,94),width=3)
         d.ellipse((cx+unit*.085,cy+unit*.105,cx+unit*.145,cy+unit*.165),fill=(151,83,67),outline=ink,width=3)
+        fold=math.sin(phase*1.7)*unit*.009
+        d.polygon([(cx+unit*.18,cy-unit*.19),(cx+unit*.18,cy-unit*.10+fold),(cx+unit*.09,cy-unit*.19)],
+                  fill=(196,184,157),outline=ink)
     elif kind=="compass":
         r=unit*.19
         d.ellipse((cx-r,cy-r,cx+r,cy+r),fill=(207,196,169),outline=ink,width=6)
@@ -311,9 +323,10 @@ def draw_primary_story_prop(d,w,h,kind,phase=0.0,center_x=.70,center_y=.49,size_
         r=unit*.075
         d.ellipse((cx-unit*.19,cy-unit*.075,cx-unit*.04,cy+unit*.075),outline=ink,width=7)
         d.ellipse((cx-unit*.15,cy-unit*.035,cx-unit*.08,cy+unit*.035),outline=ink,width=3)
-        d.line((cx-unit*.04,cy,cx+unit*.20,cy),fill=ink,width=9)
-        d.line((cx+unit*.12,cy,cx+unit*.12,cy+unit*.075),fill=ink,width=7)
-        d.line((cx+unit*.18,cy,cx+unit*.18,cy+unit*.05),fill=ink,width=7)
+        key_sway=math.sin(phase*1.3)*unit*.012
+        d.line((cx-unit*.04,cy+key_sway,cx+unit*.20,cy-key_sway),fill=ink,width=9)
+        d.line((cx+unit*.12,cy-key_sway,cx+unit*.12,cy+unit*.075-key_sway),fill=ink,width=7)
+        d.line((cx+unit*.18,cy-key_sway,cx+unit*.18,cy+unit*.05-key_sway),fill=ink,width=7)
     elif kind=="watch":
         r=unit*.17
         d.ellipse((cx-r,cy-r,cx+r,cy+r),fill=(218,207,181),outline=ink,width=6)
@@ -333,10 +346,14 @@ def draw_primary_story_prop(d,w,h,kind,phase=0.0,center_x=.70,center_y=.49,size_
             d.line((cx-unit*.15,yy,cx-unit*.035,yy+unit*.005),fill=ink,width=2)
             d.line((cx+unit*.035,yy+unit*.005,cx+unit*.15,yy),fill=ink,width=2)
         d.line((cx,cy-unit*.14,cx,cy+unit*.17),fill=ink,width=4)
+        page_lift=math.sin(phase*1.5)*unit*.008
+        d.polygon([(cx+unit*.19,cy-unit*.17),(cx+unit*.19,cy-unit*.08+page_lift),
+                   (cx+unit*.10,cy-unit*.17)],fill=(191,176,147),outline=ink)
     elif kind=="satchel":
         d.rounded_rectangle((cx-unit*.19,cy-unit*.08,cx+unit*.19,cy+unit*.17),radius=int(unit*.025),
                             fill=(142,117,88),outline=ink,width=6)
-        d.arc((cx-unit*.10,cy-unit*.20,cx+unit*.10,cy+unit*.06),180,360,fill=ink,width=6)
+        strap_sway=math.sin(phase*1.4)*unit*.012
+        d.arc((cx-unit*.10,cy-unit*.20+strap_sway,cx+unit*.10,cy+unit*.06+strap_sway),180,360,fill=ink,width=6)
         d.rectangle((cx-unit*.04,cy-unit*.01,cx+unit*.04,cy+unit*.055),fill=(206,190,155),outline=ink,width=3)
     elif kind=="gear":
         r=unit*.15
@@ -353,18 +370,27 @@ def draw_primary_story_prop(d,w,h,kind,phase=0.0,center_x=.70,center_y=.49,size_
             yy=cy-unit*.13+j*unit*.04
             d.line((cx-unit*.13,yy,cx+unit*(.08 if j%3==0 else .13),yy),fill=(119,111,94),width=2)
         d.rectangle((cx-unit*.12,cy-unit*.16,cx+unit*.12,cy-unit*.12),outline=(132,77,62),width=2)
+        corner=math.sin(phase*1.8)*unit*.01
+        d.polygon([(cx+unit*.18,cy-unit*.20),(cx+unit*.18,cy-unit*.09+corner),
+                   (cx+unit*.07,cy-unit*.20)],fill=(193,181,154),outline=ink)
     elif kind=="telescope":
-        d.line((cx-unit*.20,cy+unit*.10,cx+unit*.17,cy-unit*.10),fill=ink,width=max(5,int(unit*.07)))
-        d.line((cx-unit*.19,cy+unit*.055,cx+unit*.19,cy-unit*.15),fill=(163,148,118),width=max(5,int(unit*.035)))
-        d.ellipse((cx+unit*.12,cy-unit*.20,cx+unit*.22,cy-unit*.10),fill=(191,184,162),outline=ink,width=4)
+        pivot=math.sin(phase*1.2)*.025
+        ex=cx+unit*(.17-math.sin(pivot)*.10)
+        ey=cy-unit*(.10+math.cos(pivot)*.02)
+        d.line((cx-unit*.20,cy+unit*.10,ex,ey),fill=ink,width=max(5,int(unit*.07)))
+        d.line((cx-unit*.19,cy+unit*.055,cx+unit*(.19-math.sin(pivot)*.08),cy-unit*(.15+math.cos(pivot)*.02)),fill=(163,148,118),width=max(5,int(unit*.035)))
+        d.ellipse((ex-unit*.05,ey-unit*.10,ex+unit*.05,ey),fill=(191,184,162),outline=ink,width=4)
         d.line((cx,cy+unit*.07,cx-unit*.04,cy+unit*.20),fill=ink,width=4)
     elif kind=="scale":
         d.line((cx,cy-unit*.18,cx,cy+unit*.17),fill=ink,width=6)
-        d.line((cx-unit*.17,cy-unit*.08,cx+unit*.17,cy-unit*.08),fill=ink,width=6)
-        for side in (-1,1):
-            sx=cx+side*unit*.13
-            d.line((sx,cy-unit*.08,sx,cy+unit*.04),fill=ink,width=3)
-            d.arc((sx-unit*.08,cy-unit*.01,sx+unit*.08,cy+unit*.14),0,180,fill=ink,width=4)
+        beam_angle=math.sin(phase*1.1)*.045
+        left=(cx-unit*.17,cy-unit*.08+math.sin(beam_angle)*unit*.17)
+        right=(cx+unit*.17,cy-unit*.08-math.sin(beam_angle)*unit*.17)
+        d.line((left,right),fill=ink,width=6)
+        for side,point in ((-1,left),(1,right)):
+            sx,sy=point
+            d.line((sx,sy,sx,sy+unit*.12),fill=ink,width=3)
+            d.arc((sx-unit*.08,sy+unit*.07,sx+unit*.08,sy+unit*.22),0,180,fill=ink,width=4)
         d.line((cx-unit*.09,cy+unit*.17,cx+unit*.09,cy+unit*.17),fill=ink,width=6)
     else:
         d.rounded_rectangle((cx-unit*.16,cy-unit*.13,cx+unit*.16,cy+unit*.13),radius=int(unit*.025),
