@@ -1,5 +1,6 @@
 import subprocess, shutil, math, textwrap, random, os, wave, re, gc
 from pathlib import Path
+from array import array
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 FPS=12
@@ -176,6 +177,24 @@ def draw_frame(scene,project,frame,total_frames,out):
     vign=vign.filter(ImageFilter.GaussianBlur(max(10,int(w*.07))))
     dark=Image.new("RGB",(w,h),(15,16,15)); im=Image.composite(im,dark,vign)
     im.save(out,quality=92)
+def synthesize_ambience(scene,destination,duration):
+    """Create a quiet, non-musical diegetic bed using only Python's standard library."""
+    prompt=((scene.get("visual","")+" "+scene.get("title","")).lower())
+    if any(k in prompt for k in ("rain","storm","wet")): amp,freq=720,95
+    elif any(k in prompt for k in ("sea","ocean","ship","wind","desert","snow","mountain")): amp,freq=420,58
+    elif any(k in prompt for k in ("machine","factory","engine","train","clock")): amp,freq=260,82
+    else: amp,freq=130,44
+    rate=24000; count=max(1,int(rate*duration)); rng=random.Random(scene.get("scene_index",0)+701)
+    samples=array("h")
+    for i in range(count):
+        t=i/rate
+        low=math.sin(2*math.pi*freq*t)*amp*.42
+        noise=rng.uniform(-1,1)*amp*.58
+        envelope=.72+.28*math.sin(2*math.pi*.17*t)
+        samples.append(int(max(-32767,min(32767,(low+noise)*envelope))))
+    with wave.open(str(destination),"wb") as wf:
+        wf.setnchannels(1); wf.setsampwidth(2); wf.setframerate(rate); wf.writeframes(samples.tobytes())
+
 def synthesize_voice(text,destination,ffmpeg):
     edge=shutil.which("edge-tts")
     if edge:
@@ -231,7 +250,13 @@ def render_project(project,outdir:Path):
         pad_seconds=max(0.0,clip_duration-speech_seconds)
         run([ffmpeg,"-y","-loglevel","error","-i",str(wav),"-af",f"apad=pad_dur={pad_seconds:.3f}",
              "-t",f"{clip_duration:.3f}","-ar","24000","-ac","1",str(padded_wav)])
-        clips.append(clip); audios.append(padded_wav)
+        ambience=sd/f"ambience_{i:03d}.wav"
+        synthesize_ambience(scene,ambience,clip_duration)
+        mixed=sd/f"mixed_audio_{i:03d}.wav"
+        run([ffmpeg,"-y","-loglevel","error","-i",str(padded_wav),"-i",str(ambience),
+             "-filter_complex","[0:a]volume=1.0[v];[1:a]volume=0.16[a];[v][a]amix=inputs=2:duration=first:dropout_transition=0[m]",
+             "-map","[m]","-ar","24000","-ac","1",str(mixed)])
+        clips.append(clip); audios.append(mixed)
     concat=outdir/"clips.txt"; concat.write_text("".join(f"file '{x.as_posix()}'\n" for x in clips))
     audio_list=outdir/"audio.txt"; audio_list.write_text("".join(f"file '{x.as_posix()}'\n" for x in audios))
     silent=outdir/"silent.mp4"; voice=outdir/"voice.wav"; final=outdir/"final.mp4"
