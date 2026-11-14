@@ -248,7 +248,7 @@ def render_project(project,outdir:Path):
     name=(first_scene.get("characters") or ["Narrator"])[0]
     color=project.get("characters",{}).get(name,{}).get("color","#34465a")
     rgb=tuple(int(color[k:k+2],16) for k in (1,3,5))
-    draw_person(td,330,630,1.28,rgb,0,0,name,"observe")
+    draw_person(td,330,500,1.0,rgb,0,0,name,"observe")
     words=re.findall(r"[A-Za-z0-9']+",project.get("title","STICKMAN STORY").upper())[:4]
     headline=" ".join(words) or "STICKMAN STORY"
     td.rounded_rectangle((590,190,1225,555),radius=18,fill=(30,32,29),outline=(192,174,137),width=5)
