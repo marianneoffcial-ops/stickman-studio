@@ -16,6 +16,15 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertEqual(scene_transport_kind("An aircraft flies over the coast"), "sea")
         self.assertEqual(scene_transport_kind("A quiet archive interior"), "none")
 
+    def test_background_setting_is_dominant_and_does_not_mix_locations(self):
+        from worker.render import scene_background_mode
+        self.assertEqual(scene_background_mode("A ship carries a map through the sea", 0), 2)
+        self.assertEqual(scene_background_mode("A manuscript is studied in an archive", 0), 3)
+        self.assertEqual(scene_background_mode("A caravan crosses the desert", 0), 4)
+        self.assertEqual(scene_background_mode("A market street in an old city", 0), 1)
+        self.assertEqual(scene_background_mode("A palace beside a mountain", 0), 0)
+        self.assertEqual(scene_background_mode("An unclassified quiet scene", 5), 5)
+
     def test_custom_aspect_ratio_is_preserved(self):
         width, height = dimensions("4:5")
         self.assertEqual(width / height, 4 / 5)
