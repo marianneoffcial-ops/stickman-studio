@@ -240,7 +240,7 @@ def render_project(project,outdir:Path):
         camera_index=i%4
         x_expr=["iw/2-(iw/zoom/2)","iw-iw/zoom","0","iw/2-(iw/zoom/2)"][camera_index]
         y_expr=["ih/2-(ih/zoom/2)","ih/2-(ih/zoom/2)","ih/2-(ih/zoom/2)","0"][camera_index]
-        camera_filter=f"zoompan=z='min(zoom+0.0007,1.05)':x='{x_expr}':y='{y_expr}':d=1:s={width}x{height}:fps=24,format=yuv420p"
+        camera_filter=f"zoompan=z='min(zoom+0.0007,1.05)':x='{x_expr}':y='{y_expr}':d=2:s={width}x{height}:fps=24,format=yuv420p"
         run([ffmpeg,"-y","-loglevel","error","-framerate",str(FPS),"-i",str(frames_dir/"frame_%05d.png"),
              "-vf",camera_filter,"-c:v","libx264","-preset","veryfast","-crf","19",str(clip)])
         shutil.rmtree(frames_dir,ignore_errors=True); gc.collect()
@@ -278,7 +278,7 @@ def render_project(project,outdir:Path):
     headline=" ".join(words) or "STICKMAN STORY"
     td.rounded_rectangle((590,190,1225,555),radius=18,fill=(30,32,29),outline=(192,174,137),width=5)
     lines=textwrap.wrap(headline,width=12)[:3]
-    td.multiline_text((640,260),"\\n".join(lines),font=font(76,True),fill=(244,237,218),spacing=8,stroke_width=1,stroke_fill=INK)
+    td.multiline_text((640,260),"\n".join(lines),font=font(76,True),fill=(244,237,218),spacing=8,stroke_width=1,stroke_fill=INK)
     thumb_im.save(thumb,quality=92)
     project["thumbnail_path"]=str(thumb)
     return final
