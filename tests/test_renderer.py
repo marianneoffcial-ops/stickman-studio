@@ -90,7 +90,7 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertEqual(story_prop_kind("a weathered telescope"), "telescope")
 
     def test_story_props_have_smooth_frame_to_frame_motion(self):
-        for kind in ("compass", "lantern", "watch", "gear"):
+        for kind in ("compass", "lantern", "watch", "gear", "map", "letter", "key", "ledger", "satchel", "paper", "telescope", "scale"):
             first = Image.new("RGB", (640, 480), (220, 211, 190))
             later = Image.new("RGB", (640, 480), (220, 211, 190))
             draw_primary_story_prop(ImageDraw.Draw(first), 640, 480, kind, 0.0)
