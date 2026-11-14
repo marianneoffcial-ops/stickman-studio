@@ -214,8 +214,9 @@ def draw_background(im,d,index,phase,scene=None,closeup=False):
             d.line((x,y,x+rng.randrange(4,18),y-rng.randrange(0,3)),fill=(145,133,111),width=1)
         return
     horizon=int(h*.69)
-    # distant layered hills and architecture
-    d.polygon([(0,horizon),(w*.16,h*.42),(w*.31,horizon),(w*.5,h*.35),(w*.68,horizon),(w*.86,h*.46),(w,horizon),(w,h),(0,h)],fill=(133,139,124),outline=INK,width=4)
+    # Keep the ground plane neutral. Each semantic setting below draws its own
+    # silhouette; a generic mountain skyline behind every setting caused visual
+    # contradictions (for example, indoor archives with outdoor hills).
     d.rectangle((0,horizon,w,h),fill=(184,176,151))
     # scene-specific landmark silhouettes
     prompt=scene_description(scene)
@@ -259,22 +260,22 @@ def draw_background(im,d,index,phase,scene=None,closeup=False):
         d.arc((w*.61,h*.15,w*.88,h*.48),180,360,fill=INK,width=5)
         d.rectangle((w*.70,h*.40,w*.79,h*.74),fill=(65,68,62),outline=INK,width=3)
     # Distinct foreground props keyed to the actual storyboard description
-    if contains_any(prompt, ('camel','caravan','desert','sahara','dune')):
+    if mode==4 and contains_any(prompt, ('camel','caravan','desert','sahara','dune')):
         for j in range(3):
             cx=int(w*(.20+j*.25)); cy=int(h*.64)
             d.ellipse((cx-24,cy-18,cx+28,cy+20),fill=(139,119,91),outline=INK,width=3)
             d.arc((cx-8,cy-44,cx+24,cy+4),180,350,fill=INK,width=4)
             d.line((cx+18,cy-12,cx+31,cy-35),fill=INK,width=3)
-    if contains_any(prompt, ('map','atlas','chart','route')):
+    if mode==5 and contains_any(prompt, ('map','atlas','chart','route')):
         d.rounded_rectangle((w*.12,h*.27,w*.48,h*.58),radius=8,fill=(220,207,174),outline=INK,width=4)
         for j in range(5): d.arc((w*(.16+j*.045),h*.31,w*(.31+j*.045),h*.54),20,250,fill=(112,103,82),width=2)
         d.line((w*.18,h*.50,w*.40,h*.35),fill=(139,72,57),width=4)
-    if contains_any(prompt, ('market','merchant','shop','gold','coin')):
+    if mode==1 and contains_any(prompt, ('market','merchant','shop','gold','coin')):
         for j in range(3):
             xx=w*(.58+j*.11)
             d.rectangle((xx,h*.49,xx+w*.075,h*.67),fill=(151,124,88),outline=INK,width=3)
             d.arc((xx+4,h*.44,xx+w*.07,h*.57),180,360,fill=INK,width=3)
-    if contains_any(prompt, ('mosque','palace','temple','monument')):
+    if mode==0 and contains_any(prompt, ('mosque','palace','temple','monument')):
         d.rectangle((w*.54,h*.43,w*.87,h*.70),fill=(184,171,145),outline=INK,width=4)
         d.arc((w*.61,h*.29,w*.80,h*.56),180,360,fill=INK,width=4)
         for xx in (.61,.70,.79): d.rectangle((w*xx,h*.53,w*(xx+.035),h*.70),fill=(72,72,65),outline=INK,width=2)
