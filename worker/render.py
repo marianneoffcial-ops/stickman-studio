@@ -205,6 +205,126 @@ def draw_background(im,d,index,phase,scene=None):
             sx=int(w*(.16+j*.055))
             d.line((sx,int(h*.42),sx,int(h*.72)),fill=(139,105,65),width=max(3,int(w*.004)))
             d.ellipse((sx-int(w*.006),int(h*.405),sx+int(w*.006),int(h*.43)),fill=(177,145,82),outline=INK)
+def story_prop_kind(prompt):
+    """Classify the main non-character object for a readable close-up illustration."""
+    p=(prompt or "").lower()
+    rules=[
+        (("compass","navigation"),"compass"),
+        (("lantern","lamp","light"),"lantern"),
+        (("key","keys"),"key"),
+        (("watch","pocket watch","clock"),"watch"),
+        (("letter","telegram","message slip","sealed paper"),"letter"),
+        (("map","chart","atlas","blueprint","route"),"map"),
+        (("ledger","journal","record book","account book"),"ledger"),
+        (("satchel","travel bag","travel chest","suitcase"),"satchel"),
+        (("gear","mechanism","machine","engine"),"gear"),
+        (("newspaper","timetable"),"paper"),
+        (("telescope","spyglass"),"telescope"),
+        (("scale","brass weight"),"scale"),
+    ]
+    for terms,kind in rules:
+        if any(term in p for term in terms):
+            return kind
+    return "object"
+
+
+def draw_primary_story_prop(d,w,h,kind):
+    """Draw one oversized, simple inked prop on the right side of the composition."""
+    ink=INK
+    cx,cy=w*.70,h*.49
+    unit=min(w,h)
+    if kind=="map":
+        box=(cx-unit*.22,cy-unit*.15,cx+unit*.22,cy+unit*.15)
+        d.polygon([(box[0],box[1]+unit*.035),(box[0]+unit*.13,box[1]),(box[2],box[1]+unit*.025),
+                   (box[2]-unit*.02,box[3]),(cx,box[3]-unit*.015),(box[0],box[3])],
+                  fill=(221,208,177),outline=ink)
+        d.line((cx-unit*.16,cy+unit*.075,cx-unit*.07,cy-unit*.035,cx+unit*.02,cy+unit*.045,
+                cx+unit*.14,cy-unit*.075),fill=(143,75,59),width=max(3,int(unit*.008)))
+        d.ellipse((cx+unit*.105,cy-unit*.11,cx+unit*.15,cy-unit*.065),outline=ink,width=3)
+    elif kind=="letter":
+        d.rounded_rectangle((cx-unit*.18,cy-unit*.19,cx+unit*.18,cy+unit*.19),radius=int(unit*.012),
+                            fill=(225,214,187),outline=ink,width=5)
+        for j in range(5):
+            yy=cy-unit*.10+j*unit*.045
+            d.line((cx-unit*.12,yy,cx+unit*(.07 if j%2 else .12),yy-unit*.006),fill=(124,113,94),width=3)
+        d.ellipse((cx+unit*.085,cy+unit*.105,cx+unit*.145,cy+unit*.165),fill=(151,83,67),outline=ink,width=3)
+    elif kind=="compass":
+        r=unit*.19
+        d.ellipse((cx-r,cy-r,cx+r,cy+r),fill=(207,196,169),outline=ink,width=6)
+        d.ellipse((cx-r*.78,cy-r*.78,cx+r*.78,cy+r*.78),outline=(115,105,86),width=3)
+        d.polygon([(cx,cy-r*.68),(cx+unit*.035,cy+unit*.035),(cx,cy+unit*.10),(cx-unit*.035,cy+unit*.035)],
+                  fill=(143,75,59),outline=ink)
+        d.ellipse((cx-unit*.018,cy-unit*.018,cx+unit*.018,cy+unit*.018),fill=ink)
+    elif kind=="lantern":
+        d.arc((cx-unit*.10,cy-unit*.22,cx+unit*.10,cy+unit*.03),180,360,fill=ink,width=5)
+        d.rounded_rectangle((cx-unit*.105,cy-unit*.12,cx+unit*.105,cy+unit*.18),radius=int(unit*.025),
+                            fill=(151,139,111),outline=ink,width=5)
+        d.rectangle((cx-unit*.065,cy-unit*.075,cx+unit*.065,cy+unit*.12),fill=(218,202,158),outline=ink,width=3)
+        d.line((cx,cy-unit*.05,cx,cy+unit*.08),fill=(116,94,66),width=4)
+        d.line((cx-unit*.12,cy+unit*.19,cx+unit*.12,cy+unit*.19),fill=ink,width=5)
+    elif kind=="key":
+        r=unit*.075
+        d.ellipse((cx-unit*.19,cy-unit*.075,cx-unit*.04,cy+unit*.075),outline=ink,width=7)
+        d.ellipse((cx-unit*.15,cy-unit*.035,cx-unit*.08,cy+unit*.035),outline=ink,width=3)
+        d.line((cx-unit*.04,cy,cx+unit*.20,cy),fill=ink,width=9)
+        d.line((cx+unit*.12,cy,cx+unit*.12,cy+unit*.075),fill=ink,width=7)
+        d.line((cx+unit*.18,cy,cx+unit*.18,cy+unit*.05),fill=ink,width=7)
+    elif kind=="watch":
+        r=unit*.17
+        d.ellipse((cx-r,cy-r,cx+r,cy+r),fill=(218,207,181),outline=ink,width=6)
+        d.ellipse((cx-r*.78,cy-r*.78,cx+r*.78,cy+r*.78),outline=ink,width=3)
+        d.line((cx,cy,cx,cy-r*.10),fill=ink,width=5)
+        d.line((cx,cy,cx+r*.47,cy+r*.22),fill=ink,width=5)
+        d.arc((cx-unit*.04,cy-unit*.24,cx+unit*.04,cy-unit*.14),180,360,fill=ink,width=4)
+    elif kind=="ledger":
+        d.polygon([(cx-unit*.19,cy-unit*.17),(cx,cy-unit*.14),(cx,cy+unit*.17),(cx-unit*.19,cy+unit*.14)],
+                  fill=(170,143,108),outline=ink)
+        d.polygon([(cx,cy-unit*.14),(cx+unit*.19,cy-unit*.17),(cx+unit*.19,cy+unit*.14),(cx,cy+unit*.17)],
+                  fill=(220,207,178),outline=ink)
+        for j in range(5):
+            yy=cy-unit*.085+j*unit*.045
+            d.line((cx-unit*.15,yy,cx-unit*.035,yy+unit*.005),fill=ink,width=2)
+            d.line((cx+unit*.035,yy+unit*.005,cx+unit*.15,yy),fill=ink,width=2)
+        d.line((cx,cy-unit*.14,cx,cy+unit*.17),fill=ink,width=4)
+    elif kind=="satchel":
+        d.rounded_rectangle((cx-unit*.19,cy-unit*.08,cx+unit*.19,cy+unit*.17),radius=int(unit*.025),
+                            fill=(142,117,88),outline=ink,width=6)
+        d.arc((cx-unit*.10,cy-unit*.20,cx+unit*.10,cy+unit*.06),180,360,fill=ink,width=6)
+        d.rectangle((cx-unit*.04,cy-unit*.01,cx+unit*.04,cy+unit*.055),fill=(206,190,155),outline=ink,width=3)
+    elif kind=="gear":
+        r=unit*.15
+        d.ellipse((cx-r,cy-r,cx+r,cy+r),fill=(157,151,132),outline=ink,width=6)
+        d.ellipse((cx-r*.36,cy-r*.36,cx+r*.36,cy+r*.36),fill=(215,204,179),outline=ink,width=4)
+        for a in range(8):
+            angle=math.tau*a/8
+            x1=cx+math.cos(angle)*r*.72; y1=cy+math.sin(angle)*r*.72
+            x2=cx+math.cos(angle)*r*1.22; y2=cy+math.sin(angle)*r*1.22
+            d.line((x1,y1,x2,y2),fill=ink,width=max(4,int(unit*.025)))
+    elif kind=="paper":
+        d.rectangle((cx-unit*.18,cy-unit*.20,cx+unit*.18,cy+unit*.20),fill=(223,212,185),outline=ink,width=5)
+        for j in range(7):
+            yy=cy-unit*.13+j*unit*.04
+            d.line((cx-unit*.13,yy,cx+unit*(.08 if j%3==0 else .13),yy),fill=(119,111,94),width=2)
+        d.rectangle((cx-unit*.12,cy-unit*.16,cx+unit*.12,cy-unit*.12),outline=(132,77,62),width=2)
+    elif kind=="telescope":
+        d.line((cx-unit*.20,cy+unit*.10,cx+unit*.17,cy-unit*.10),fill=ink,width=unit*.07)
+        d.line((cx-unit*.19,cy+unit*.055,cx+unit*.19,cy-unit*.15),fill=(163,148,118),width=max(5,int(unit*.035)))
+        d.ellipse((cx+unit*.12,cy-unit*.20,cx+unit*.22,cy-unit*.10),fill=(191,184,162),outline=ink,width=4)
+        d.line((cx,cy+unit*.07,cx-unit*.04,cy+unit*.20),fill=ink,width=4)
+    elif kind=="scale":
+        d.line((cx,cy-unit*.18,cx,cy+unit*.17),fill=ink,width=6)
+        d.line((cx-unit*.17,cy-unit*.08,cx+unit*.17,cy-unit*.08),fill=ink,width=6)
+        for side in (-1,1):
+            sx=cx+side*unit*.13
+            d.line((sx,cy-unit*.08,sx,cy+unit*.04),fill=ink,width=3)
+            d.arc((sx-unit*.08,cy-unit*.01,sx+unit*.08,cy+unit*.14),0,180,fill=ink,width=4)
+        d.line((cx-unit*.09,cy+unit*.17,cx+unit*.09,cy+unit*.17),fill=ink,width=6)
+    else:
+        d.rounded_rectangle((cx-unit*.16,cy-unit*.13,cx+unit*.16,cy+unit*.13),radius=int(unit*.025),
+                            fill=(190,177,151),outline=ink,width=5)
+        d.ellipse((cx-unit*.035,cy-unit*.035,cx+unit*.035,cy+unit*.035),outline=ink,width=3)
+
+
 def draw_story_details(im,d,index,phase,scene):
     """Add large, legible story-specific ink illustrations to each scene."""
     w,h=im.size
@@ -350,6 +470,10 @@ def draw_story_details(im,d,index,phase,scene):
             d.line((xx,yy,xx,yy-h*.16),fill=ink,width=3)
             d.polygon([(xx,yy-h*.16),(xx+w*.065,yy-h*.12),(xx,yy-h*.08)],
                       fill=(170,150,121),outline=ink)
+    # In close-up beats, give the story's named object a large, clean silhouette.
+    # This is the focal subject; the recurring figure remains a small observer.
+    if "close-up" in (scene.get("camera","") or "").lower():
+        draw_primary_story_prop(d,w,h,story_prop_kind(p))
     # Light foreground hatching adds imperfect hand-inked contours without clutter.
     rng=random.Random(index+909)
     for _ in range(18):
