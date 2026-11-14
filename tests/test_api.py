@@ -45,8 +45,9 @@ class ProductionApiTests(unittest.TestCase):
 
     def test_render_rejects_missing_scene_narration(self):
         project = make_project("A quiet boat crossing", 15, "16:9", "", "")
-        with self.assertRaisesRegex(HTTPException, "draft"):
+        with self.assertRaises(HTTPException) as raised:
             validate_renderable_project(project)
+        self.assertIn("draft", raised.exception.detail)
 
     def test_render_accepts_complete_narration(self):
         project = make_project(
