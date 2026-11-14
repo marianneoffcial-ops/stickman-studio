@@ -1,5 +1,6 @@
 import subprocess, shutil, math, textwrap, random, os, wave, re, gc
 from pathlib import Path
+from array import array
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 FPS=12
@@ -11,42 +12,55 @@ def run(cmd):
     if p.returncode:
         raise RuntimeError((p.stderr or "Render command failed")[-2500:])
 def dimensions(ratio):
-    return {"16:9":(1280,720),"9:16":(720,1280),"1:1":(960,960)}.get(ratio,(1280,720))
+    presets={"16:9":(1280,720),"9:16":(720,1280),"1:1":(960,960)}
+    if ratio in presets: return presets[ratio]
+    try:
+        a,b=(int(x) for x in ratio.split(":",1))
+        if a<1 or b<1: raise ValueError()
+        if a>=b: return (1280,max(2,int(round(1280*b/a/2)*2)))
+        return (max(2,int(round(1280*a/b/2)*2)),1280)
+    except Exception:
+        return (1280,720)
 def font(size,bold=False):
     paths=["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
            "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"]
     for p in paths:
         if Path(p).exists(): return ImageFont.truetype(p,size)
     return ImageFont.load_default()
-def draw_person(d,x,y,scale,color,phase,pose=0,role=''):
-    s=scale
-    # soft clothing silhouette and inked stick-figure limbs
-    d.ellipse((x-34*s,y-184*s,x+34*s,y-116*s),fill=(242,238,224),outline=INK,width=max(2,int(5*s)))
-    d.ellipse((x-16*s,y-159*s,x-8*s,y-149*s),fill=INK)
-    d.ellipse((x+8*s,y-159*s,x+16*s,y-149*s),fill=INK)
-    d.arc((x-12*s,y-150*s,x+12*s,y-132*s),5,165,fill=INK,width=max(2,int(2*s)))
-    # loose hair strokes
-    d.arc((x-30*s,y-190*s,x+20*s,y-150*s),185,270,fill=INK,width=max(2,int(3*s)))
-    d.line((x-19*s,y-180*s,x-4*s,y-193*s,x+5*s,y-181*s),fill=INK,width=max(2,int(3*s)))
-    d.rounded_rectangle((x-29*s,y-118*s,x+29*s,y+8*s),radius=int(15*s),fill=color,outline=INK,width=max(2,int(5*s)))
-    # Costume details keep recurring roles visually identifiable.
-    if role.lower() == 'emperor':
-        d.polygon([(x-30*s,y-180*s),(x-22*s,y-218*s),(x-7*s,y-197*s),(x,y-224*s),(x+9*s,y-197*s),(x+24*s,y-218*s),(x+30*s,y-180*s)],fill=(177,145,82),outline=INK)
-        d.line((x-25*s,y-178*s,x+25*s,y-178*s),fill=INK,width=max(2,int(3*s)))
-        d.line((x,y-112*s,x,y-35*s),fill=(177,145,82),width=max(2,int(3*s)))
-    elif role.lower() == 'herald':
-        d.line((x+48*s,y-105*s,x+48*s,y+92*s),fill=(139,105,65),width=max(3,int(5*s)))
-        d.ellipse((x+42*s,y-113*s,x+54*s,y-101*s),fill=(177,145,82),outline=INK)
-    elif role.lower() in ('scholar','architect'):
-        d.line((x-17*s,y-85*s,x+17*s,y-85*s),fill=(211,198,166),width=max(2,int(3*s)))
-    d.line((x,y+5*s,x,y+104*s),fill=INK,width=max(3,int(7*s)))
-    swing=math.sin(phase)*18*s
-    if pose==1: arms=[(x-48*s,y-48*s,x-62*s,y-90*s),(x+48*s,y-48*s,x+60*s,y-8*s)]
-    elif pose==2: arms=[(x-48*s,y-48*s,x-80*s,y-25*s),(x+48*s,y-48*s,x+78*s,y-25*s)]
-    else: arms=[(x-48*s,y-48*s,x-58*s-swing,y+2*s),(x+48*s,y-48*s,x+58*s+swing,y+2*s)]
-    for a in arms: d.line(a,fill=INK,width=max(3,int(7*s)))
-    d.line((x,y+104*s,x-28*s-swing,y+178*s),fill=INK,width=max(3,int(8*s)))
-    d.line((x,y+104*s,x+28*s+swing,y+178*s),fill=INK,width=max(3,int(8*s)))
+def draw_person(d,x,y,scale,color,phase,pose=0,role='',action='idle'):
+    """Consistently inked stick figure with restrained, scene-specific keyframed motion."""
+    q=scale; sw=max(2,int(5*q)); limb=max(3,int(7*q))
+    cx=x; cy=y-151*q; r=34*q
+    d.ellipse((cx-r,cy-r,cx+r,cy+r),fill=(244,240,226),outline=INK,width=sw)
+    d.ellipse((cx-16*q,cy-5*q,cx-8*q,cy+5*q),fill=INK); d.ellipse((cx+8*q,cy-5*q,cx+16*q,cy+5*q),fill=INK)
+    d.arc((cx-19*q,cy-19*q,cx-5*q,cy-10*q),190,340,fill=INK,width=max(2,int(2*q)))
+    d.arc((cx+5*q,cy-19*q,cx+19*q,cy-10*q),200,350,fill=INK,width=max(2,int(2*q)))
+    d.arc((cx-11*q,cy+7*q,cx+11*q,cy+23*q),5,170,fill=INK,width=max(2,int(2*q)))
+    d.arc((cx-31*q,cy-39*q,cx+22*q,cy+1*q),185,270,fill=INK,width=max(2,int(3*q)))
+    d.line((cx-21*q,cy-30*q,cx-7*q,cy-43*q,cx+5*q,cy-31*q),fill=INK,width=max(2,int(3*q)))
+    shoulder_y=y-104*q
+    d.rounded_rectangle((x-29*q,y-119*q,x+29*q,y+8*q),radius=int(13*q),fill=color,outline=INK,width=sw)
+    if role.lower() in ('emperor','official'): d.line((x,y-110*q,x,y-12*q),fill=(193,174,133),width=max(2,int(3*q)))
+    elif role.lower() in ('scholar','architect'): d.line((x-17*q,y-84*q,x+17*q,y-84*q),fill=(211,198,166),width=max(2,int(3*q)))
+    wave=math.sin(phase)
+    if action=='walk':
+        arm_a=wave*25*q; leg_a=wave*24*q
+        left=(x-28*q,shoulder_y,x-54*q+arm_a,y-25*q); right=(x+28*q,shoulder_y,x+54*q-arm_a,y-25*q)
+    elif action in ('point','present'):
+        left=(x-28*q,shoulder_y,x-55*q,y-36*q); right=(x+28*q,shoulder_y,x+66*q,y-105*q+wave*4*q); leg_a=wave*3*q
+    elif action in ('study','observe'):
+        left=(x-28*q,shoulder_y,x-39*q,y-48*q); right=(x+28*q,shoulder_y,x+39*q,y-48*q); leg_a=wave*2*q
+    elif action=='turn':
+        left=(x-28*q,shoulder_y,x-52*q+wave*5*q,y-12*q); right=(x+28*q,shoulder_y,x+48*q-wave*5*q,y-22*q); leg_a=wave*5*q
+    elif action=='gesture':
+        left=(x-28*q,shoulder_y,x-63*q,y-72*q+wave*7*q); right=(x+28*q,shoulder_y,x+62*q,y-65*q-wave*7*q); leg_a=wave*3*q
+    else:
+        left=(x-28*q,shoulder_y,x-48*q+wave*5*q,y-5*q); right=(x+28*q,shoulder_y,x+48*q-wave*5*q,y-5*q); leg_a=wave*5*q
+    d.line(left,fill=INK,width=limb); d.ellipse((left[2]-3*q,left[3]-3*q,left[2]+3*q,left[3]+3*q),fill=INK)
+    d.line(right,fill=INK,width=limb); d.ellipse((right[2]-3*q,right[3]-3*q,right[2]+3*q,right[3]+3*q),fill=INK)
+    d.line((x,y+5*q,x-27*q-leg_a,y+178*q),fill=INK,width=limb); d.line((x,y+5*q,x+27*q+leg_a,y+178*q),fill=INK,width=limb)
+    d.line((x-27*q-leg_a,y+178*q,x-12*q-leg_a,y+178*q),fill=INK,width=max(2,int(5*q)))
+    d.line((x+27*q+leg_a,y+178*q,x+42*q+leg_a,y+178*q),fill=INK,width=max(2,int(5*q)))
 def draw_background(im,d,index,phase,scene=None):
     w,h=im.size; base=PALETTE[index%len(PALETTE)]
     im.paste(base,(0,0,w,h))
@@ -73,11 +87,16 @@ def draw_background(im,d,index,phase,scene=None):
             x=int(w*(.06+j*.18)); hh=int(h*(.20+(j%3)*.06))
             d.rectangle((x,horizon-hh,x+w*.12,horizon),fill=(169,160,140),outline=INK,width=4)
             for yy in range(3): d.rectangle((x+w*.025,horizon-hh+yy*24,x+w*.05,horizon-hh+yy*24+12),fill=(75,78,70))
-    elif mode==2: # sea / ship
+    elif mode==2: # sea / ship, with restrained bobbing and moving wave lines
         d.rectangle((0,h*.48,w,h*.72),fill=(142,154,147))
-        d.polygon([(w*.2,h*.59),(w*.72,h*.59),(w*.63,h*.68),(w*.29,h*.68)],fill=(83,85,78),outline=INK,width=4)
-        d.line((w*.47,h*.58,w*.47,h*.28),fill=INK,width=5)
-        d.polygon([(w*.48,h*.29),(w*.65,h*.52),(w*.48,h*.52)],fill=(211,201,179),outline=INK,width=3)
+        shift=math.sin(phase)*w*.022; bob=math.sin(phase*2)*h*.008
+        d.polygon([(w*.2+shift,h*.59+bob),(w*.72+shift,h*.59+bob),(w*.63+shift,h*.68+bob),(w*.29+shift,h*.68+bob)],fill=(83,85,78),outline=INK,width=4)
+        d.line((w*.47+shift,h*.58+bob,w*.47+shift,h*.28+bob),fill=INK,width=5)
+        d.polygon([(w*.48+shift,h*.29+bob),(w*.65+shift,h*.52+bob),(w*.48+shift,h*.52+bob)],fill=(211,201,179),outline=INK,width=3)
+        for j in range(7):
+            xx=((j*.17+phase*.035)%1.15-.08)*w
+            yy=h*(.72+j%3*.018)
+            d.arc((xx,yy,xx+w*.13,yy+h*.035),185,345,fill=(91,111,107),width=2)
     elif mode==3: # archive / interior
         d.rectangle((w*.08,h*.18,w*.92,h*.72),fill=(190,177,151),outline=INK,width=5)
         for j in range(4):
@@ -143,31 +162,72 @@ def draw_frame(scene,project,frame,total_frames,out):
     im=Image.new("RGB",(w,h),PAPER); d=ImageDraw.Draw(im)
     phase=2*math.pi*frame/max(1,total_frames)
     draw_background(im,d,int(scene.get("scene_index",0)),phase,scene)
-    # camera framing adapts to portrait and square
-    scale=min(w/1280,h/720)
+    prompt=(scene.get("visual_prompt","")+" "+scene.get("visual","")+" "+scene.get("title","")).lower()
+    rng=random.Random(int(scene.get("scene_index",0))+41)
+    if any(k in prompt for k in ("snow","winter","ice","antarctic")):
+        for j in range(28):
+            px=(rng.random()*w+math.sin(phase+j)*w*.012)%w; py=(rng.random()*h+frame*1.8+j*7)%h
+            d.ellipse((px,py,px+max(2,w*.003),py+max(2,w*.003)),fill=(239,235,220))
+    elif any(k in prompt for k in ("rain","storm","wet")):
+        for j in range(55):
+            px=(rng.random()*w+j*17)%w; py=(rng.random()*h+frame*5+j*11)%h
+            d.line((px,py,px-w*.006,py+h*.018),fill=(111,121,116),width=max(1,int(w*.0015)))
+    elif any(k in prompt for k in ("wind","dust","desert","smoke","fog","sea","ocean")):
+        for j in range(12):
+            px=(rng.random()*w+frame*(.35+j*.025))%w; py=h*(.2+rng.random()*.55)
+            d.ellipse((px,py,px+w*.012,py+h*.004),fill=(205,198,178))
+    camera=(scene.get("camera","") or "").lower()
+    scale=min(w/1280,h/720)*(1.0 if w/h>1 else .82)
+    x_fraction=.50; y_fraction=.70
+    if "close-up" in camera:
+        scale*=1.25; x_fraction=.52; y_fraction=.63
+    elif "wide silhouette" in camera:
+        scale*=.62; x_fraction=.76; y_fraction=.73
+    elif "wide establishing" in camera:
+        scale*=.78; x_fraction=.28; y_fraction=.73
+    elif "side-on tracking" in camera:
+        scale*=.88; x_fraction=.18+.64*(frame/max(1,total_frames-1)); y_fraction=.70
+    elif "overhead" in camera:
+        scale*=.72; x_fraction=.54; y_fraction=.72
+    elif "low-angle" in camera:
+        scale*=1.08; x_fraction=.52; y_fraction=.64
+    elif "interior" in camera:
+        scale*=.92; x_fraction=.50; y_fraction=.70
     names=scene.get("characters",["Narrator"])
-    positions=[.30,.52,.74] if w/h>1 else [.36,.66,.50]
+    positions=[x_fraction] if len(names)==1 else ([.30,.52,.74] if w/h>1 else [.36,.66,.50])
+    action=scene.get("action","idle")
     for j,name in enumerate(names[:3]):
-        drift=math.sin(phase*2+j)*w*.008
-        x=int(w*positions[j]+drift); y=int(h*.70)
+        drift=math.sin(phase*2+j)*w*.004
+        if action=="walk" and len(names)==1:
+            positions[j]=.20+.60*(frame/max(1,total_frames-1))
+        x=int(w*positions[j]+drift); y=int(h*y_fraction)
         color=project.get("characters",{}).get(name,{}).get("color","#34465a")
         rgb=tuple(int(color[k:k+2],16) for k in (1,3,5))
-        draw_person(d,x,y,scale*(1.0 if w/h>1 else .82),rgb,phase+j,int(scene.get("scene_index",0))%3,name)
-    title=scene.get("title","A new chapter")
-    d.text((int(w*.045),int(h*.055)),title,font=font(max(22,int(w*.034)),True),fill=(246,239,220),stroke_width=2,stroke_fill=INK)
-    caption=scene.get("narration","")
-    max_chars=max(24,int(w/(max(16,w*.023)*.58)))
-    lines=textwrap.wrap(caption,width=max_chars)[:3]
-    box_top=int(h*.84) if h/w<1.5 else int(h*.845)
-    d.rounded_rectangle((int(w*.035),box_top,int(w*.965),int(h*.965)),radius=max(8,int(w*.012)),fill=(30,32,29),outline=(173,157,124),width=max(1,int(scale*2)))
-    d.multiline_text((int(w*.06),box_top+int(h*.025)),"\n".join(lines),font=font(max(16,int(w*.022))),fill=(244,238,222),spacing=5)
-    # darkened vignette
+        draw_person(d,x,y,scale,rgb,phase+j,int(scene.get("scene_index",0))%3,name,action)
+    # The brief prohibits burned-in titles, captions and subtitles.
     vign=Image.new("L",(w,h),0); vd=ImageDraw.Draw(vign)
     vd.ellipse((-w*.12,-h*.12,w*1.12,h*1.12),fill=230)
     vign=vign.filter(ImageFilter.GaussianBlur(max(10,int(w*.07))))
-    # White mask at the centre preserves the illustration; dark edges create a subtle vignette.
     dark=Image.new("RGB",(w,h),(15,16,15)); im=Image.composite(im,dark,vign)
     im.save(out,quality=92)
+def synthesize_ambience(scene,destination,duration):
+    """Create a quiet, non-musical diegetic bed using only Python's standard library."""
+    prompt=((scene.get("visual","")+" "+scene.get("title","")).lower())
+    if any(k in prompt for k in ("rain","storm","wet")): amp,freq=720,95
+    elif any(k in prompt for k in ("sea","ocean","ship","wind","desert","snow","mountain")): amp,freq=420,58
+    elif any(k in prompt for k in ("machine","factory","engine","train","clock")): amp,freq=260,82
+    else: amp,freq=130,44
+    rate=24000; count=max(1,int(rate*duration)); rng=random.Random(scene.get("scene_index",0)+701)
+    samples=array("h")
+    for i in range(count):
+        t=i/rate
+        low=math.sin(2*math.pi*freq*t)*amp*.42
+        noise=rng.uniform(-1,1)*amp*.58
+        envelope=.72+.28*math.sin(2*math.pi*.17*t)
+        samples.append(int(max(-32767,min(32767,(low+noise)*envelope))))
+    with wave.open(str(destination),"wb") as wf:
+        wf.setnchannels(1); wf.setsampwidth(2); wf.setframerate(rate); wf.writeframes(samples.tobytes())
+
 def synthesize_voice(text,destination,ffmpeg):
     edge=shutil.which("edge-tts")
     if edge:
@@ -193,44 +253,76 @@ def render_project(project,outdir:Path):
         engine=synthesize_voice(scene["narration"],wav,ffmpeg); voice_engine=engine
         with wave.open(str(wav),"rb") as wf:
             speech_seconds=wf.getnframes()/float(wf.getframerate())
-        duration=max(.5,float(scene["duration"]),speech_seconds+0.12)
-        scene["duration"]=round(duration,3)
-        frames=max(1,int(math.ceil(duration*FPS)))
+        # Keep clip duration locked to the requested four-second beat (or final remainder).
+        duration=float(scene["duration"])
+        frames=max(1,int(round(duration*FPS)))
+        clip_duration=frames/FPS
+        if speech_seconds > clip_duration-0.08:
+            tempo=speech_seconds/max(0.25,clip_duration-0.08)
+            if tempo > 1.55:
+                raise RuntimeError(f"Scene {i+1} narration is too long for its {duration:g}-second beat; shorten the script to about 9–10 words per 4 seconds.")
+            fitted=sd/f"voice_fitted_{i:03d}.wav"
+            run([ffmpeg,"-y","-loglevel","error","-i",str(wav),"-af",f"atempo={tempo:.4f}","-t",f"{clip_duration-0.04:.3f}","-ar","24000","-ac","1",str(fitted)])
+            wav=fitted
+            with wave.open(str(wav),"rb") as wf:
+                speech_seconds=wf.getnframes()/float(wf.getframerate())
         frames_dir=sd/f"frames_{i:03d}"; frames_dir.mkdir(exist_ok=True)
         for f in range(frames): draw_frame(scene,project,f,frames,frames_dir/f"frame_{f:05d}.png")
         clip=sd/f"clip_{i:03d}.mp4"
         width,height=dimensions(project.get("aspect_ratio","16:9"))
-        camera_index=i%4
-        x_expr=["iw/2-(iw/zoom/2)","iw-iw/zoom","0","iw/2-(iw/zoom/2)"][camera_index]
-        y_expr=["ih/2-(ih/zoom/2)","ih/2-(ih/zoom/2)","ih/2-(ih/zoom/2)","0"][camera_index]
-        camera_filter=f"zoompan=z='min(zoom+0.0007,1.05)':x='{x_expr}':y='{y_expr}':d=1:s={width}x{height}:fps=24,format=yuv420p"
+        camera=(scene.get("camera","") or "").lower()
+        zoom_expr="min(zoom+0.0007,1.05)"
+        x_expr="iw/2-(iw/zoom/2)"
+        y_expr="ih/2-(ih/zoom/2)"
+        if "pull-back" in camera:
+            zoom_expr="max(1.05-on*0.0005,1.0)"
+        elif "close-up" in camera:
+            zoom_expr="min(1.0+on*0.0005,1.05)"
+        if "lateral pan" in camera or "tracking" in camera:
+            x_expr="min(iw-iw/zoom,max(0,iw/2-(iw/zoom/2)+on*0.22))"
+        elif "gentle pan" in camera:
+            x_expr="min(iw-iw/zoom,max(0,iw/2-(iw/zoom/2)-on*0.16))"
+        if "tilt upward" in camera:
+            y_expr="max(0,ih/2-(ih/zoom/2)-on*0.12)"
+        camera_filter=f"zoompan=z='{zoom_expr}':x='{x_expr}':y='{y_expr}':d=2:s={width}x{height}:fps=24,format=yuv420p"
         run([ffmpeg,"-y","-loglevel","error","-framerate",str(FPS),"-i",str(frames_dir/"frame_%05d.png"),
              "-vf",camera_filter,"-c:v","libx264","-preset","veryfast","-crf","19",str(clip)])
         shutil.rmtree(frames_dir,ignore_errors=True); gc.collect()
         # Pad each narration beat to its matching clip duration so the voice remains
         # distributed throughout the full episode instead of ending early and leaving silence.
-        clip_duration=frames/FPS
         padded_wav=sd/f"voice_padded_{i:03d}.wav"
         pad_seconds=max(0.0,clip_duration-speech_seconds)
         run([ffmpeg,"-y","-loglevel","error","-i",str(wav),"-af",f"apad=pad_dur={pad_seconds:.3f}",
              "-t",f"{clip_duration:.3f}","-ar","24000","-ac","1",str(padded_wav)])
-        clips.append(clip); audios.append(padded_wav)
-    concat=outdir/"clips.txt"; concat.write_text("".join(f"file '{x.as_posix()}'\n" for x in clips))
-    audio_list=outdir/"audio.txt"; audio_list.write_text("".join(f"file '{x.as_posix()}'\n" for x in audios))
+        ambience=sd/f"ambience_{i:03d}.wav"
+        synthesize_ambience(scene,ambience,clip_duration)
+        mixed=sd/f"mixed_audio_{i:03d}.wav"
+        run([ffmpeg,"-y","-loglevel","error","-i",str(padded_wav),"-i",str(ambience),
+             "-filter_complex","[0:a]volume=1.0[v];[1:a]volume=0.16[a];[v][a]amix=inputs=2:duration=first:dropout_transition=0[m]",
+             "-map","[m]","-ar","24000","-ac","1",str(mixed)])
+        clips.append(clip); audios.append(mixed)
+    concat=outdir/"clips.txt"; concat.write_text("".join(f"file '{x.resolve().as_posix()}'\n" for x in clips))
+    audio_list=outdir/"audio.txt"; audio_list.write_text("".join(f"file '{x.resolve().as_posix()}'\n" for x in audios))
     silent=outdir/"silent.mp4"; voice=outdir/"voice.wav"; final=outdir/"final.mp4"
     run([ffmpeg,"-y","-loglevel","error","-f","concat","-safe","0","-i",str(concat),"-c","copy",str(silent)])
     run([ffmpeg,"-y","-loglevel","error","-f","concat","-safe","0","-i",str(audio_list),"-c:a","pcm_s16le",str(voice)])
     run([ffmpeg,"-y","-loglevel","error","-i",str(silent),"-i",str(voice),"-map","0:v","-map","1:a",
          "-c:v","copy","-af","apad","-c:a","aac","-b:a","192k","-shortest","-movflags","+faststart",str(final)])
     project["voice_engine"]=voice_engine
-    # Matching 16:9 thumbnail regardless of video aspect ratio
+    # Matching illustrated 16:9 thumbnail with the recurring character and a <=4-word headline.
     thumb=outdir/"thumbnail.jpg"
     thumb_im=Image.new("RGB",(1280,720),PAPER); td=ImageDraw.Draw(thumb_im)
-    draw_background(thumb_im,td,0,0)
-    td.rectangle((40,470,1240,675),fill=(28,30,27),outline=(192,174,137),width=4)
-    title=project.get("title","STICKMAN EXPLAINER")
-    lines=textwrap.wrap(title,width=34)[:3]
-    td.multiline_text((75,500),"\n".join(lines),font=font(48,True),fill=(244,237,218),spacing=8)
+    first_scene=project.get("scenes",[{}])[0]
+    draw_background(thumb_im,td,0,0,first_scene)
+    name=(first_scene.get("characters") or ["Narrator"])[0]
+    color=project.get("characters",{}).get(name,{}).get("color","#34465a")
+    rgb=tuple(int(color[k:k+2],16) for k in (1,3,5))
+    draw_person(td,330,500,1.0,rgb,0,0,name,"observe")
+    words=re.findall(r"[A-Za-z0-9']+",project.get("thumbnail_headline",project.get("title","STICKMAN STORY")).upper())[:4]
+    headline=" ".join(words) or "STICKMAN STORY"
+    td.rounded_rectangle((590,190,1225,555),radius=18,fill=(30,32,29),outline=(192,174,137),width=5)
+    lines=textwrap.wrap(headline,width=12)[:3]
+    td.multiline_text((640,260),"\n".join(lines),font=font(76,True),fill=(244,237,218),spacing=8,stroke_width=1,stroke_fill=INK)
     thumb_im.save(thumb,quality=92)
     project["thumbnail_path"]=str(thumb)
     return final

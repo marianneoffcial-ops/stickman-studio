@@ -3,21 +3,27 @@ from pathlib import Path
 from fastapi import FastAPI,HTTPException
 from fastapi.responses import HTMLResponse,FileResponse
 from pydantic import BaseModel,Field
-from app.story import make_project,parse_production_brief
+from app.story import IDEAS,make_project,parse_production_brief
+from app.research import research_topic
 from worker.render import render_project
 
 DATA=Path(os.getenv("DATA_DIR","/data"))
 PROJECTS=DATA/"projects"
 PROJECTS.mkdir(parents=True,exist_ok=True)
 JOBS={}
-app=FastAPI(title="Stickman Studio AI",version="2.1.0")
+app=FastAPI(title="Stickman Studio AI",version="3.0.0")
 
 class Request(BaseModel):
  topic:str=Field(min_length=3,max_length=500)
  duration_seconds:int=Field(default=60,ge=15,le=int(os.getenv("MAX_VIDEO_SECONDS","600")))
- aspect_ratio:str=Field(default="16:9",pattern=r"^(16:9|9:16|1:1)$")
+ aspect_ratio:str=Field(default="16:9",pattern=r"^\d{1,2}:\d{1,2}$")
  narration_script:str=Field(default="",max_length=30000)
  storyboard:str=Field(default="",max_length=16000)
+ research_sources:list[dict]=Field(default_factory=list,max_length=12)
+
+class ResearchRequest(BaseModel):
+ topic:str=Field(min_length=3,max_length=500)
+ duration_seconds:int=Field(ge=15,le=int(os.getenv("MAX_VIDEO_SECONDS","600")))
 
 class ProductionRequest(BaseModel):
  production_brief:str=Field(min_length=100,max_length=60000)
@@ -61,11 +67,41 @@ def home():
 @app.get("/health")
 def health():
  return {"status":"ok","renderer":"hand-inked-2d-vector-motion-comic","gpu_required":False,
-         "script_and_storyboard_supported":True,"two_format_brief_parser":True}
+         "script_and_storyboard_supported":True,"free_research":"Wikipedia API","eight_step_workflow":True}
+
+@app.get("/api/ideas")
+def ideas():
+ categories = {
+  "history": {"The Lost City of Pompeii","The Great Fire of London","The Great Stink of 1858","The First Transatlantic Telegraph Cable","The Panama Canal","The Great Library of Alexandria","The Race to Decode the Rosetta Stone","The Great Emu War"},
+  "documentary": {"The Race to Reach the South Pole","The Franklin Expedition","The 1904 Olympic Marathon","The 1952 Great Smog of London","The Chilean Miners Rescue","The 1906 San Francisco Earthquake","The 1969 Moon Landing","The Apollo 13 Rescue"},
+  "true crime": {"The Great Escape from Alcatraz","The Man Who Sold the Eiffel Tower","The Mystery of D. B. Cooper","The Great Train Robbery of 1963","The Isabella Stewart Gardner Museum Heist","The Han van Meegeren Art Forgery"},
+  "remarkable true events": {"The Great Molasses Flood of 1919","The Cuban Missile Crisis Officer","The 1914 Christmas Truce","Operation Mincemeat","The Tunguska Event","The 1972 Andes Flight Disaster","The Great Canadian Maple Syrup Heist"}
+ }
+ result=[]
+ for title,hook in IDEAS:
+  category=next((name for name,items in categories.items() if title in items),"history")
+  result.append({"title":title,"hook":hook,"category":category})
+ return {"ideas":result}
+
+@app.post("/api/research")
+def research(req:ResearchRequest):
+ try:
+  return research_topic(req.topic,req.duration_seconds)
+ except ValueError as e:
+  raise HTTPException(422,str(e))
+ except Exception as e:
+  raise HTTPException(503,"Free research source unavailable. Please retry later. "+str(e)[:300])
+
+@app.post("/api/prepare")
+def prepare(req:Request):
+ p=make_project(req.topic,req.duration_seconds,req.aspect_ratio,req.narration_script,req.storyboard)
+ p["research_sources"]=req.research_sources
+ return {"project":p}
 
 @app.post("/api/projects")
 def create(req:Request):
  p=make_project(req.topic,req.duration_seconds,req.aspect_ratio,req.narration_script,req.storyboard)
+ p["research_sources"]=req.research_sources
  job=queue_project(p)
  return {"project":p,"job":job}
 
@@ -85,10 +121,11 @@ def create_production(req:ProductionRequest):
  long=make_project(topic,600,"16:9",parsed["long_script"],parsed["long_storyboard"])
  short_job=queue_project(short)
  long_job=queue_project(long)
- return {"topic":topic,"short":{"project_id":short["project_id"],"scene_count":short["scene_count"],
-          "script_word_count":short["script_word_count"],"storyboard_anchor_count":short["storyboard_anchor_count"],"job":short_job},
+ return {"topic":topic,
+         "short":{"project_id":short["project_id"],"scene_count":short["scene_count"],
+                  "script_word_count":short["script_word_count"],"storyboard_anchor_count":short["storyboard_anchor_count"],"job":short_job},
          "long":{"project_id":long["project_id"],"scene_count":long["scene_count"],
-          "script_word_count":long["script_word_count"],"storyboard_anchor_count":long["storyboard_anchor_count"],"job":long_job}}
+                 "script_word_count":long["script_word_count"],"storyboard_anchor_count":long["storyboard_anchor_count"],"job":long_job}}
 
 @app.get("/api/projects/{project_id}/thumbnail")
 def thumbnail(project_id):

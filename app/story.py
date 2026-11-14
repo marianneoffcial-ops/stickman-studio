@@ -1,12 +1,11 @@
 import math, re, uuid
 
 HOUSE_STYLE = ("Hand-inked 2D illustrated animation with thick slightly rough black ink outlines of varying weight. "
-"Characters are simple stick figures with large perfectly round white heads, small solid black oval eyes, thin curved eyebrow strokes, "
-"a single simple curved line for the mouth, no nose, and a few loose ink strokes suggesting hair. Bodies are minimal with softly rounded "
-"shoulders and flat muted clothing in desaturated navy blue, brick red and olive. Backgrounds are flat hand-drawn illustrated environments "
-"in muted tan, sage, dusty grey and cream, outlined in the same black ink, with geometric architecture and sparse purposeful detail. "
-"Fine horizontal scanline and paper-grain texture, soft dark vignette, cinematic desaturated colour grade. "
-"No bright saturated colours, gradients, photorealism, 3D, anime or glossy digital finish.")
+"Characters are simple stick figures with a large perfectly round white head, small solid black oval eyes, thin curved eyebrow strokes, a single simple curved line for the mouth, no nose, and a few loose ink strokes suggesting hair across the top of the head. "
+"Bodies are minimal with softly rounded shoulders and flat muted clothing in desaturated colours such as navy blue, brick red and olive. "
+"Backgrounds are flat hand-drawn illustrated environments in a muted earthy palette of tan, sage, dusty grey and cream, outlined in the same black ink, with simple geometric architecture and sparse detail. "
+"A fine horizontal scanline and paper-grain texture overlays the entire frame, with a soft dark vignette at the edges. "
+"Cinematic desaturated colour grade, restrained and slightly melancholy, no bright saturated colours, no gradients, no photorealism, no 3D render, no anime, no glossy digital finish.")
 
 IDEAS = [
  ("The Great Molasses Flood of 1919","A Boston neighbourhood was overwhelmed by an extraordinary wave of molasses."),
@@ -18,7 +17,27 @@ IDEAS = [
  ("The 1914 Christmas Truce","Opposing soldiers briefly shared an extraordinary moment of peace."),
  ("The Great Emu War","Australia's campaign against crop-raiding emus became an unlikely historical episode."),
  ("The Mystery of D. B. Cooper","A hijacker parachuted from an aircraft and was never conclusively identified."),
- ("The Race to Reach the South Pole","Two expeditions crossed Antarctica in a dramatic race against time.")
+ ("The Race to Reach the South Pole","Two expeditions crossed Antarctica in a dramatic race against time."),
+ ("The Great Fire of London","A small bakery fire became a turning point in the city's history."),
+ ("The Franklin Expedition","Two ships vanished in the Arctic, leaving clues that took generations to uncover."),
+ ("The Great Stink of 1858","A summer heatwave exposed the crisis beneath London's streets."),
+ ("The First Transatlantic Telegraph Cable","A fragile cable briefly connected messages across an ocean."),
+ ("The Panama Canal","Engineers reshaped a narrow land bridge to connect two oceans."),
+ ("The Apollo 13 Rescue","A damaged spacecraft forced its crew and ground teams into an improvised survival plan."),
+ ("The 1904 Olympic Marathon","A chaotic race became one of the strangest episodes in Olympic history."),
+ ("The Great Train Robbery of 1963","Investigators followed a trail of clues after a carefully planned railway heist."),
+ ("The Isabella Stewart Gardner Museum Heist","Thieves stole priceless artworks that have never been recovered."),
+ ("Operation Mincemeat","A forged identity and planted papers helped misdirect wartime planners."),
+ ("The 1952 Great Smog of London","Several days of trapped pollution changed public health policy."),
+ ("The Chilean Miners Rescue","Thirty-three miners waited underground while an extraordinary rescue operation took shape."),
+ ("The Tunguska Event","A vast Siberian forest was flattened by an explosion in the sky."),
+ ("The 1969 Moon Landing","A small crew carried out a carefully planned journey to another world."),
+ ("The Great Canadian Maple Syrup Heist","Millions of dollars in maple syrup vanished from a strategic reserve."),
+ ("The Han van Meegeren Art Forgery","A painter fooled experts with convincingly forged old-master works."),
+ ("The Great Library of Alexandria","The library's long history is more complicated than the famous legend."),
+ ("The 1906 San Francisco Earthquake","A major earthquake transformed the city and its rebuilding."),
+ ("The 1972 Andes Flight Disaster","Survivors faced an extreme high-altitude ordeal and a difficult rescue."),
+ ("The Race to Decode the Rosetta Stone","Scholars used one ancient inscription to unlock a lost writing system.")
 ]
 
 CHARACTERS = {
@@ -128,6 +147,34 @@ def parse_production_brief(brief):
         "long_anchor_count": len(long_anchors)
     }
 
+def _scene_action(visual, index):
+    v=(visual or "").lower()
+    rules=[
+      (("walk","walking","approaches","crossing","crosses","steps","moves across","travels"),"walk"),
+      (("point","points","signals"),"point"),
+      (("study","studies","examines","reads","inspects"),"study"),
+      (("turn","turns","looks back","faces away"),"turn"),
+      (("gesture","gestures","addresses","raises a hand"),"gesture"),
+      (("present","presents","opens","places","holds up"),"present"),
+      (("watch","watches","observes","looks toward","looks down","stares"),"observe")
+    ]
+    for words,action in rules:
+        if any(word in v for word in words): return action
+    return ("observe","walk","study","turn","gesture","point")[index%6]
+
+def _lead_for_topic(topic):
+    t=(topic or "").lower()
+    if any(k in t for k in ("ship","mary celeste","sea","captain")): return "Merchant"
+    if any(k in t for k in ("mansa","musa","sahara","caravan","desert")): return "Traveler"
+    if any(k in t for k in ("1914","christmas truce","soldier","war")): return "Witness"
+    if any(k in t for k in ("alcatraz","prison","escape","cooper","hijack")): return "Official"
+    if any(k in t for k in ("pompeii","rome","emperor","ancient")): return "Scholar"
+    return "Narrator"
+
+def _locked_character_block(role):
+    costume=CHARACTERS.get(role,CHARACTERS["Narrator"])["costume"]
+    return ("One recurring simple stick figure with a large perfectly round white head, small solid black oval eyes, thin curved eyebrow strokes, one simple curved mouth, no nose, and a few loose ink hair strokes; minimal softly rounded body, wearing exactly a "+costume+", with simple dark footwear and no changing accessories or proportions.")
+
 def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=None, storyboard=None):
     topic = re.sub(r"\s+", " ", (topic or "Untitled story")).strip()[:500]
     duration = int(duration_seconds)
@@ -135,6 +182,8 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
     script = (narration_script or "").strip()
     anchors = [x.strip() for x in (storyboard or "").splitlines() if x.strip()]
     chunks = _chunk_script(script, count)
+    lead = _lead_for_topic(topic)
+    locked = _locked_character_block(lead)
     scenes = []
     for i in range(count):
         anchor = anchors[min(len(anchors)-1, int(i * len(anchors) / count))] if anchors else ""
@@ -146,38 +195,73 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
         if not visual:
             visual = f"Distinct story beat about {topic}; show a new action, location or meaningful object."
         camera = CAMERAS[i % len(CAMERAS)]
+        action = _scene_action(visual, i)
         title = re.sub(r"^.*?shot of ", "", visual, flags=re.I)[:52].strip(" .,:;") or f"Scene {i+1:03d}"
-        if "mansa" in topic.lower() or "musa" in topic.lower():
-            v=visual.lower()
-            if any(k in v for k in ("emperor","king","crowned","throne","sovereign","royal figure")):
-                role="Emperor"
-            elif any(k in v for k in ("herald","staff","banner","attendant")):
-                role="Herald"
-            elif any(k in v for k in ("merchant","market","bazaar","coins","gold")):
-                role="Merchant"
-            elif any(k in v for k in ("architect","mosque","builder","construction")):
-                role="Architect"
-            elif any(k in v for k in ("scholar","map","atlas","library","parchment")):
-                role="Scholar"
-            else:
-                role="Traveler"
-            scene_characters=[role]
-        else:
-            scene_characters=["Narrator","Witness","Merchant"][i % 3:i % 3+1]
+        visual_prompt = (
+            f"This is a {min(4, duration-i*4)}-second hand-inked 2D animated clip in {aspect_ratio}. "
+            f"{locked} Background and story action: {visual}. Shot composition: {camera}. "
+            f"One clear action: {action}. {HOUSE_STYLE} "
+            "Visual safety: use generic people and places only; no real named people, flags, insignia, logos, violence, injury, death, blood or weapons being fired; "
+            "use restrained objects, empty spaces, distant silhouettes or aftermath. "
+            "Audio is diegetic ambient sound only — no voice, no narration, no dialogue, no music. "
+            "Only the sounds present in the scene such as wind, footsteps, distant rumble, rain, machinery or room tone. "
+            "The camera stays locked or moves only in a very slow push; the character design, clothing and proportions never change; "
+            "the texture overlay and vignette stay consistent; no glitching, no warping, no morphing, no flickering, no extra limbs, no duplicate characters, "
+            "no unintended characters, no on-screen text, no subtitles and no watermark."
+        )
         scenes.append({
             "scene_id": f"scene_{i+1:03d}", "title": title, "duration": min(4, duration-i*4),
-            "narration": narration, "visual": visual,
-            "visual_prompt": f"{HOUSE_STYLE}\nStory context: {topic}.\nShot: {visual}.\nCamera: {camera}. Keep every frame readable and story-specific.",
-            "camera": camera, "characters": scene_characters,
-            "action": ["walk","look","study","turn","point","gesture","observe","present"][i % 8]
+            "narration": narration, "visual": visual, "visual_prompt": visual_prompt,
+            "camera": camera, "characters": [lead], "action": action
         })
+    final_duration = duration - 4*(count-1)
+    character_sheet_prompt = (
+        f"Create one character sheet in {aspect_ratio} on a plain flat neutral background, with no environments or scenery. "
+        "Top row: the recurring character in front, three-quarter, side and back full-body views, evenly spaced. "
+        "Middle row: five head-only expressions labelled NEUTRAL, CONCERNED, SURPRISED, WEARY and RESOLVED. "
+        "Bottom row: five full-body poses labelled STANDING, WALKING, SITTING, LOOKING UP and TURNING AWAY. "
+        f"Character design: {locked} {HOUSE_STYLE} "
+        "Plain flat neutral background throughout, no scenery, no props beyond what the character wears or carries, no text beyond row and pose labels, no watermark, no logos, no additional characters."
+    )
+    topic_key = topic.lower()
+    headline_rules = [
+        (("mary celeste", "empty ship"), "THE EMPTY SHIP"),
+        (("cooper", "parachute"), "THE SKY MYSTERY"),
+        (("alcatraz", "prison escape"), "THE GREAT ESCAPE"),
+        (("molasses",), "THE STICKY FLOOD"),
+        (("pompeii",), "A CITY PRESERVED"),
+        (("christmas truce",), "A MOMENT OF PEACE"),
+        (("south pole", "antarctic"), "RACE TO THE POLE"),
+        (("eiffel tower",), "THE IMPOSSIBLE SALE"),
+        (("tunguska",), "THE SKY EXPLOSION"),
+    ]
+    thumbnail_headline = next((headline for keys,headline in headline_rules if any(k in topic_key for k in keys)), "THE UNTOLD STORY")
+    thumbnail_prompt = (
+        f"Create a 16:9 YouTube thumbnail for this real story. Use the short bold all-caps headline {thumbnail_headline!r}, no more than four words, expressing the story hook without naming a real person or specific atrocity location. Place the recurring character from this locked design on one side in an expressive pose: {locked} "
+        "Fill the rest with one simple illustrated story object, scene or landscape described generically. "
+        "Use a short bold all-caps headline of no more than four words, heavy condensed lettering, hard contrast and large simple shapes readable at 200 pixels wide. "
+        f"{HOUSE_STYLE} No small details that disappear at thumbnail size, no watermark, no logos."
+    )
+    last_full_scene = count if final_duration == 4 else count - 1
+    agent_instruction = (
+        f"You are generating {count} animated clips for one continuous film in {aspect_ratio}. "
+        "A character sheet is attached showing the recurring character in multiple views, expressions and poses; use it as the visual reference in every clip. "
+        f"Scenes 1 through {last_full_scene} are exactly 4 seconds each. "
+        f"If the final scene is shorter, generate Scene {count} at exactly {final_duration} seconds so the complete film reaches {duration} seconds. "
+        "Generate all clips autonomously, in order, without stopping or asking for confirmation. "
+        "The character, ink style, colour palette, texture overlay and vignette must stay identical across every clip."
+    )
     return {
       "project_id": str(uuid.uuid4()), "title": topic[:90].title(), "topic": topic,
       "duration_seconds": duration, "aspect_ratio": aspect_ratio, "language": "English",
-      "style": HOUSE_STYLE, "characters": CHARACTERS, "scenes": scenes,
+      "style": HOUSE_STYLE, "characters": CHARACTERS, "lead_character": lead,
+      "locked_character_block": locked, "character_sheet_prompt": character_sheet_prompt,
+      "animation_agent_instruction": agent_instruction, "thumbnail_prompt": thumbnail_prompt,
+      "thumbnail_headline": thumbnail_headline,
+      "scenes": scenes, "animation_prompts": [scene["visual_prompt"] for scene in scenes],
       "status": "queued", "scene_count": count, "thumbnail_path": None,
       "script_word_count": len(script.split()), "script_supplied": bool(script),
       "storyboard_anchor_count": len(anchors),
-      "quality_notice": ("Production brief supplied." if script and anchors else
-        "DRAFT ONLY: add a researched full narration script and storyboard before publishing.")
+      "quality_notice": ("Production brief supplied." if script and len(anchors) >= count else
+        "DRAFT ONLY: this output is not publish-ready until every scene has researched narration and its own visual prompt.")
     }
