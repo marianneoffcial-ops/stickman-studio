@@ -7,11 +7,11 @@ from app.story import make_project
 from worker.render import render_project
 DATA=Path(os.getenv("DATA_DIR","/data")); PROJECTS=DATA/"projects"; PROJECTS.mkdir(parents=True,exist_ok=True)
 JOBS={}
-app=FastAPI(title="Stickman Studio AI",version="1.0.0")
+app=FastAPI(title="Stickman Studio AI",version="2.0.0")
 class Request(BaseModel):
  topic:str=Field(min_length=3,max_length=500)
  duration_seconds:int=Field(default=60,ge=15,le=int(os.getenv("MAX_VIDEO_SECONDS","600")))
- aspect_ratio:str=Field(default="16:9",pattern=r"^16:9$")
+ aspect_ratio:str=Field(default="16:9",pattern=r"^(16:9|9:16|1:1)$")
 def save(path,obj): path.write_text(json.dumps(obj,ensure_ascii=False,indent=2),encoding="utf-8")
 def work(job_id,project):
  job=JOBS[job_id]; job["status"]="rendering"
