@@ -185,9 +185,21 @@ def contains_any(text, terms):
                for term in terms)
 
 
-def draw_background(im,d,index,phase,scene=None):
+def draw_background(im,d,index,phase,scene=None,closeup=False):
     w,h=im.size; base=PALETTE[index%len(PALETTE)]
     im.paste(base,(0,0,w,h))
+    if closeup:
+        # Object close-ups use a quiet illustrated tabletop/paper stage rather than
+        # repeating the full landscape, buildings and secondary story props.
+        d.rectangle((0,h*.64,w,h),fill=(177,166,142))
+        d.line((0,h*.64,w,h*.64),fill=(83,78,67),width=max(2,int(w*.002)))
+        d.line((0,h*.665,w,h*.665),fill=(207,195,169),width=max(1,int(w*.001)))
+        # Sparse hand-drawn grain marks keep the surface tactile but uncluttered.
+        rng=random.Random(index+4401)
+        for _ in range(max(18,w//35)):
+            x=rng.randrange(w); y=rng.randrange(int(h*.68),h)
+            d.line((x,y,x+rng.randrange(4,18),y-rng.randrange(0,3)),fill=(145,133,111),width=1)
+        return
     horizon=int(h*.69)
     # distant layered hills and architecture
     d.polygon([(0,horizon),(w*.16,h*.42),(w*.31,horizon),(w*.5,h*.35),(w*.68,horizon),(w*.86,h*.46),(w,horizon),(w,h),(0,h)],fill=(133,139,124),outline=INK,width=4)
@@ -760,11 +772,17 @@ def draw_frame(scene,project,frame,total_frames,out):
     w,h=int(round(output_w*render_scale)),int(round(output_h*render_scale))
     im=Image.new("RGB",(w,h),PAPER); d=ImageDraw.Draw(im)
     phase=2*math.pi*frame/max(1,total_frames)
-    draw_background(im,d,int(scene.get("scene_index",0)),phase,scene)
-    draw_story_details(im,d,int(scene.get("scene_index",0)),phase,scene)
+    camera=(scene.get("camera","") or "").lower()
+    closeup="close-up" in camera
+    draw_background(im,d,int(scene.get("scene_index",0)),phase,scene,closeup=closeup)
+    if closeup:
+        # Render only the focal prop on this clean stage; drawing the full scene
+        # details as well creates duplicate, overlapping versions of the same object.
+        draw_primary_story_prop(d,w,h,story_prop_kind(scene_description(scene)),phase)
+    else:
+        draw_story_details(im,d,int(scene.get("scene_index",0)),phase,scene)
     prompt=scene_description(scene)
     draw_atmosphere(d,scene,frame,total_frames,w,h)
-    camera=(scene.get("camera","") or "").lower()
     # Framing follows the output orientation and the semantic shot selected
     # by the storyboard engine; portrait figures stay readable without clipping.
     scale,x_fraction,y_fraction=scene_composition(w,h,camera,frame,total_frames)
