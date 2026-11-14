@@ -172,5 +172,17 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertEqual(video["r_frame_rate"], "24/1")
 
 
+    def test_walk_cycle_adds_subtle_upper_body_bounce(self):
+        from worker.render import draw_person
+        low = Image.new("RGB", (240, 300), (220, 211, 190))
+        high = Image.new("RGB", (240, 300), (220, 211, 190))
+        draw_person(ImageDraw.Draw(low), 120, 250, .55, (52,70,90), 0.0,
+                    role="Narrator", action="walk")
+        draw_person(ImageDraw.Draw(high), 120, 250, .55, (52,70,90), 0.78539816339,
+                    role="Narrator", action="walk")
+        self.assertNotEqual(list(low.crop((65, 35, 175, 155)).getdata()),
+                            list(high.crop((65, 35, 175, 155)).getdata()))
+
+
 if __name__ == "__main__":
     unittest.main()
