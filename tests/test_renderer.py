@@ -9,6 +9,13 @@ from worker.render import render_project, dimensions, draw_frame, character_scal
 
 
 class RenderSmokeTests(unittest.TestCase):
+    def test_mixed_transport_keywords_choose_one_consistent_visual_motif(self):
+        from worker.render import scene_transport_kind
+        self.assertEqual(scene_transport_kind("A ship crosses the sea beside a railway train"), "sea")
+        self.assertEqual(scene_transport_kind("A locomotive travels through a mountain pass"), "rail")
+        self.assertEqual(scene_transport_kind("An aircraft flies over the coast"), "sea")
+        self.assertEqual(scene_transport_kind("A quiet archive interior"), "none")
+
     def test_custom_aspect_ratio_is_preserved(self):
         width, height = dimensions("4:5")
         self.assertEqual(width / height, 4 / 5)
