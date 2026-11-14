@@ -53,6 +53,8 @@ class StoryTimingTests(unittest.TestCase):
         self.assertEqual(_scene_expression("After years of waiting, they were exhausted.", "", 0), "weary")
         self.assertEqual(_scene_expression("The team finally resolved to rebuild.", "", 0), "resolved")
         self.assertEqual(_scene_expression("A quiet ordinary morning.", "", 0), "neutral")
+        self.assertEqual(_scene_expression("The village opened its doors at sunrise.", "", 1), "neutral")
+        self.assertEqual(_scene_expression("The river passed beneath the old bridge.", "", 3), "neutral")
 
     def test_scene_expression_is_attached_to_every_rendered_beat(self):
         project = make_project("A test story", 8, "16:9",
