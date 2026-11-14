@@ -159,6 +159,10 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertTrue(output.exists())
         self.assertGreater(output.stat().st_size, 2048)
         self.assertTrue((output_dir / "thumbnail.jpg").exists())
+        # Successful renders retain only the deliverables, not bulky intermediates.
+        self.assertFalse((output_dir / "scenes").exists())
+        for temporary in ("clips.txt", "audio.txt", "silent.mp4", "voice.wav"):
+            self.assertFalse((output_dir / temporary).exists(), temporary)
         with Image.open(output_dir / "thumbnail.jpg") as thumbnail:
             self.assertEqual(thumbnail.size, (1280, 720))
             self.assertEqual(thumbnail.format, "JPEG")
