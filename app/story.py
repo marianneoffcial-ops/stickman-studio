@@ -223,9 +223,21 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
         f"Character design: {locked} {HOUSE_STYLE} "
         "Plain flat neutral background throughout, no scenery, no props beyond what the character wears or carries, no text beyond row and pose labels, no watermark, no logos, no additional characters."
     )
-    thumbnail_headline = " ".join(re.findall(r"[A-Za-z0-9']+", (script.split(".")[0] if script else topic).upper())[:4]) or "THE UNTOLD STORY"
+    topic_key = topic.lower()
+    headline_rules = [
+        (("mary celeste", "empty ship"), "THE EMPTY SHIP"),
+        (("cooper", "parachute"), "THE SKY MYSTERY"),
+        (("alcatraz", "prison escape"), "THE GREAT ESCAPE"),
+        (("molasses",), "THE STICKY FLOOD"),
+        (("pompeii",), "A CITY PRESERVED"),
+        (("christmas truce",), "A MOMENT OF PEACE"),
+        (("south pole", "antarctic"), "RACE TO THE POLE"),
+        (("eiffel tower",), "THE IMPOSSIBLE SALE"),
+        (("tunguska",), "THE SKY EXPLOSION"),
+    ]
+    thumbnail_headline = next((headline for keys,headline in headline_rules if any(k in topic_key for k in keys)), "THE UNTOLD STORY")
     thumbnail_prompt = (
-        f"Create a 16:9 YouTube thumbnail for {topic}. Use the short bold all-caps headline {thumbnail_headline!r}, no more than four words, pulled from the story hook. Place the recurring character from this locked design on one side in an expressive pose: {locked} "
+        f"Create a 16:9 YouTube thumbnail for this real story. Use the short bold all-caps headline {thumbnail_headline!r}, no more than four words, expressing the story hook without naming a real person or specific atrocity location. Place the recurring character from this locked design on one side in an expressive pose: {locked} "
         "Fill the rest with one simple illustrated story object, scene or landscape described generically. "
         "Use a short bold all-caps headline of no more than four words, heavy condensed lettering, hard contrast and large simple shapes readable at 200 pixels wide. "
         f"{HOUSE_STYLE} No small details that disappear at thumbnail size, no watermark, no logos."
