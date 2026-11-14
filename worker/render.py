@@ -585,6 +585,41 @@ def scene_composition(width,height,camera="",frame=0,total_frames=1):
     return scale,x_fraction,y_fraction
 
 
+def camera_crop_box(width,height,camera="",frame=0,total_frames=1):
+    """Return a gentle per-frame camera crop for restrained cinematic movement."""
+    camera=(camera or "").lower()
+    progress=max(0.0,min(1.0,frame/max(1,total_frames-1)))
+    zoom=1.0
+    pan_x=0.0
+    pan_y=0.0
+    if "close-up" in camera:
+        zoom=1.015+0.012*progress
+    elif "wide establishing" in camera:
+        zoom=1.0+0.035*progress
+    elif "side-on tracking" in camera:
+        zoom=1.025
+        pan_x=-0.035+0.07*progress
+    elif "overhead" in camera:
+        zoom=1.018
+        pan_x=0.012*math.sin(progress*math.pi*2)
+        pan_y=-0.008*progress
+    elif "low-angle" in camera:
+        zoom=1.0+0.025*progress
+        pan_y=-0.012*progress
+    elif "interior" in camera:
+        zoom=1.0+0.018*progress
+    elif "wide silhouette" in camera:
+        zoom=1.0+0.012*progress
+    crop_w=width/zoom
+    crop_h=height/zoom
+    center_x=width*(.5+pan_x)
+    center_y=height*(.5+pan_y)
+    left=max(0.0,min(width-crop_w,center_x-crop_w/2))
+    top=max(0.0,min(height-crop_h,center_y-crop_h/2))
+    return (int(round(left)),int(round(top)),
+            int(round(left+crop_w)),int(round(top+crop_h)))
+
+
 def draw_frame(scene,project,frame,total_frames,out):
     # Draw above delivery resolution, then downsample once with Lanczos. This
     # smooths the hand-inked linework and small facial details without changing
@@ -636,6 +671,10 @@ def draw_frame(scene,project,frame,total_frames,out):
     vd.ellipse((-w*.12,-h*.12,w*1.12,h*1.12),fill=230)
     vign=vign.filter(ImageFilter.GaussianBlur(max(10,int(w*.07))))
     dark=Image.new("RGB",(w,h),(15,16,15)); im=Image.composite(im,dark,vign)
+    # A restrained crop animation gives each semantic shot camera movement
+    # without changing the requested output dimensions or requiring 3D/GPU tools.
+    crop=camera_crop_box(w,h,camera,frame,total_frames)
+    im=im.crop(crop).resize((w,h),Image.Resampling.LANCZOS)
     # Keep the public video dimensions unchanged; only the drawing pass is larger.
     im=im.resize((output_w,output_h),Image.Resampling.LANCZOS)
     im.save(out,quality=94)
