@@ -178,7 +178,9 @@ def _scene_expression(narration, visual, index=0):
     for terms,expression in rules:
         if any(term in text for term in terms):
             return expression
-    return ("neutral","concerned","resolved","weary")[index%4]
+    # Do not invent an emotion when the narration and visual beat are neutral.
+    # Semantic matches above remain responsible for expressive faces.
+    return "neutral"
 
 
 def _scene_camera(visual, index):
