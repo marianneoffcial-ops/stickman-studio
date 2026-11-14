@@ -80,7 +80,7 @@ def draw_background(im,d,index,phase):
         x=rng.randrange(w); y=rng.randrange(h)
         gd.point((x,y),fill=(30,28,22,rng.randrange(8,24)))
     for y in range(0,h,5): gd.line((0,y,w,y),fill=(30,28,22,12),width=1)
-    im=Image.alpha_composite(im.convert("RGBA"),grain).convert("RGB")
+    im.paste(Image.alpha_composite(im.convert("RGBA"),grain).convert("RGB"))
 def draw_frame(scene,project,frame,total_frames,out):
     w,h=dimensions(project.get("aspect_ratio","16:9"))
     im=Image.new("RGB",(w,h),PAPER); d=ImageDraw.Draw(im)
