@@ -163,14 +163,32 @@ def draw_frame(scene,project,frame,total_frames,out):
         for j in range(12):
             px=(rng.random()*w+frame*(.35+j*.025))%w; py=h*(.2+rng.random()*.55)
             d.ellipse((px,py,px+w*.012,py+h*.004),fill=(205,198,178))
-    scale=min(w/1280,h/720); names=scene.get("characters",["Narrator"])
-    positions=[.30,.52,.74] if w/h>1 else [.36,.66,.50]
+    camera=(scene.get("camera","") or "").lower()
+    scale=min(w/1280,h/720)*(1.0 if w/h>1 else .82)
+    x_fraction=.50; y_fraction=.70
+    if "close-up" in camera:
+        scale*=1.25; x_fraction=.52; y_fraction=.63
+    elif "wide silhouette" in camera:
+        scale*=.62; x_fraction=.76; y_fraction=.73
+    elif "wide establishing" in camera:
+        scale*=.78; x_fraction=.28; y_fraction=.73
+    elif "side-on tracking" in camera:
+        scale*=.88; x_fraction=.18+.64*(frame/max(1,total_frames-1)); y_fraction=.70
+    elif "overhead" in camera:
+        scale*=.72; x_fraction=.54; y_fraction=.72
+    elif "low-angle" in camera:
+        scale*=1.08; x_fraction=.52; y_fraction=.64
+    elif "interior" in camera:
+        scale*=.92; x_fraction=.50; y_fraction=.70
+    names=scene.get("characters",["Narrator"])
+    positions=[x_fraction] if len(names)==1 else ([.30,.52,.74] if w/h>1 else [.36,.66,.50])
     action=scene.get("action","idle")
     for j,name in enumerate(names[:3]):
-        drift=math.sin(phase*2+j)*w*.004; x=int(w*positions[j]+drift); y=int(h*.70)
+        drift=math.sin(phase*2+j)*w*.004
+        x=int(w*positions[j]+drift); y=int(h*y_fraction)
         color=project.get("characters",{}).get(name,{}).get("color","#34465a")
         rgb=tuple(int(color[k:k+2],16) for k in (1,3,5))
-        draw_person(d,x,y,scale*(1.0 if w/h>1 else .82),rgb,phase+j,int(scene.get("scene_index",0))%3,name,action)
+        draw_person(d,x,y,scale,rgb,phase+j,int(scene.get("scene_index",0))%3,name,action)
     # The brief prohibits burned-in titles, captions and subtitles.
     vign=Image.new("L",(w,h),0); vd=ImageDraw.Draw(vign)
     vd.ellipse((-w*.12,-h*.12,w*1.12,h*1.12),fill=230)
@@ -237,10 +255,21 @@ def render_project(project,outdir:Path):
         for f in range(frames): draw_frame(scene,project,f,frames,frames_dir/f"frame_{f:05d}.png")
         clip=sd/f"clip_{i:03d}.mp4"
         width,height=dimensions(project.get("aspect_ratio","16:9"))
-        camera_index=i%4
-        x_expr=["iw/2-(iw/zoom/2)","iw-iw/zoom","0","iw/2-(iw/zoom/2)"][camera_index]
-        y_expr=["ih/2-(ih/zoom/2)","ih/2-(ih/zoom/2)","ih/2-(ih/zoom/2)","0"][camera_index]
-        camera_filter=f"zoompan=z='min(zoom+0.0007,1.05)':x='{x_expr}':y='{y_expr}':d=2:s={width}x{height}:fps=24,format=yuv420p"
+        camera=(scene.get("camera","") or "").lower()
+        zoom_expr="min(zoom+0.0007,1.05)"
+        x_expr="iw/2-(iw/zoom/2)"
+        y_expr="ih/2-(ih/zoom/2)"
+        if "pull-back" in camera:
+            zoom_expr="max(1.05-on*0.0005,1.0)"
+        elif "close-up" in camera:
+            zoom_expr="min(1.0+on*0.0005,1.05)"
+        if "lateral pan" in camera or "tracking" in camera:
+            x_expr="min(iw-iw/zoom,max(0,iw/2-(iw/zoom/2)+on*0.22))"
+        elif "gentle pan" in camera:
+            x_expr="min(iw-iw/zoom,max(0,iw/2-(iw/zoom/2)-on*0.16))"
+        if "tilt upward" in camera:
+            y_expr="max(0,ih/2-(ih/zoom/2)-on*0.12)"
+        camera_filter=f"zoompan=z='{zoom_expr}':x='{x_expr}':y='{y_expr}':d=2:s={width}x{height}:fps=24,format=yuv420p"
         run([ffmpeg,"-y","-loglevel","error","-framerate",str(FPS),"-i",str(frames_dir/"frame_%05d.png"),
              "-vf",camera_filter,"-c:v","libx264","-preset","veryfast","-crf","19",str(clip)])
         shutil.rmtree(frames_dir,ignore_errors=True); gc.collect()
