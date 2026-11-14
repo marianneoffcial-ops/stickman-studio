@@ -60,16 +60,18 @@ def draw_person(d,x,y,scale,color,phase,pose=0,role='',action='idle',expression=
         elbows=[(cx-43*q,y-64*q),(cx+46*q,y-116*q)]
         hands=[(cx-54*q,y-34*q),(cx+76*q,y-129*q+4*q*sway)]
     elif action=='reveal':
-        # A discovery beat opens the stance and lifts one hand into the frame.
+        # The raised hand eases upward, holds, then settles instead of remaining static.
+        lift=(.5-.5*math.cos(phase))*7*q
         leg=3*q*sway
-        elbows=[(cx-43*q,y-66*q),(cx+38*q,y-121*q)]
-        hands=[(cx-55*q,y-34*q),(cx+43*q,y-163*q+5*q*sway)]
-        head_tilt-=3*q
+        elbows=[(cx-43*q,y-66*q),(cx+38*q,y-121*q-lift*.55)]
+        hands=[(cx-55*q,y-34*q),(cx+43*q,y-163*q-lift+5*q*sway)]
+        head_tilt-=3*q+math.sin(phase)*1.2*q
     elif action=='ponder':
-        # Thinking beats bring one hand toward the chin instead of repeating a generic pose.
+        # A restrained chin-touch and head tilt create a living thinking pose.
+        nod=math.sin(phase*1.5)*2.2*q
         leg=2*q*sway
-        elbows=[(cx-38*q,y-67*q),(cx+35*q,y-73*q)]
-        hands=[(cx-30*q,y-44*q),(cx+18*q,y-119*q+3*q*sway)]
+        elbows=[(cx-38*q,y-67*q),(cx+35*q,y-73*q+nod)]
+        hands=[(cx-30*q,y-44*q),(cx+18*q,y-119*q+nod+3*q*sway)]
         head_tilt+=5*q
     elif action in ('study','observe'):
         leg=2*q*sway
@@ -80,9 +82,16 @@ def draw_person(d,x,y,scale,color,phase,pose=0,role='',action='idle',expression=
         elbows=[(cx-43*q+5*q*sway,y-59*q),(cx+42*q-5*q*sway,y-68*q)]
         hands=[(cx-52*q+6*q*sway,y-18*q),(cx+48*q-6*q*sway,y-29*q)]
     elif action=='gesture':
+        # Alternating arm emphasis gives speeches a readable, gentle cadence.
+        emphasis=math.sin(phase*2)
         leg=4*q*sway
         elbows=[(cx-46*q,y-83*q+7*q*sway),(cx+46*q,y-80*q-7*q*sway)]
-        hands=[(cx-67*q,y-104*q+10*q*sway),(cx+68*q,y-101*q-10*q*sway)]
+        hands=[(cx-67*q,y-104*q+10*q*sway),(cx+68*q,y-101*q-10*q*sway-5*q*max(0,emphasis))]
+    elif action=='present':
+        reach=(.5-.5*math.cos(phase))*5*q
+        leg=3*q*sway
+        elbows=[(cx-43*q,y-64*q),(cx+46*q+reach,y-116*q)]
+        hands=[(cx-54*q,y-34*q),(cx+76*q+reach,y-129*q+4*q*sway)]
     else:
         leg=5*q*sway
         elbows=[(cx-40*q+5*q*sway,y-60*q),(cx+40*q-5*q*sway,y-60*q)]
@@ -628,6 +637,56 @@ def blend_scene_transition(previous,current,frame,transition_frames=3):
     return Image.blend(previous.convert("RGB"),current.convert("RGB"),progress)
 
 
+def atmosphere_particles(scene,frame,total_frames,width,height):
+    """Return deterministic, gently moving environmental particles for a story beat."""
+    prompt=(str(scene.get("visual",""))+" "+str(scene.get("title",""))+" "+str(scene.get("visual_prompt",""))).lower()
+    progress=max(0.0,frame/max(1,total_frames-1))
+    rng=random.Random(int(scene.get("scene_index",0))+41)
+    particles=[]
+    if any(k in prompt for k in ("snow","winter","ice","antarctic")):
+        kind="snow"; count=34
+    elif any(k in prompt for k in ("rain","storm","wet")):
+        kind="rain"; count=58
+    elif any(k in prompt for k in ("steam","factory","train","engine","smoke","fog")):
+        kind="steam"; count=18
+    elif any(k in prompt for k in ("wind","dust","desert","sea","ocean","ship")):
+        kind="dust"; count=16
+    else:
+        kind="dust"; count=8
+    for j in range(count):
+        base_x=rng.random()*width
+        base_y=rng.random()*height
+        if kind=="rain":
+            x=(base_x+progress*width*.16+j*17)%width
+            y=(base_y+progress*height*.65+j*11)%height
+        elif kind=="snow":
+            x=(base_x+math.sin(progress*math.pi*2+j)*width*.018)%width
+            y=(base_y+progress*height*.12+j*5)%height
+        elif kind=="steam":
+            x=(base_x+math.sin(progress*math.pi*2+j*.7)*width*.012)%width
+            y=(base_y-progress*height*.09-j*2)%height
+        else:
+            x=(base_x+progress*width*(.025+j*.001))%width
+            y=base_y+math.sin(progress*math.pi*2+j)*height*.012
+        particles.append((kind,int(x),int(y)))
+    return particles
+
+
+def draw_atmosphere(draw,scene,frame,total_frames,width,height):
+    """Draw restrained motion accents without adding expensive render dependencies."""
+    for kind,x,y in atmosphere_particles(scene,frame,total_frames,width,height):
+        if kind=="rain":
+            draw.line((x,y,x-width*.006,y+height*.018),fill=(111,121,116),width=max(1,int(width*.0015)))
+        elif kind=="snow":
+            radius=max(2,int(width*.0025))
+            draw.ellipse((x-radius,y-radius,x+radius,y+radius),fill=(239,235,220))
+        elif kind=="steam":
+            radius=max(3,int(width*.006))
+            draw.ellipse((x-radius,y-radius*.35,x+radius,y+radius*.35),fill=(194,190,174))
+        else:
+            draw.ellipse((x,y,x+width*.009,y+height*.0035),fill=(205,198,178))
+
+
 def draw_frame(scene,project,frame,total_frames,out):
     # Draw above delivery resolution, then downsample once with Lanczos. This
     # smooths the hand-inked linework and small facial details without changing
@@ -640,19 +699,7 @@ def draw_frame(scene,project,frame,total_frames,out):
     draw_background(im,d,int(scene.get("scene_index",0)),phase,scene)
     draw_story_details(im,d,int(scene.get("scene_index",0)),phase,scene)
     prompt=(scene.get("visual_prompt","")+" "+scene.get("visual","")+" "+scene.get("title","")).lower()
-    rng=random.Random(int(scene.get("scene_index",0))+41)
-    if any(k in prompt for k in ("snow","winter","ice","antarctic")):
-        for j in range(28):
-            px=(rng.random()*w+math.sin(phase+j)*w*.012)%w; py=(rng.random()*h+frame*1.8+j*7)%h
-            d.ellipse((px,py,px+max(2,w*.003),py+max(2,w*.003)),fill=(239,235,220))
-    elif any(k in prompt for k in ("rain","storm","wet")):
-        for j in range(55):
-            px=(rng.random()*w+j*17)%w; py=(rng.random()*h+frame*5+j*11)%h
-            d.line((px,py,px-w*.006,py+h*.018),fill=(111,121,116),width=max(1,int(w*.0015)))
-    elif any(k in prompt for k in ("wind","dust","desert","smoke","fog","sea","ocean")):
-        for j in range(12):
-            px=(rng.random()*w+frame*(.35+j*.025))%w; py=h*(.2+rng.random()*.55)
-            d.ellipse((px,py,px+w*.012,py+h*.004),fill=(205,198,178))
+    draw_atmosphere(d,scene,frame,total_frames,w,h)
     camera=(scene.get("camera","") or "").lower()
     # Framing follows the output orientation and the semantic shot selected
     # by the storyboard engine; portrait figures stay readable without clipping.
@@ -686,21 +733,36 @@ def draw_frame(scene,project,frame,total_frames,out):
     # Keep the public video dimensions unchanged; only the drawing pass is larger.
     im=im.resize((output_w,output_h),Image.Resampling.LANCZOS)
     im.save(out,quality=94)
+def ambience_profile(scene):
+    """Choose a restrained sound-bed profile from the illustrated environment."""
+    prompt=(str(scene.get("visual",""))+" "+str(scene.get("title",""))+" "+str(scene.get("visual_prompt",""))).lower()
+    if any(k in prompt for k in ("rain","storm","wet")): return (640,92,.62)
+    if any(k in prompt for k in ("sea","ocean","ship","harbour","port")): return (430,54,.72)
+    if any(k in prompt for k in ("wind","desert","snow","mountain","antarctic")): return (360,66,.58)
+    if any(k in prompt for k in ("machine","factory","engine","train","clock","workshop")): return (250,78,.42)
+    if any(k in prompt for k in ("library","archive","room","office","court","interior")): return (105,38,.25)
+    if any(k in prompt for k in ("market","street","crowd","city")): return (185,120,.30)
+    return (125,46,.30)
+
+
 def synthesize_ambience(scene,destination,duration):
-    """Create a quiet, non-musical diegetic bed using only Python's standard library."""
-    prompt=((scene.get("visual","")+" "+scene.get("title","")).lower())
-    if any(k in prompt for k in ("rain","storm","wet")): amp,freq=720,95
-    elif any(k in prompt for k in ("sea","ocean","ship","wind","desert","snow","mountain")): amp,freq=420,58
-    elif any(k in prompt for k in ("machine","factory","engine","train","clock")): amp,freq=260,82
-    else: amp,freq=130,44
+    """Create a softly shaped, non-musical ambient bed using only Python's standard library."""
+    amp,freq,noise_mix=ambience_profile(scene)
     rate=24000; count=max(1,int(rate*duration)); rng=random.Random(scene.get("scene_index",0)+701)
     samples=array("h")
+    fade=min(.32,max(.04,duration*.12))
     for i in range(count):
         t=i/rate
-        low=math.sin(2*math.pi*freq*t)*amp*.42
-        noise=rng.uniform(-1,1)*amp*.58
-        envelope=.72+.28*math.sin(2*math.pi*.17*t)
-        samples.append(int(max(-32767,min(32767,(low+noise)*envelope))))
+        # Slow amplitude movement avoids a flat synthetic drone.
+        swell=.78+.22*math.sin(2*math.pi*.11*t+0.4)
+        low=math.sin(2*math.pi*freq*t)*amp*.34
+        undertone=math.sin(2*math.pi*(freq*.47)*t+0.7)*amp*.12
+        noise=rng.uniform(-1,1)*amp*noise_mix
+        fade_in=min(1.0,t/fade)
+        fade_out=min(1.0,max(0.0,(duration-t)/fade))
+        envelope=min(fade_in,fade_out)*swell
+        sample=(low+undertone+noise)*envelope
+        samples.append(int(max(-32767,min(32767,sample))))
     with wave.open(str(destination),"wb") as wf:
         wf.setnchannels(1); wf.setsampwidth(2); wf.setframerate(rate); wf.writeframes(samples.tobytes())
 
