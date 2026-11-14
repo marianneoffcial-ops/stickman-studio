@@ -1,8 +1,8 @@
-import subprocess, shutil, math, textwrap, random, os
+import subprocess, shutil, math, textwrap, random, os, wave, re, gc
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
-FPS=8
+FPS=12
 INK=(29,30,27)
 PAPER=(220,211,190)
 PALETTE=[(204,194,170),(173,177,153),(166,169,164),(216,207,185),(151,158,145)]
@@ -37,7 +37,7 @@ def draw_person(d,x,y,scale,color,phase,pose=0):
     for a in arms: d.line(a,fill=INK,width=max(3,int(7*s)))
     d.line((x,y+104*s,x-28*s-swing,y+178*s),fill=INK,width=max(3,int(8*s)))
     d.line((x,y+104*s,x+28*s+swing,y+178*s),fill=INK,width=max(3,int(8*s)))
-def draw_background(im,d,index,phase):
+def draw_background(im,d,index,phase,scene=None):
     w,h=im.size; base=PALETTE[index%len(PALETTE)]
     im.paste(base,(0,0,w,h))
     horizon=int(h*.69)
@@ -45,7 +45,14 @@ def draw_background(im,d,index,phase):
     d.polygon([(0,horizon),(w*.16,h*.42),(w*.31,horizon),(w*.5,h*.35),(w*.68,horizon),(w*.86,h*.46),(w,horizon),(w,h),(0,h)],fill=(133,139,124),outline=INK,width=4)
     d.rectangle((0,horizon,w,h),fill=(184,176,151))
     # scene-specific landmark silhouettes
-    mode=index%6
+    prompt=((scene or {}).get('visual_prompt','')+' '+(scene or {}).get('visual','')+' '+(scene or {}).get('title','')).lower()
+    if any(k in prompt for k in ('ship','vessel','boat','ocean','sea','sail')): mode=2
+    elif any(k in prompt for k in ('library','archive','book','scholar','manuscript','document','ledger')): mode=3
+    elif any(k in prompt for k in ('map','atlas','chart','route','letter','close-up','close up')): mode=5
+    elif any(k in prompt for k in ('mosque','palace','temple','cathedral','monument','architecture')): mode=0
+    elif any(k in prompt for k in ('market','street','city','cairo','town','crowd')): mode=1
+    elif any(k in prompt for k in ('snow','ice','antarctic','winter','mountain','desert','sahara','dune')): mode=4
+    else: mode=index%6
     if mode==0: # old tower
         x=int(w*.72); bw=int(w*.13)
         d.rectangle((x,h*.25,x+bw,h*.73),fill=(157,151,132),outline=INK,width=5)
@@ -73,6 +80,31 @@ def draw_background(im,d,index,phase):
         d.rectangle((w*.61,h*.22,w*.88,h*.74),fill=(147,140,120),outline=INK,width=5)
         d.arc((w*.61,h*.15,w*.88,h*.48),180,360,fill=INK,width=5)
         d.rectangle((w*.70,h*.40,w*.79,h*.74),fill=(65,68,62),outline=INK,width=3)
+    # Distinct foreground props keyed to the actual storyboard description
+    if any(k in prompt for k in ('camel','caravan','desert','sahara','dune')):
+        for j in range(3):
+            cx=int(w*(.20+j*.25)); cy=int(h*.64)
+            d.ellipse((cx-24,cy-18,cx+28,cy+20),fill=(139,119,91),outline=INK,width=3)
+            d.arc((cx-8,cy-44,cx+24,cy+4),180,350,fill=INK,width=4)
+            d.line((cx+18,cy-12,cx+31,cy-35),fill=INK,width=3)
+    if any(k in prompt for k in ('map','atlas','chart','route')):
+        d.rounded_rectangle((w*.12,h*.27,w*.48,h*.58),radius=8,fill=(220,207,174),outline=INK,width=4)
+        for j in range(5): d.arc((w*(.16+j*.045),h*.31,w*(.31+j*.045),h*.54),20,250,fill=(112,103,82),width=2)
+        d.line((w*.18,h*.50,w*.40,h*.35),fill=(139,72,57),width=4)
+    if any(k in prompt for k in ('market','merchant','shop','gold','coin')):
+        for j in range(3):
+            xx=w*(.58+j*.11)
+            d.rectangle((xx,h*.49,xx+w*.075,h*.67),fill=(151,124,88),outline=INK,width=3)
+            d.arc((xx+4,h*.44,xx+w*.07,h*.57),180,360,fill=INK,width=3)
+    if any(k in prompt for k in ('mosque','palace','temple','monument')):
+        d.rectangle((w*.54,h*.43,w*.87,h*.70),fill=(184,171,145),outline=INK,width=4)
+        d.arc((w*.61,h*.29,w*.80,h*.56),180,360,fill=INK,width=4)
+        for xx in (.61,.70,.79): d.rectangle((w*xx,h*.53,w*(xx+.035),h*.70),fill=(72,72,65),outline=INK,width=2)
+    if any(k in prompt for k in ('snow','winter','ice','antarctic')):
+        rng_snow=random.Random(index+91)
+        for _ in range(35):
+            sx=rng_snow.randrange(w); sy=rng_snow.randrange(int(h*.62))
+            d.ellipse((sx,sy,sx+3,sy+3),fill=(238,234,219))
     # paper grain and scanlines
     grain=Image.new("RGBA",(w,h),(0,0,0,0)); gd=ImageDraw.Draw(grain)
     rng=random.Random(index+17)
@@ -85,13 +117,14 @@ def draw_frame(scene,project,frame,total_frames,out):
     w,h=dimensions(project.get("aspect_ratio","16:9"))
     im=Image.new("RGB",(w,h),PAPER); d=ImageDraw.Draw(im)
     phase=2*math.pi*frame/max(1,total_frames)
-    draw_background(im,d,int(scene.get("scene_index",0)),phase)
+    draw_background(im,d,int(scene.get("scene_index",0)),phase,scene)
     # camera framing adapts to portrait and square
     scale=min(w/1280,h/720)
     names=scene.get("characters",["Narrator"])
     positions=[.30,.52,.74] if w/h>1 else [.36,.66,.50]
     for j,name in enumerate(names[:3]):
-        x=int(w*positions[j]); y=int(h*.70)
+        drift=math.sin(phase*2+j)*w*.008
+        x=int(w*positions[j]+drift); y=int(h*.70)
         color=project.get("characters",{}).get(name,{}).get("color","#34465a")
         rgb=tuple(int(color[k:k+2],16) for k in (1,3,5))
         draw_person(d,x,y,scale*(1.0 if w/h>1 else .82),rgb,phase+j,int(scene.get("scene_index",0))%3)
@@ -130,14 +163,19 @@ def render_project(project,outdir:Path):
     voice_engine=None
     for i,scene in enumerate(project["scenes"]):
         scene["scene_index"]=i
-        duration=max(.5,float(scene["duration"])); frames=max(1,int(duration*FPS))
+        wav=sd/f"voice_{i:03d}.wav"
+        engine=synthesize_voice(scene["narration"],wav,ffmpeg); voice_engine=engine
+        with wave.open(str(wav),"rb") as wf:
+            speech_seconds=wf.getnframes()/float(wf.getframerate())
+        duration=max(.5,float(scene["duration"]),speech_seconds+0.12)
+        scene["duration"]=round(duration,3)
+        frames=max(1,int(math.ceil(duration*FPS)))
         frames_dir=sd/f"frames_{i:03d}"; frames_dir.mkdir(exist_ok=True)
         for f in range(frames): draw_frame(scene,project,f,frames,frames_dir/f"frame_{f:05d}.png")
         clip=sd/f"clip_{i:03d}.mp4"
         run([ffmpeg,"-y","-loglevel","error","-framerate",str(FPS),"-i",str(frames_dir/"frame_%05d.png"),
              "-vf","fps=24,format=yuv420p","-c:v","libx264","-preset","veryfast","-crf","19",str(clip)])
-        wav=sd/f"voice_{i:03d}.wav"
-        engine=synthesize_voice(scene["narration"],wav,ffmpeg); voice_engine=engine
+        shutil.rmtree(frames_dir,ignore_errors=True); gc.collect()
         clips.append(clip); audios.append(wav)
     concat=outdir/"clips.txt"; concat.write_text("".join(f"file '{x.as_posix()}'\n" for x in clips))
     audio_list=outdir/"audio.txt"; audio_list.write_text("".join(f"file '{x.as_posix()}'\n" for x in audios))
