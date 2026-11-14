@@ -214,5 +214,17 @@ class RenderSmokeTests(unittest.TestCase):
                             list(high.crop((65, 35, 175, 155)).getdata()))
 
 
+    def test_closeup_background_is_a_clean_object_stage_not_a_second_scene(self):
+        from worker.render import draw_background, PALETTE
+        image = Image.new("RGB", (640, 360), (0, 0, 0))
+        draw_background(image, ImageDraw.Draw(image), 0, 0.0,
+                        {"visual": "A letter on a desk in an archive"},
+                        closeup=True)
+        # The quiet upper field stays clear for the focal prop; the horizon is
+        # replaced by a single tabletop edge rather than a second set of props.
+        self.assertEqual(image.getpixel((320, 90)), PALETTE[0])
+        self.assertNotEqual(image.getpixel((320, 300)), PALETTE[0])
+
+
 if __name__ == "__main__":
     unittest.main()
