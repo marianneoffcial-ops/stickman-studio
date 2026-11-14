@@ -43,6 +43,15 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertAlmostEqual(x_fraction, .16)
         self.assertAlmostEqual(y_fraction, .82)
 
+    def test_story_prop_classifier_covers_distinct_objects(self):
+        from worker.render import story_prop_kind
+        self.assertEqual(story_prop_kind("a folded nautical chart"), "map")
+        self.assertEqual(story_prop_kind("a brass compass"), "compass")
+        self.assertEqual(story_prop_kind("a sealed paper letter"), "letter")
+        self.assertEqual(story_prop_kind("a hanging lantern"), "lantern")
+        self.assertEqual(story_prop_kind("a leather-bound journal"), "ledger")
+        self.assertEqual(story_prop_kind("a weathered telescope"), "telescope")
+
     def test_one_scene_produces_mp4_and_thumbnail(self):
         project = make_project(
             "A quiet boat crossing",
