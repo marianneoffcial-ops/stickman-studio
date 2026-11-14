@@ -143,6 +143,9 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertTrue(output.exists())
         self.assertGreater(output.stat().st_size, 2048)
         self.assertTrue((output_dir / "thumbnail.jpg").exists())
+        with Image.open(output_dir / "thumbnail.jpg") as thumbnail:
+            self.assertEqual(thumbnail.size, (1280, 720))
+            self.assertEqual(thumbnail.format, "JPEG")
         probe = subprocess.check_output([
             "ffprobe", "-v", "error", "-show_entries",
             "format=duration:stream=width,height,r_frame_rate,codec_type",
