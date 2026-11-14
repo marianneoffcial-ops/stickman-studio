@@ -188,14 +188,3 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
       "quality_notice": ("Production brief supplied." if script and len(anchors) >= count else
         "DRAFT ONLY: this output is not publish-ready until every scene has researched narration and its own visual prompt.")
     }
-
-    return {
-      "project_id": str(uuid.uuid4()), "title": topic[:90].title(), "topic": topic,
-      "duration_seconds": duration, "aspect_ratio": aspect_ratio, "language": "English",
-      "style": HOUSE_STYLE, "characters": CHARACTERS, "scenes": scenes,
-      "status": "queued", "scene_count": count, "thumbnail_path": None,
-      "script_word_count": len(script.split()), "script_supplied": bool(script),
-      "storyboard_anchor_count": len(anchors),
-      "quality_notice": ("Production brief supplied." if script and anchors else
-        "DRAFT ONLY: add a researched full narration script and storyboard before publishing.")
-    }
