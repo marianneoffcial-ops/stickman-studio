@@ -35,64 +35,147 @@ def _sentences(text):
 
 
 def _generic_scene(sentence, index):
-    value = sentence.lower()
-    if any(k in value for k in ("ship", "vessel", "sail", "ocean", "sea", "captain")):
-        setting = "a small merchant sailing vessel crossing a muted grey sea"
-        object_name = "a folded nautical chart"
-    elif any(k in value for k in ("prison", "cell", "escape", "jail", "guard")):
-        setting = "a quiet stone corridor with a closed iron gate"
-        object_name = "a small metal key"
-    elif any(k in value for k in ("train", "railway", "station", "carriage")):
-        setting = "an empty old railway platform at dusk"
-        object_name = "a station clock"
-    elif any(k in value for k in ("letter", "telegram", "message", "document", "paper")):
-        setting = "a spare old office with a wooden writing desk"
-        object_name = "a sealed paper letter"
-    elif any(k in value for k in ("map", "route", "journey", "travel", "expedition")):
-        setting = "a wide muted landscape with a winding distant road"
-        object_name = "a hand-drawn map"
-    elif any(k in value for k in ("court", "king", "queen", "emperor", "palace", "royal")):
-        setting = "a quiet historic hall with simple geometric columns"
-        object_name = "an empty ceremonial chair"
-    elif any(k in value for k in ("market", "trade", "merchant", "coin", "money", "business")):
-        setting = "a quiet old market street with simple stalls"
-        object_name = "a small stack of old coins"
-    elif any(k in value for k in ("storm", "rain", "flood", "water", "river")):
-        setting = "a restrained old city street beside a broad river"
-        object_name = "a floating wooden crate"
-    elif any(k in value for k in ("machine", "engine", "factory", "invention", "clock")):
-        setting = "a quiet workshop with a large hand-built mechanism"
-        object_name = "a slowly turning gear"
-    elif any(k in value for k in ("mountain", "snow", "ice", "antarctic", "desert", "sahara")):
-        setting = "a vast empty landscape beneath a pale overcast sky"
-        object_name = "a weathered travel satchel"
-    elif any(k in value for k in ("city", "street", "town", "building", "house")):
-        setting = "a muted historic city street with geometric buildings"
-        object_name = "a closed wooden doorway"
-    else:
-        settings = [
+    """Turn each researched narration beat into a distinct, safe visual setup."""
+    value = (sentence or "").lower()
+    stages = [
+        ("context", "establish the setting and the ordinary world before events changed"),
+        ("preparation", "show careful preparation around a table of simple tools and papers"),
+        ("journey", "show a measured journey through the environment with a clear sense of distance"),
+        ("discovery", "show a quiet discovery focused on one important object"),
+        ("decision", "show a small group considering a map or document around a table"),
+        ("turning point", "show the key object or place that changed the course of events"),
+        ("aftermath", "show the changed environment in a restrained, reflective composition"),
+        ("legacy", "show a preserved record or landmark that carries the story forward"),
+    ]
+    stage, stage_action = stages[index % len(stages)]
+    if any(k in value for k in ("discover", "found", "missing", "vanished", "empty", "mystery")):
+        stage, stage_action = "discovery", "show a quiet discovery focused on one important object"
+    elif any(k in value for k in ("decid", "plan", "agreement", "meeting", "official", "order")):
+        stage, stage_action = "decision", "show a small group considering a map or document around a table"
+    elif any(k in value for k in ("rescue", "return", "recover", "surviv", "rebuild", "aftermath")):
+        stage, stage_action = "aftermath", "show the changed environment in a restrained, reflective composition"
+    elif any(k in value for k in ("travel", "cross", "journey", "arriv", "expedition", "voyage")):
+        stage, stage_action = "journey", "show a measured journey through the environment with a clear sense of distance"
+
+    # Several visual locations and props per subject prevent a long film from
+    # repeating the same generic backdrop for every four-second beat.
+    domains = [
+        (("ship", "vessel", "sail", "ocean", "sea", "captain", "boat"),
+         [("a quiet harbour before departure", "a folded nautical chart"),
+          ("the open deck of a small merchant vessel", "a brass compass"),
+          ("a spare navigation cabin with a porthole", "a ship's logbook"),
+          ("a distant coastline beneath a pale sky", "a small signal lantern"),
+          ("an empty cabin with neatly arranged belongings", "a closed travel chest"),
+          ("a muted grey sea with a low horizon", "a weathered telescope")]),
+        (("prison", "cell", "escape", "jail", "guard", "alcatraz"),
+         [("a long stone corridor with repeating doorways", "a ring of old keys"),
+          ("a quiet cell with a narrow window", "a folded paper note"),
+          ("a plain workshop table under a high window", "a small hand tool"),
+          ("an empty exercise yard surrounded by distant walls", "a simple wall clock"),
+          ("a silent shoreline seen from far away", "a small wooden boat"),
+          ("an archive desk holding case records", "a thick evidence ledger")]),
+        (("train", "railway", "station", "carriage", "locomotive"),
+         [("an old railway platform before sunrise", "a station timetable"),
+          ("a quiet signal box overlooking the tracks", "a brass signal lever"),
+          ("the inside of an empty passenger carriage", "a pocket watch"),
+          ("a long railway line disappearing into mist", "a small route map"),
+          ("a station office with a wooden desk", "a bound railway ledger"),
+          ("a distant platform after the crowds have gone", "a folded newspaper")]),
+        (("letter", "telegram", "message", "document", "paper", "diary", "manuscript"),
+         [("a quiet office with a writing desk", "a sealed paper letter"),
+          ("an archive shelf filled with plain folders", "a bound record book"),
+          ("a close view of a desk beside a window", "a fountain pen and ink bottle"),
+          ("a small telegraph room with simple equipment", "a message slip"),
+          ("a reading table beneath a shaded lamp", "an open manuscript"),
+          ("a quiet records room with labelled drawers", "a closed document case")]),
+        (("map", "route", "journey", "travel", "expedition", "atlas"),
+         [("a wide muted landscape with a winding road", "a hand-drawn route map"),
+          ("a small planning room with a broad table", "a brass compass"),
+          ("a distant mountain pass beneath cloud", "a weathered travel satchel"),
+          ("a quiet campsite on an open plain", "a folded field map"),
+          ("a high viewpoint overlooking a long route", "a simple telescope"),
+          ("a records table with expedition notes", "a leather-bound journal")]),
+        (("court", "king", "queen", "emperor", "palace", "royal", "throne"),
+         [("a quiet historic hall with geometric columns", "an empty ceremonial chair"),
+          ("a private study with a large wooden desk", "a folded decree"),
+          ("a formal courtyard in muted morning light", "a simple heraldic-free seal"),
+          ("a treasury room with plain storage chests", "a small stack of old coins"),
+          ("a long audience chamber seen from the doorway", "a ceremonial staff"),
+          ("a quiet archive of historic records", "a bound royal ledger")]),
+        (("market", "trade", "merchant", "coin", "money", "business", "gold"),
+         [("a quiet old market street with simple stalls", "a small stack of old coins"),
+          ("a merchant's counting room", "a balance scale"),
+          ("a covered market at the start of the day", "a folded account ledger"),
+          ("a broad trade route through a muted landscape", "a loaded travel chest"),
+          ("a simple warehouse with timber shelves", "a sealed cargo crate"),
+          ("an archive desk with trade records", "a brass weight")]),
+        (("storm", "rain", "flood", "water", "river", "molasses"),
+         [("a quiet old city street beside a broad river", "a floating wooden crate"),
+          ("a riverside storehouse beneath heavy clouds", "a hanging lantern"),
+          ("a stone bridge above slow-moving water", "a folded town map"),
+          ("a muted street after the water has receded", "a water-marked ledger"),
+          ("a small office overlooking the river", "a simple measuring gauge"),
+          ("a wide river bend beneath a pale sky", "a moored wooden boat")]),
+        (("machine", "engine", "factory", "invention", "clock", "cable", "telegraph"),
+         [("a quiet workshop with a hand-built mechanism", "a large turning gear"),
+          ("a small control room with simple instruments", "a brass dial"),
+          ("a factory floor with distant machinery", "a set of mechanical plans"),
+          ("a workbench beneath a high window", "a metal measuring tool"),
+          ("a long cable route across an open landscape", "a simple signal insulator"),
+          ("an archive shelf holding technical drawings", "a rolled blueprint")]),
+        (("mountain", "snow", "ice", "antarctic", "desert", "sahara", "polar"),
+         [("a vast empty landscape beneath a pale overcast sky", "a weathered travel satchel"),
+          ("a small expedition camp in the distance", "a folded field map"),
+          ("a narrow trail between distant ridges", "a brass compass"),
+          ("a quiet shelter with a small table", "a simple pocket watch"),
+          ("a high viewpoint over an empty plain", "a signal lantern"),
+          ("a records table holding expedition notes", "a leather-bound journal")]),
+        (("city", "street", "town", "building", "house", "fire", "smog"),
+         [("a muted historic city street with geometric buildings", "a folded newspaper"),
+          ("a quiet civic office with tall windows", "a bound public record"),
+          ("a narrow street between old stone buildings", "a hanging street lantern"),
+          ("a rooftop view across the town", "a simple city map"),
+          ("a workshop where repairs are being planned", "a rolled architectural plan"),
+          ("a calm public square after the event", "a small memorial-free plaque")]),
+    ]
+    selected = next((items for terms, items in domains if any(k in value for k in terms)), None)
+    if selected is None:
+        selected = [
             ("a quiet archive with shelves of old books", "an open ledger"),
             ("a sparse room with a wooden table and one window", "a pocket watch"),
             ("a muted town square at early morning", "a folded newspaper"),
             ("a wide landscape with distant low hills", "a weathered travel bag"),
             ("a simple office with a tall window", "a sealed envelope"),
+            ("a workshop table beneath a shaded lamp", "a small brass instrument"),
         ]
-        setting, object_name = settings[index % len(settings)]
-    action = "the figure slowly turns toward the object"
-    if any(k in value for k in ("walk", "travel", "cross", "arrive", "journey")):
-        action = "the figure takes a few slow steps across the frame"
-    elif any(k in value for k in ("open", "opened", "door", "enter")):
-        action = "the figure slowly opens the closed door"
-    elif any(k in value for k in ("look", "watch", "see", "discover", "find")):
-        action = "the figure looks down at the object"
-    elif any(k in value for k in ("build", "built", "create", "invent", "construct")):
-        action = "the figure carefully places the object on the table"
-    return (
-        f"{setting}, early morning muted light, two or three simple inked details, "
-        f"{object_name} clearly visible, one generic stick figure in period-appropriate "
-        f"muted clothing; {action}. No named people or specific real locations."
-    )
+    setting, object_name = selected[index % len(selected)]
 
+    if stage == "journey":
+        action = "the figure takes a few slow steps through the setting"
+    elif stage == "discovery":
+        action = "the figure leans slightly toward the clearly visible object"
+    elif stage == "decision":
+        action = "two generic figures quietly consider the object together"
+    elif stage == "aftermath":
+        action = "the figure stands still, looking across the changed environment"
+    elif stage == "turning point":
+        action = "the figure carefully places one hand beside the important object"
+    elif stage == "legacy":
+        action = "the figure studies the preserved record in a calm archive"
+    elif any(k in value for k in ("build", "built", "create", "invent", "construct")):
+        action = "the figure carefully arranges the tools beside the object"
+    elif any(k in value for k in ("read", "study", "record", "write", "calculate")):
+        action = "the figure studies the object at the table"
+    else:
+        action = "the figure slowly turns toward the object"
+
+    return (
+        f"{setting}, {stage} in the story, {stage_action}; "
+        f"{object_name} clearly visible as the primary story prop on the right third of frame, "
+        f"one generic stick figure placed on the left third in period-appropriate muted clothing; "
+        f"{action}. Use a distinct camera composition and restrained early-morning light. "
+        "No named people, no flags, no insignia, no logos, no violence, no injury and no weapons."
+    )
 
 def research_topic(topic, duration_seconds):
     topic = re.sub(r"\s+", " ", (topic or "")).strip()
