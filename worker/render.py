@@ -59,6 +59,18 @@ def draw_person(d,x,y,scale,color,phase,pose=0,role='',action='idle',expression=
         leg=3*q*sway
         elbows=[(cx-43*q,y-64*q),(cx+46*q,y-116*q)]
         hands=[(cx-54*q,y-34*q),(cx+76*q,y-129*q+4*q*sway)]
+    elif action=='reveal':
+        # A discovery beat opens the stance and lifts one hand into the frame.
+        leg=3*q*sway
+        elbows=[(cx-43*q,y-66*q),(cx+38*q,y-121*q)]
+        hands=[(cx-55*q,y-34*q),(cx+43*q,y-163*q+5*q*sway)]
+        head_tilt-=3*q
+    elif action=='ponder':
+        # Thinking beats bring one hand toward the chin instead of repeating a generic pose.
+        leg=2*q*sway
+        elbows=[(cx-38*q,y-67*q),(cx+35*q,y-73*q)]
+        hands=[(cx-30*q,y-44*q),(cx+18*q,y-119*q+3*q*sway)]
+        head_tilt+=5*q
     elif action in ('study','observe'):
         leg=2*q*sway
         elbows=[(cx-36*q,y-68*q),(cx+36*q,y-68*q)]

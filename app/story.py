@@ -152,6 +152,8 @@ def _scene_action(visual, index):
     v=(visual or "").lower()
     rules=[
       (("walk","walking","approaches","crossing","crosses","steps","moves across","travels","journey","arrives"),"walk"),
+      (("astonishing","astonished","surprised","unexpected discovery","discovers","discovered","reveals","revealed","unveils"),"reveal"),
+      (("considers","considered","thinks","thinking","ponders","pondered","plans","planning","reflects","reflecting","weighs the options"),"ponder"),
       (("point","points","signals","indicates","marks"),"point"),
       (("study","studies","examines","reads","inspects","decodes","calculates","compares"),"study"),
       (("turn","turns","looks back","faces away","discovers","realizes","reveals"),"turn"),
