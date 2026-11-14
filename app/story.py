@@ -1,12 +1,11 @@
 import math, re, uuid
 
 HOUSE_STYLE = ("Hand-inked 2D illustrated animation with thick slightly rough black ink outlines of varying weight. "
-"Characters are simple stick figures with large perfectly round white heads, small solid black oval eyes, thin curved eyebrow strokes, "
-"a single simple curved line for the mouth, no nose, and a few loose ink strokes suggesting hair. Bodies are minimal with softly rounded "
-"shoulders and flat muted clothing in desaturated navy blue, brick red and olive. Backgrounds are flat hand-drawn illustrated environments "
-"in muted tan, sage, dusty grey and cream, outlined in the same black ink, with geometric architecture and sparse purposeful detail. "
-"Fine horizontal scanline and paper-grain texture, soft dark vignette, cinematic desaturated colour grade. "
-"No bright saturated colours, gradients, photorealism, 3D, anime or glossy digital finish.")
+"Characters are simple stick figures with a large perfectly round white head, small solid black oval eyes, thin curved eyebrow strokes, a single simple curved line for the mouth, no nose, and a few loose ink strokes suggesting hair across the top of the head. "
+"Bodies are minimal with softly rounded shoulders and flat muted clothing in desaturated colours such as navy blue, brick red and olive. "
+"Backgrounds are flat hand-drawn illustrated environments in a muted earthy palette of tan, sage, dusty grey and cream, outlined in the same black ink, with simple geometric architecture and sparse detail. "
+"A fine horizontal scanline and paper-grain texture overlays the entire frame, with a soft dark vignette at the edges. "
+"Cinematic desaturated colour grade, restrained and slightly melancholy, no bright saturated colours, no gradients, no photorealism, no 3D render, no anime, no glossy digital finish.")
 
 IDEAS = [
  ("The Great Molasses Flood of 1919","A Boston neighbourhood was overwhelmed by an extraordinary wave of molasses."),
@@ -128,6 +127,30 @@ def parse_production_brief(brief):
         "long_anchor_count": len(long_anchors)
     }
 
+def _scene_action(visual, index):
+    v=(visual or "").lower()
+    rules=[
+      (("walk","walking","approaches"),"walk"),
+      (("point","points","signals"),"point"),
+      (("study","studies","examines","reads","inspects"),"study"),
+      (("turn","turns","looks back","faces away"),"turn"),
+      (("gesture","gestures","addresses","raises a hand"),"gesture"),
+      (("present","presents","opens","places","holds up"),"present"),
+      (("watch","watches","observes","looks toward","stares"),"observe")
+    ]
+    for words,action in rules:
+        if any(word in v for word in words): return action
+    return ("observe","walk","study","turn","gesture","point")[index%6]
+
+def _lead_for_topic(topic):
+    t=(topic or "").lower()
+    if any(k in t for k in ("ship","mary celeste","sea","captain")): return "Merchant"
+    if any(k in t for k in ("mansa","musa","sahara","caravan","desert")): return "Traveler"
+    if any(k in t for k in ("1914","christmas truce","soldier","war")): return "Witness"
+    if any(k in t for k in ("alcatraz","prison","escape","cooper","hijack")): return "Official"
+    if any(k in t for k in ("pompeii","rome","emperor","ancient")): return "Scholar"
+    return "Lead"
+
 def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=None, storyboard=None):
     topic = re.sub(r"\s+", " ", (topic or "Untitled story")).strip()[:500]
     duration = int(duration_seconds)
@@ -135,6 +158,7 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
     script = (narration_script or "").strip()
     anchors = [x.strip() for x in (storyboard or "").splitlines() if x.strip()]
     chunks = _chunk_script(script, count)
+    lead = _lead_for_topic(topic)
     scenes = []
     for i in range(count):
         anchor = anchors[min(len(anchors)-1, int(i * len(anchors) / count))] if anchors else ""
@@ -147,30 +171,24 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
             visual = f"Distinct story beat about {topic}; show a new action, location or meaningful object."
         camera = CAMERAS[i % len(CAMERAS)]
         title = re.sub(r"^.*?shot of ", "", visual, flags=re.I)[:52].strip(" .,:;") or f"Scene {i+1:03d}"
-        if "mansa" in topic.lower() or "musa" in topic.lower():
-            v=visual.lower()
-            if any(k in v for k in ("emperor","king","crowned","throne","sovereign","royal figure")):
-                role="Emperor"
-            elif any(k in v for k in ("herald","staff","banner","attendant")):
-                role="Herald"
-            elif any(k in v for k in ("merchant","market","bazaar","coins","gold")):
-                role="Merchant"
-            elif any(k in v for k in ("architect","mosque","builder","construction")):
-                role="Architect"
-            elif any(k in v for k in ("scholar","map","atlas","library","parchment")):
-                role="Scholar"
-            else:
-                role="Traveler"
-            scene_characters=[role]
-        else:
-            scene_characters=["Narrator","Witness","Merchant"][i % 3:i % 3+1]
         scenes.append({
             "scene_id": f"scene_{i+1:03d}", "title": title, "duration": min(4, duration-i*4),
             "narration": narration, "visual": visual,
-            "visual_prompt": f"{HOUSE_STYLE}\nStory context: {topic}.\nShot: {visual}.\nCamera: {camera}. Keep every frame readable and story-specific.",
-            "camera": camera, "characters": scene_characters,
-            "action": ["walk","look","study","turn","point","gesture","observe","present"][i % 8]
+            "visual_prompt": f"{visual}\n{HOUSE_STYLE}\nVisual safety: use generic people and places only; no real named person, flags, insignia, logos, violence, injury, death, blood, or weapons being fired. Show events through restrained objects, empty spaces, distant silhouettes or aftermath.",
+            "camera": camera, "characters": [lead],
+            "action": _scene_action(visual, i)
         })
+    return {
+      "project_id": str(uuid.uuid4()), "title": topic[:90].title(), "topic": topic,
+      "duration_seconds": duration, "aspect_ratio": aspect_ratio, "language": "English",
+      "style": HOUSE_STYLE, "characters": CHARACTERS, "scenes": scenes,
+      "status": "queued", "scene_count": count, "thumbnail_path": None,
+      "script_word_count": len(script.split()), "script_supplied": bool(script),
+      "storyboard_anchor_count": len(anchors),
+      "quality_notice": ("Production brief supplied." if script and len(anchors) >= count else
+        "DRAFT ONLY: this output is not publish-ready until every scene has researched narration and its own visual prompt.")
+    }
+
     return {
       "project_id": str(uuid.uuid4()), "title": topic[:90].title(), "topic": topic,
       "duration_seconds": duration, "aspect_ratio": aspect_ratio, "language": "English",
