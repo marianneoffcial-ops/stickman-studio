@@ -148,19 +148,41 @@ def parse_production_brief(brief):
     }
 
 def _scene_action(visual, index):
+    """Choose a readable, low-risk character performance from the scene beat."""
     v=(visual or "").lower()
     rules=[
-      (("walk","walking","approaches","crossing","crosses","steps","moves across","travels"),"walk"),
-      (("point","points","signals"),"point"),
-      (("study","studies","examines","reads","inspects"),"study"),
-      (("turn","turns","looks back","faces away"),"turn"),
-      (("gesture","gestures","addresses","raises a hand"),"gesture"),
-      (("present","presents","opens","places","holds up"),"present"),
-      (("watch","watches","observes","looks toward","looks down","stares"),"observe")
+      (("walk","walking","approaches","crossing","crosses","steps","moves across","travels","journey","arrives"),"walk"),
+      (("point","points","signals","indicates","marks"),"point"),
+      (("study","studies","examines","reads","inspects","decodes","calculates","compares"),"study"),
+      (("turn","turns","looks back","faces away","discovers","realizes","reveals"),"turn"),
+      (("gesture","gestures","addresses","raises a hand","debates","announces","speaks"),"gesture"),
+      (("present","presents","opens","places","holds up","unfolds","hands over"),"present"),
+      (("watch","watches","observes","looks toward","looks down","stares","waits","listens"),"observe")
     ]
     for words,action in rules:
         if any(word in v for word in words): return action
-    return ("observe","walk","study","turn","gesture","point")[index%6]
+    return ("observe","study","present","walk","turn","gesture")[index%6]
+
+
+def _scene_camera(visual, index):
+    """Match framing to the story beat while retaining deliberate shot variety."""
+    v=(visual or "").lower()
+    rules=[
+      (("map","atlas","route","chart","plan","blueprint","geography"),"overhead illustrated map composition with gentle pan"),
+      (("letter","telegram","message","document","manuscript","book","ledger","key","coin","artifact","photograph","evidence","diary"),"close-up of a story-specific object with slow push-in"),
+      (("tower","palace","cathedral","monument","bridge","dam","lighthouse","skyscraper","architecture"),"low-angle architectural view with slow tilt upward"),
+      (("room","office","council","meeting","court","laboratory","workshop","archive","library","interior"),"interior tableau with subtle camera drift"),
+      (("walk","walking","journey","travel","crossing","crosses","escape","expedition","march","railway","train","ship","vessel","caravan"),"side-on tracking composition with figures crossing frame"),
+      (("crowd","city","street","harbour","port","landscape","mountain","desert","ocean","sea","storm","flood","eruption","smog"),"wide establishing shot with slow push-in"),
+      (("mystery","vanished","disappeared","unknown","aftermath","silhouette","empty"),"wide silhouette composition with slow pull-back")
+    ]
+    for terms,camera in rules:
+        if any(term in v for term in terms):
+            # A repeated shot is less useful than a fresh angle on consecutive beats.
+            if index and index % 4 == 0 and camera.startswith("close-up"):
+                return "medium character composition with gentle lateral pan"
+            return camera
+    return CAMERAS[index % len(CAMERAS)]
 
 def _lead_for_topic(topic):
     t=(topic or "").lower()
@@ -194,7 +216,7 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
         visual = re.sub(r"\s*Hand-inked 2D.*$", "", visual)
         if not visual:
             visual = f"Distinct story beat about {topic}; show a new action, location or meaningful object."
-        camera = CAMERAS[i % len(CAMERAS)]
+        camera = _scene_camera(visual, i)
         action = _scene_action(visual, i)
         title = re.sub(r"^.*?shot of ", "", visual, flags=re.I)[:52].strip(" .,:;") or f"Scene {i+1:03d}"
         visual_prompt = (
@@ -212,7 +234,7 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
         scenes.append({
             "scene_id": f"scene_{i+1:03d}", "title": title, "duration": min(4, duration-i*4),
             "narration": narration, "visual": visual, "visual_prompt": visual_prompt,
-            "camera": camera, "characters": [lead], "action": action
+            "camera": camera, "characters": [lead], "action": action, "shot_type": camera.split(" composition")[0].split(" view")[0].split(" tableau")[0]
         })
     final_duration = duration - 4*(count-1)
     character_sheet_prompt = (
