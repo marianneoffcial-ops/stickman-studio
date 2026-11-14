@@ -163,7 +163,8 @@ def _scene_action(visual, index):
     ]
     for words,action in rules:
         if any(word in v for word in words): return action
-    return ("observe","study","present","walk","turn","gesture")[index%6]
+    # Keep neutral narration visually calm; semantic cues above select active gestures.
+    return "observe"
 
 
 def _scene_expression(narration, visual, index=0):
