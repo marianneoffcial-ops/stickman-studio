@@ -215,7 +215,8 @@ def _render_work(job_id, project):
 
         def on_progress(completed, total):
             percent = min(95, int((completed / max(1, total)) * 95))
-            update_job(job_id, progress=percent, completed_scenes=completed, total_scenes=total,\n                       elapsed_seconds=round(time.time() - started, 2))
+            update_job(job_id, progress=percent, completed_scenes=completed, total_scenes=total,
+                       elapsed_seconds=round(time.time() - started, 2))
 
         result = render_project(project, folder, progress_callback=on_progress)
         if not result.is_file() or result.stat().st_size < 2048:
