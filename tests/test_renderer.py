@@ -27,6 +27,20 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertGreater(portrait, landscape)
         self.assertLess(character_scale(1920, 1080, "wide silhouette"), landscape)
 
+    def test_semantic_camera_motion_changes_crop_over_time(self):
+        from worker.render import camera_crop_box
+        width, height = 1920, 1080
+        for camera in ("wide establishing shot", "close-up of a story-specific object",
+                       "side-on tracking composition", "overhead view"):
+            first = camera_crop_box(width, height, camera, 0, 48)
+            last = camera_crop_box(width, height, camera, 47, 48)
+            self.assertNotEqual(first, last, camera)
+            self.assertGreaterEqual(first[0], 0)
+            self.assertGreaterEqual(first[1], 0)
+            self.assertLessEqual(last[2], width)
+            self.assertLessEqual(last[3], height)
+            self.assertGreater(first[2] - first[0], width * .90)
+
     def test_draw_person_accepts_narrative_expression_styles(self):
         from worker.render import draw_person
         from PIL import Image, ImageDraw
