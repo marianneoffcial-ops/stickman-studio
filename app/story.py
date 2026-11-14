@@ -202,7 +202,7 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
             f"{locked} Background and story action: {visual}. Shot composition: {camera}. "
             f"One clear action: {action}. {HOUSE_STYLE} "
             "Audio is diegetic ambient sound only — no voice, no narration, no dialogue, no music. "
-            "Only sounds present in the scene such as wind, footsteps, distant rumble, rain, machinery or room tone. "
+            "Only the sounds present in the scene such as wind, footsteps, distant rumble, rain, machinery or room tone. "
             "Keep the camera locked or moving only in a very slow push; character design, clothing and proportions never change; "
             "texture overlay and vignette stay consistent; no glitching, warping, morphing, flickering, extra limbs, duplicate or unintended characters, "
             "on-screen text, subtitles or watermark. Visual safety: use generic people and places only; no real named people, flags, insignia, logos, "
@@ -222,23 +222,28 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
         f"Character design: {locked} {HOUSE_STYLE} "
         "Plain flat neutral background throughout, no scenery, no props beyond what the character wears or carries, no text beyond row and pose labels, no watermark, no logos, no additional characters."
     )
+    thumbnail_headline = " ".join(re.findall(r"[A-Za-z0-9']+", (script.split(".")[0] if script else topic).upper())[:4]) or "THE UNTOLD STORY"
     thumbnail_prompt = (
-        f"Create a 16:9 YouTube thumbnail for {topic}. Place the recurring character from this locked design on one side in an expressive pose: {locked} "
+        f"Create a 16:9 YouTube thumbnail for {topic}. Use the short bold all-caps headline {thumbnail_headline!r}, no more than four words, pulled from the story hook. Place the recurring character from this locked design on one side in an expressive pose: {locked} "
         "Fill the rest with one simple illustrated story object, scene or landscape described generically. "
         "Use a short bold all-caps headline of no more than four words, heavy condensed lettering, hard contrast and large simple shapes readable at 200 pixels wide. "
         f"{HOUSE_STYLE} No small details that disappear at thumbnail size, no watermark, no logos."
     )
+    last_full_scene = count if final_duration == 4 else count - 1
     agent_instruction = (
-        f"Generate {count} clips for one continuous film in {aspect_ratio}. Use the same character design, ink style, muted palette, texture and vignette in every clip. "
-        f"Scenes 1 through {count-1} are exactly 4 seconds each; the final scene is exactly {final_duration} seconds so the film totals {duration} seconds. "
-        "Generate every scene in order without pausing for confirmation. Keep each clip's audio to diegetic ambient sound only; narration is a separate aligned voiceover track."
+        f"You are generating {count} animated clips for one continuous film in {aspect_ratio}. "
+        "A character sheet is attached showing the recurring character in multiple views, expressions and poses; use it as the visual reference in every clip. "
+        f"Scenes 1 through {last_full_scene} are exactly 4 seconds each. "
+        f"If the final scene is shorter, generate Scene {count} at exactly {final_duration} seconds so the complete film reaches {duration} seconds. "
+        "Generate all clips autonomously, in order, without stopping or asking for confirmation. "
+        "The character, ink style, colour palette, texture overlay and vignette must stay identical across every clip."
     )
     return {
       "project_id": str(uuid.uuid4()), "title": topic[:90].title(), "topic": topic,
       "duration_seconds": duration, "aspect_ratio": aspect_ratio, "language": "English",
       "style": HOUSE_STYLE, "characters": CHARACTERS, "lead_character": lead,
       "locked_character_block": locked, "character_sheet_prompt": character_sheet_prompt,
-      "animation_agent_instruction": agent_instruction, "thumbnail_prompt": thumbnail_prompt,
+      "animation_agent_instruction": agent_instruction, "thumbnail_prompt": thumbnail_prompt,\n      "thumbnail_headline": thumbnail_headline,
       "scenes": scenes, "animation_prompts": [scene["visual_prompt"] for scene in scenes],
       "status": "queued", "scene_count": count, "thumbnail_path": None,
       "script_word_count": len(script.split()), "script_supplied": bool(script),
