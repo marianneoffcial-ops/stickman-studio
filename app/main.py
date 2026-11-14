@@ -12,6 +12,8 @@ class Request(BaseModel):
  topic:str=Field(min_length=3,max_length=500)
  duration_seconds:int=Field(default=60,ge=15,le=int(os.getenv("MAX_VIDEO_SECONDS","600")))
  aspect_ratio:str=Field(default="16:9",pattern=r"^(16:9|9:16|1:1)$")
+ narration_script:str=Field(default="",max_length=30000)
+ storyboard:str=Field(default="",max_length=16000)
 def save(path,obj): path.write_text(json.dumps(obj,ensure_ascii=False,indent=2),encoding="utf-8")
 def work(job_id,project):
  job=JOBS[job_id]; job["status"]="rendering"
@@ -26,10 +28,10 @@ def work(job_id,project):
 @app.get("/",response_class=HTMLResponse)
 def home(): return HTMLResponse((Path(__file__).parent/"static.html").read_text())
 @app.get("/health")
-def health(): return {"status":"ok","renderer":"ffmpeg-vector","gpu_required":False}
+def health(): return {"status":"ok","renderer":"hand-inked-2d-motion-comic","gpu_required":False,"script_and_storyboard_supported":True}
 @app.post("/api/projects")
 def create(req:Request):
- p=make_project(req.topic,req.duration_seconds,req.aspect_ratio); j=str(uuid.uuid4())
+ p=make_project(req.topic,req.duration_seconds,req.aspect_ratio,req.narration_script,req.storyboard); j=str(uuid.uuid4())
  folder=PROJECTS/p["project_id"]; folder.mkdir(exist_ok=True); save(folder/"project.json",p)
  JOBS[j]={"job_id":j,"project_id":p["project_id"],"status":"queued","created_at":time.time()}
  threading.Thread(target=work,args=(j,p),daemon=True).start()
