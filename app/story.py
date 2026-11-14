@@ -147,12 +147,28 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
             visual = f"Distinct story beat about {topic}; show a new action, location or meaningful object."
         camera = CAMERAS[i % len(CAMERAS)]
         title = re.sub(r"^.*?shot of ", "", visual, flags=re.I)[:52].strip(" .,:;") or f"Scene {i+1:03d}"
-        characters = ["Emperor", "Herald", "Merchant", "Architect", "Scholar", "Traveler"] if "mansa" in topic.lower() or "musa" in topic.lower() else ["Narrator", "Witness", "Merchant"]
+        if "mansa" in topic.lower() or "musa" in topic.lower():
+            v=visual.lower()
+            if any(k in v for k in ("emperor","king","crowned","throne","sovereign","royal figure")):
+                role="Emperor"
+            elif any(k in v for k in ("herald","staff","banner","attendant")):
+                role="Herald"
+            elif any(k in v for k in ("merchant","market","bazaar","coins","gold")):
+                role="Merchant"
+            elif any(k in v for k in ("architect","mosque","builder","construction")):
+                role="Architect"
+            elif any(k in v for k in ("scholar","map","atlas","library","parchment")):
+                role="Scholar"
+            else:
+                role="Traveler"
+            scene_characters=[role]
+        else:
+            scene_characters=["Narrator","Witness","Merchant"][i % 3:i % 3+1]
         scenes.append({
             "scene_id": f"scene_{i+1:03d}", "title": title, "duration": min(4, duration-i*4),
             "narration": narration, "visual": visual,
             "visual_prompt": f"{HOUSE_STYLE}\nStory context: {topic}.\nShot: {visual}.\nCamera: {camera}. Keep every frame readable and story-specific.",
-            "camera": camera, "characters": [characters[i % len(characters)]],
+            "camera": camera, "characters": scene_characters,
             "action": ["walk","look","study","turn","point","gesture","observe","present"][i % 8]
         })
     return {
