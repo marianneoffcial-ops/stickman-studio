@@ -44,10 +44,10 @@ CAMERAS = [
 ]
 
 def _sentences(text):
-    text = re.sub(r"\\s+", " ", (text or "")).strip()
+    text = re.sub(r"\s+", " ", (text or "")).strip()
     if not text:
         return []
-    parts = re.split(r"(?<=[.!?])\\s+", text)
+    parts = re.split(r"(?<=[.!?])\s+", text)
     return [p.strip() for p in parts if p.strip()]
 
 def _chunk_script(script, count):
