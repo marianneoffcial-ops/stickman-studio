@@ -27,6 +27,15 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertGreater(portrait, landscape)
         self.assertLess(character_scale(1920, 1080, "wide silhouette"), landscape)
 
+    def test_draw_person_accepts_narrative_expression_styles(self):
+        from worker.render import draw_person
+        from PIL import Image, ImageDraw
+        for expression in ("neutral", "concerned", "surprised", "weary", "resolved"):
+            image = Image.new("RGB", (240, 300), (220, 211, 190))
+            draw_person(ImageDraw.Draw(image), 120, 250, .55, (52,70,90), 0.7,
+                        role="Narrator", action="observe", expression=expression)
+            self.assertEqual(image.size, (240, 300))
+
     def test_closeup_prioritizes_story_object_over_character(self):
         from worker.render import scene_composition
         width, height = dimensions("16:9")
