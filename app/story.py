@@ -149,10 +149,10 @@ def _lead_for_topic(topic):
     if any(k in t for k in ("1914","christmas truce","soldier","war")): return "Witness"
     if any(k in t for k in ("alcatraz","prison","escape","cooper","hijack")): return "Official"
     if any(k in t for k in ("pompeii","rome","emperor","ancient")): return "Scholar"
-    return "Lead"
+    return "Narrator"
 
 def _locked_character_block(role):
-    costume=CHARACTERS.get(role,CHARACTERS["Lead"])["costume"]
+    costume=CHARACTERS.get(role,CHARACTERS["Narrator"])["costume"]
     return ("One recurring simple stick figure with a large perfectly round white head, small solid black oval eyes, thin curved eyebrow strokes, one simple curved mouth, no nose, and a few loose ink hair strokes; minimal softly rounded body, wearing exactly a "+costume+", with simple dark footwear and no changing accessories or proportions.")
 
 def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=None, storyboard=None):
