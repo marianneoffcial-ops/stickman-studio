@@ -380,6 +380,27 @@ def apply_house_texture(im,scene_index):
         _TEXTURE_CACHE[key]=overlay
     im.paste(Image.alpha_composite(im.convert("RGBA"),overlay).convert("RGB"))
 
+def character_scale(width,height,camera=""):
+    """Return a frame-aware character scale with shot-specific framing."""
+    camera=(camera or "").lower()
+    scale=(height/720) if width/height<=1 else min(width/1280,height/720)
+    if "close-up" in camera:
+        scale*=1.25
+    elif "wide silhouette" in camera:
+        scale*=.62
+    elif "wide establishing" in camera:
+        scale*=.78
+    elif "side-on tracking" in camera:
+        scale*=.88
+    elif "overhead" in camera:
+        scale*=.72
+    elif "low-angle" in camera:
+        scale*=1.08
+    elif "interior" in camera:
+        scale*=.92
+    return scale
+
+
 def draw_frame(scene,project,frame,total_frames,out):
     # Draw above delivery resolution, then downsample once with Lanczos. This
     # smooths the hand-inked linework and small facial details without changing
@@ -406,24 +427,24 @@ def draw_frame(scene,project,frame,total_frames,out):
             px=(rng.random()*w+frame*(.35+j*.025))%w; py=h*(.2+rng.random()*.55)
             d.ellipse((px,py,px+w*.012,py+h*.004),fill=(205,198,178))
     camera=(scene.get("camera","") or "").lower()
-    # Portrait and square videos need a character sized against frame height,
-    # not landscape width; otherwise the figure becomes tiny in 9:16 exports.
-    scale=(h/720) if w/h<=1 else min(w/1280,h/720)
+    # Framing follows the output orientation and the semantic shot selected
+    # by the storyboard engine; portrait figures stay readable without clipping.
+    scale=character_scale(w,h,camera)
     x_fraction=.50; y_fraction=.70
     if "close-up" in camera:
-        scale*=1.25; x_fraction=.52; y_fraction=.63
+        x_fraction=.52; y_fraction=.63
     elif "wide silhouette" in camera:
-        scale*=.62; x_fraction=.76; y_fraction=.73
+        x_fraction=.76; y_fraction=.73
     elif "wide establishing" in camera:
-        scale*=.78; x_fraction=.28; y_fraction=.73
+        x_fraction=.28; y_fraction=.73
     elif "side-on tracking" in camera:
-        scale*=.88; x_fraction=.18+.64*(frame/max(1,total_frames-1)); y_fraction=.70
+        x_fraction=.18+.64*(frame/max(1,total_frames-1)); y_fraction=.70
     elif "overhead" in camera:
-        scale*=.72; x_fraction=.54; y_fraction=.72
+        x_fraction=.54; y_fraction=.72
     elif "low-angle" in camera:
-        scale*=1.08; x_fraction=.52; y_fraction=.64
+        x_fraction=.52; y_fraction=.64
     elif "interior" in camera:
-        scale*=.92; x_fraction=.50; y_fraction=.70
+        x_fraction=.50; y_fraction=.70
     names=scene.get("characters",["Narrator"])
     positions=[x_fraction] if len(names)==1 else ([.30,.52,.74] if w/h>1 else [.36,.66,.50])
     action=scene.get("action","idle")
@@ -434,6 +455,11 @@ def draw_frame(scene,project,frame,total_frames,out):
         x=int(w*positions[j]+drift); y=int(h*y_fraction)
         color=project.get("characters",{}).get(name,{}).get("color","#34465a")
         rgb=tuple(int(color[k:k+2],16) for k in (1,3,5))
+        # A soft, restrained ground shadow anchors the figure to the illustrated set.
+        foot_y=y+174*scale
+        shadow_w=46*scale
+        d.ellipse((x-shadow_w,foot_y-5*scale,x+shadow_w,foot_y+7*scale),
+                  fill=(126,119,102))
         draw_person(d,x,y,scale,rgb,phase+j,int(scene.get("scene_index",0))%3,name,action)
     apply_house_texture(im,int(scene.get("scene_index",0)))
     # The brief prohibits burned-in titles, captions and subtitles.

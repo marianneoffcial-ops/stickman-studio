@@ -5,7 +5,7 @@ from pathlib import Path
 from PIL import Image
 
 from app.story import make_project
-from worker.render import render_project, dimensions, draw_frame
+from worker.render import render_project, dimensions, draw_frame, character_scale
 
 
 class RenderSmokeTests(unittest.TestCase):
@@ -14,10 +14,18 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertEqual(width / height, 4 / 5)
 
     def test_portrait_character_scale_uses_frame_height(self):
-        # At supersampled 9:16 dimensions, character scale tracks frame height.
         width, height = dimensions("9:16")
-        scale = height * 1.5 / 720
+        scale = character_scale(int(width * 1.5), int(height * 1.5), "medium character")
         self.assertGreater(scale, 2.5)
+
+    def test_landscape_and_portrait_camera_scales_are_frame_aware(self):
+        lw, lh = dimensions("16:9")
+        pw, ph = dimensions("9:16")
+        landscape = character_scale(int(lw * 1.5), int(lh * 1.5), "medium character")
+        portrait = character_scale(int(pw * 1.5), int(ph * 1.5), "medium character")
+        self.assertAlmostEqual(landscape, 1.5)
+        self.assertGreater(portrait, landscape)
+        self.assertLess(character_scale(1920, 1080, "wide silhouette"), landscape)
 
     def test_one_scene_produces_mp4_and_thumbnail(self):
         project = make_project(
