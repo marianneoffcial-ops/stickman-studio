@@ -17,7 +17,27 @@ IDEAS = [
  ("The 1914 Christmas Truce","Opposing soldiers briefly shared an extraordinary moment of peace."),
  ("The Great Emu War","Australia's campaign against crop-raiding emus became an unlikely historical episode."),
  ("The Mystery of D. B. Cooper","A hijacker parachuted from an aircraft and was never conclusively identified."),
- ("The Race to Reach the South Pole","Two expeditions crossed Antarctica in a dramatic race against time.")
+ ("The Race to Reach the South Pole","Two expeditions crossed Antarctica in a dramatic race against time."),
+ ("The Great Fire of London","A small bakery fire became a turning point in the city's history."),
+ ("The Franklin Expedition","Two ships vanished in the Arctic, leaving clues that took generations to uncover."),
+ ("The Great Stink of 1858","A summer heatwave exposed the crisis beneath London's streets."),
+ ("The First Transatlantic Telegraph Cable","A fragile cable briefly connected messages across an ocean."),
+ ("The Panama Canal","Engineers reshaped a narrow land bridge to connect two oceans."),
+ ("The Apollo 13 Rescue","A damaged spacecraft forced its crew and ground teams into an improvised survival plan."),
+ ("The 1904 Olympic Marathon","A chaotic race became one of the strangest episodes in Olympic history."),
+ ("The Great Train Robbery of 1963","Investigators followed a trail of clues after a carefully planned railway heist."),
+ ("The Isabella Stewart Gardner Museum Heist","Thieves stole priceless artworks that have never been recovered."),
+ ("Operation Mincemeat","A forged identity and planted papers helped misdirect wartime planners."),
+ ("The 1952 Great Smog of London","Several days of trapped pollution changed public health policy."),
+ ("The Chilean Miners Rescue","Thirty-three miners waited underground while an extraordinary rescue operation took shape."),
+ ("The Tunguska Event","A vast Siberian forest was flattened by an explosion in the sky."),
+ ("The 1969 Moon Landing","A small crew carried out a carefully planned journey to another world."),
+ ("The Great Boston Molasses Flood Aftermath","A city rebuilt streets and infrastructure after an unusual industrial disaster."),
+ ("The Han van Meegeren Art Forgery","A painter fooled experts with convincingly forged old-master works."),
+ ("The Great Library of Alexandria","The library's long history is more complicated than the famous legend."),
+ ("The 1906 San Francisco Earthquake","A major earthquake transformed the city and its rebuilding."),
+ ("The 1972 Andes Flight Disaster","Survivors faced an extreme high-altitude ordeal and a difficult rescue."),
+ ("The Race to Decode the Rosetta Stone","Scholars used one ancient inscription to unlock a lost writing system.")
 ]
 
 CHARACTERS = {
