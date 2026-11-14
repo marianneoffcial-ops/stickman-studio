@@ -55,10 +55,15 @@ def draw_person(d,x,y,scale,color,phase,pose=0,role='',action='idle',expression=
         arm=26*q*sway; leg=25*q*sway
         elbows=[(cx-43*q+arm*.35,y-65*q),(cx+43*q-arm*.35,y-65*q)]
         hands=[(cx-48*q+arm,y-26*q),(cx+48*q-arm,y-26*q)]
-    elif action in ('point','present'):
+    elif action=='point':
         leg=3*q*sway
         elbows=[(cx-43*q,y-64*q),(cx+46*q,y-116*q)]
         hands=[(cx-54*q,y-34*q),(cx+76*q,y-129*q+4*q*sway)]
+    elif action=='present':
+        reach=(.5-.5*math.cos(phase))*5*q
+        leg=3*q*sway
+        elbows=[(cx-43*q,y-64*q),(cx+46*q+reach,y-116*q)]
+        hands=[(cx-54*q,y-34*q),(cx+76*q+reach,y-129*q+4*q*sway)]
     elif action=='reveal':
         # The raised hand eases upward, holds, then settles instead of remaining static.
         lift=(.5-.5*math.cos(phase))*7*q
@@ -87,11 +92,7 @@ def draw_person(d,x,y,scale,color,phase,pose=0,role='',action='idle',expression=
         leg=4*q*sway
         elbows=[(cx-46*q,y-83*q+7*q*sway),(cx+46*q,y-80*q-7*q*sway)]
         hands=[(cx-67*q,y-104*q+10*q*sway),(cx+68*q,y-101*q-10*q*sway-5*q*max(0,emphasis))]
-    elif action=='present':
-        reach=(.5-.5*math.cos(phase))*5*q
-        leg=3*q*sway
-        elbows=[(cx-43*q,y-64*q),(cx+46*q+reach,y-116*q)]
-        hands=[(cx-54*q,y-34*q),(cx+76*q+reach,y-129*q+4*q*sway)]
+
     else:
         leg=5*q*sway
         elbows=[(cx-40*q+5*q*sway,y-60*q),(cx+40*q-5*q*sway,y-60*q)]
