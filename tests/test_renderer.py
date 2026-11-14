@@ -5,7 +5,7 @@ from pathlib import Path
 from PIL import Image
 
 from app.story import make_project
-from worker.render import render_project, dimensions, draw_frame, character_scale, synthesize_ambience, atmosphere_particles
+from worker.render import render_project, dimensions, draw_frame, character_scale, synthesize_ambience, atmosphere_particles, draw_primary_story_prop
 
 
 class RenderSmokeTests(unittest.TestCase):
@@ -88,6 +88,14 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertEqual(story_prop_kind("a hanging lantern"), "lantern")
         self.assertEqual(story_prop_kind("a leather-bound journal"), "ledger")
         self.assertEqual(story_prop_kind("a weathered telescope"), "telescope")
+
+    def test_story_props_have_smooth_frame_to_frame_motion(self):
+        for kind in ("compass", "lantern", "watch", "gear"):
+            first = Image.new("RGB", (640, 480), (220, 211, 190))
+            later = Image.new("RGB", (640, 480), (220, 211, 190))
+            draw_primary_story_prop(ImageDraw.Draw(first), 640, 480, kind, 0.0)
+            draw_primary_story_prop(ImageDraw.Draw(later), 640, 480, kind, 1.2)
+            self.assertNotEqual(list(first.getdata()), list(later.getdata()), kind)
 
     def test_atmospheric_particles_move_between_frames_and_remain_deterministic(self):
         scene = {"visual": "A storm of rain over the harbour", "scene_index": 3}
