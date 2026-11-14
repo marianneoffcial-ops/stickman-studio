@@ -98,7 +98,7 @@ def parse_production_brief(brief):
     long_anchors = [re.sub(r"\s+", " ", x).strip() for x in long_anchors if x.strip()]
     if not short_script:
         short_script = _between(raw, "Voiceover Script", "Character & Asset Sheet")
-    short_script = re.sub(r"^\\s*\\([^)]*\\)\\s*", "", short_script)
+    short_script = re.sub(r"^\s*\([^)]*\)\s*", "", short_script)
     if not long_script:
         long_script = _between(raw, "Act I: The Hidden Empire of Gold", "2. Character Sheet & Thumbnail")
         if long_script:
@@ -111,7 +111,7 @@ def parse_production_brief(brief):
         long_anchors = [re.sub(r"\s+", " ", x).strip() for x in re.findall(r"•\s*Act\s+[^:]+:\s*(.*)", long_section) if x.strip()]
     combined = short_script + " " + long_script
     topic = ""
-    for pattern in (r"\bHis name was ([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,3})", r"\bstory of ([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,3})", r"\babout ([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,3})"):
+    for pattern in (r"\bHis name (?:was|is) ([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,3})", r"\bstory of ([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,3})", r"\babout ([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,3})"):
         match = re.search(pattern, combined)
         if match:
             topic = match.group(1).strip(" .,:;")
