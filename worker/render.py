@@ -295,6 +295,69 @@ def draw_story_details(im,d,index,phase,scene):
         d.rectangle((x,y,x+w*.16,h*.72),fill=(139,119,91),outline=ink,width=5)
         d.arc((x+w*.02,y-h*.06,x+w*.14,y+h*.13),180,360,fill=ink,width=4)
         d.ellipse((x+w*.13,h*.52,x+w*.145,h*.54),fill=(225,210,174),outline=ink)
+    # Distinct, readable illustrated motifs for historical events that do not fit
+    # the broad transport / archive categories above. Keep these symbolic and safe.
+    if any(k in p for k in ("molasses","flood","overflow","rising water","inundat")):
+        # Layered wave bands and a small street-side tank make the event legible.
+        for j in range(4):
+            yy=h*(.57+j*.045)+math.sin(phase*1.4+j)*h*.006
+            d.arc((w*.04,yy,w*.62,yy+h*.12),185,350,fill=(105,77,55),width=max(3,int(w*.003)))
+        d.rectangle((w*.72,h*.34,w*.88,h*.60),fill=(125,111,91),outline=ink,width=5)
+        d.arc((w*.72,h*.27,w*.88,h*.43),180,360,fill=ink,width=4)
+    if any(k in p for k in ("volcano","eruption","ash cloud","pompeii")):
+        d.polygon([(w*.54,h*.69),(w*.68,h*.35),(w*.77,h*.48),(w*.87,h*.27),(w*.98,h*.69)],
+                  fill=(112,108,96),outline=ink)
+        d.ellipse((w*.68,h*.13,w*.91,h*.35),fill=(151,145,128),outline=ink,width=3)
+        for j in range(5):
+            xx=w*(.70+j*.045)
+            d.ellipse((xx,h*(.20+(j%2)*.035),xx+w*.025,h*(.24+(j%2)*.035)),fill=(151,145,128))
+    if any(k in p for k in ("canal","lock gate","waterway","panama")):
+        d.polygon([(w*.50,h*.38),(w*.68,h*.38),(w*.84,h*.76),(w*.35,h*.76)],
+                  fill=(137,153,145),outline=ink)
+        for xx in (.53,.76):
+            d.line((w*xx,h*.35,w*xx,h*.72),fill=(83,86,79),width=6)
+        d.line((w*.37,h*.58,w*.82,h*.58),fill=(83,86,79),width=4)
+    if any(k in p for k in ("telegraph","morse","telegram","transatlantic cable","signal")):
+        for j in range(7):
+            xx=w*(.10+j*.12)
+            d.line((xx,h*.45,xx,h*.69),fill=ink,width=3)
+            d.ellipse((xx-w*.008,h*.42,xx+w*.008,h*.46),fill=(154,137,105),outline=ink)
+        d.arc((w*.10,h*.32,w*.82,h*.62),190,350,fill=(71,77,71),width=3)
+    if any(k in p for k in ("smog","fog","pollution","industrial haze","soot")):
+        for j in range(5):
+            yy=h*(.25+j*.075)+math.sin(phase+j)*h*.008
+            d.arc((w*(.12+j*.035),yy,w*(.82-j*.025),yy+h*.12),180,350,
+                  fill=(159,158,146),width=max(4,int(w*.006)))
+        for j in range(3):
+            xx=w*(.60+j*.09)
+            d.rectangle((xx,h*.43,xx+w*.055,h*.70),fill=(116,116,105),outline=ink,width=3)
+            d.rectangle((xx+w*.012,h*.30,xx+w*.027,h*.44),fill=(92,95,88),outline=ink,width=2)
+    if any(k in p for k in ("arctic","expedition","ice floe","polar","franklin")):
+        for j in range(4):
+            xx=w*(.52+j*.11); yy=h*(.57+(j%2)*.07)
+            d.polygon([(xx,yy),(xx+w*.10,yy-h*.035),(xx+w*.18,yy),(xx+w*.11,yy+h*.035)],
+                      fill=(206,208,195),outline=ink)
+        d.line((w*.72,h*.18,w*.72,h*.55),fill=ink,width=4)
+        d.polygon([(w*.72,h*.20),(w*.84,h*.40),(w*.72,h*.40)],fill=(208,201,180),outline=ink)
+    if any(k in p for k in ("library of alexandria","ancient library","scroll","papyrus")):
+        for j in range(5):
+            xx=w*(.56+j*.075)
+            d.rectangle((xx,h*.35,xx+w*.052,h*.70),fill=(135,112,83),outline=ink,width=3)
+            for k in range(3):
+                yy=h*(.40+k*.085)
+                d.line((xx+w*.009,yy,xx+w*.043,yy),fill=(218,205,177),width=3)
+    if any(k in p for k in ("earthquake","san francisco","collapsed building","rebuilding")):
+        for j in range(3):
+            xx=w*(.58+j*.12)
+            d.polygon([(xx,h*.70),(xx,h*.43),(xx+w*.08,h*.38),(xx+w*.10,h*.70)],
+                      fill=(157,148,128),outline=ink)
+            d.line((xx+w*.025,h*.48,xx+w*.045,h*.54,xx+w*.035,h*.61),fill=ink,width=3)
+    if any(k in p for k in ("race to the south pole","south pole","antarctic race")):
+        for j in range(3):
+            xx=w*(.60+j*.10); yy=h*(.58+(j%2)*.035)
+            d.line((xx,yy,xx,yy-h*.16),fill=ink,width=3)
+            d.polygon([(xx,yy-h*.16),(xx+w*.065,yy-h*.12),(xx,yy-h*.08)],
+                      fill=(170,150,121),outline=ink)
     # Light foreground hatching adds imperfect hand-inked contours without clutter.
     rng=random.Random(index+909)
     for _ in range(18):
