@@ -267,11 +267,11 @@ def story_prop_kind(prompt):
     return "object"
 
 
-def draw_primary_story_prop(d,w,h,kind,phase=0.0):
+def draw_primary_story_prop(d,w,h,kind,phase=0.0,center_x=.70,center_y=.49,size_factor=1.0):
     """Draw one oversized, simple inked prop on the right side of the composition."""
     ink=INK
-    cx,cy=w*.70,h*.49
-    unit=min(w,h)
+    cx,cy=w*center_x,h*center_y
+    unit=min(w,h)*size_factor
     if kind=="map":
         box=(cx-unit*.22,cy-unit*.15,cx+unit*.22,cy+unit*.15)
         d.polygon([(box[0],box[1]+unit*.035),(box[0]+unit*.13,box[1]),(box[2],box[1]+unit*.025),
@@ -873,15 +873,23 @@ def render_project(project,outdir:Path):
     thumb_im=Image.new("RGB",(1280,720),PAPER); td=ImageDraw.Draw(thumb_im)
     first_scene=project.get("scenes",[{}])[0]
     draw_background(thumb_im,td,0,0,first_scene)
+    # Reuse the same story-specific illustration language, but stage the main
+    # prop in the open centre-left area so the headline has its own clean panel.
+    thumbnail_scene=dict(first_scene)
+    thumbnail_scene["camera"]=""
+    draw_story_details(thumb_im,td,0,0,thumbnail_scene)
+    prop_prompt=(first_scene.get("visual_prompt","")+" "+first_scene.get("visual","")+" "+first_scene.get("title",""))
+    draw_primary_story_prop(td,1280,720,story_prop_kind(prop_prompt),0.0,center_x=.56,center_y=.49,size_factor=.72)
     name=(first_scene.get("characters") or ["Narrator"])[0]
     color=project.get("characters",{}).get(name,{}).get("color","#34465a")
     rgb=tuple(int(color[k:k+2],16) for k in (1,3,5))
-    draw_person(td,330,500,1.0,rgb,0,0,name,"observe")
+    draw_person(td,270,500,1.0,rgb,0,0,name,"observe")
+    apply_house_texture(thumb_im,0)
     words=re.findall(r"[A-Za-z0-9']+",project.get("thumbnail_headline",project.get("title","STICKMAN STORY")).upper())[:4]
     headline=" ".join(words) or "STICKMAN STORY"
-    td.rounded_rectangle((590,190,1225,555),radius=18,fill=(30,32,29),outline=(192,174,137),width=5)
-    lines=textwrap.wrap(headline,width=12)[:3]
-    td.multiline_text((640,260),"\n".join(lines),font=font(76,True),fill=(244,237,218),spacing=8,stroke_width=1,stroke_fill=INK)
+    td.rounded_rectangle((850,190,1225,555),radius=18,fill=(30,32,29),outline=(192,174,137),width=5)
+    lines=textwrap.wrap(headline,width=9)[:3]
+    td.multiline_text((875,260),"\n".join(lines),font=font(52,True),fill=(244,237,218),spacing=8,stroke_width=1,stroke_fill=INK)
     thumb_im.save(thumb,quality=92)
     project["thumbnail_path"]=str(thumb)
     return final
