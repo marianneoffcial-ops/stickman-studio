@@ -173,8 +173,13 @@ def render_project(project,outdir:Path):
         frames_dir=sd/f"frames_{i:03d}"; frames_dir.mkdir(exist_ok=True)
         for f in range(frames): draw_frame(scene,project,f,frames,frames_dir/f"frame_{f:05d}.png")
         clip=sd/f"clip_{i:03d}.mp4"
+        width,height=dimensions(project.get("aspect_ratio","16:9"))
+        camera_index=i%4
+        x_expr=["iw/2-(iw/zoom/2)","iw-iw/zoom","0","iw/2-(iw/zoom/2)"][camera_index]
+        y_expr=["ih/2-(ih/zoom/2)","ih/2-(ih/zoom/2)","ih/2-(ih/zoom/2)","0"][camera_index]
+        camera_filter=f"zoompan=z='min(zoom+0.0007,1.05)':x='{x_expr}':y='{y_expr}':d=1:s={width}x{height}:fps=24,format=yuv420p"
         run([ffmpeg,"-y","-loglevel","error","-framerate",str(FPS),"-i",str(frames_dir/"frame_%05d.png"),
-             "-vf","fps=24,format=yuv420p","-c:v","libx264","-preset","veryfast","-crf","19",str(clip)])
+             "-vf",camera_filter,"-c:v","libx264","-preset","veryfast","-crf","19",str(clip)])
         shutil.rmtree(frames_dir,ignore_errors=True); gc.collect()
         clips.append(clip); audios.append(wav)
     concat=outdir/"clips.txt"; concat.write_text("".join(f"file '{x.as_posix()}'\n" for x in clips))
