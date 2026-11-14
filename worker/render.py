@@ -55,6 +55,18 @@ def draw_person(d,x,y,scale,color,phase,pose=0,role='',action='idle',expression=
         arm=26*q*sway; leg=25*q*sway
         elbows=[(cx-43*q+arm*.35,y-65*q),(cx+43*q-arm*.35,y-65*q)]
         hands=[(cx-48*q+arm,y-26*q),(cx+48*q-arm,y-26*q)]
+    elif action=='write':
+        leg=2*q*sway
+        elbows=[(cx-40*q,y-62*q),(cx+35*q,y-78*q+2*q*sway)]
+        hands=[(cx-48*q,y-12*q),(cx+13*q,y-48*q+3*q*sway)]
+    elif action=='carry':
+        leg=3*q*sway
+        elbows=[(cx-42*q,y-72*q),(cx+42*q,y-72*q)]
+        hands=[(cx-20*q,y-42*q+2*q*sway),(cx+20*q,y-42*q-2*q*sway)]
+    elif action=='raise':
+        leg=4*q*sway
+        elbows=[(cx-44*q,y-117*q),(cx+44*q,y-116*q)]
+        hands=[(cx-54*q,y-169*q+3*q*sway),(cx+54*q,y-169*q-3*q*sway)]
     elif action in ('point','present'):
         leg=3*q*sway
         elbows=[(cx-43*q,y-64*q),(cx+46*q,y-116*q)]

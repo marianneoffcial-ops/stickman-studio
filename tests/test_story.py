@@ -41,6 +41,14 @@ class StoryTimingTests(unittest.TestCase):
         self.assertIn("exactly 2 seconds", project["animation_agent_instruction"])
 
 
+    def test_story_beats_select_specific_body_gestures(self):
+        from app.story import _scene_action
+        self.assertEqual(_scene_action("A clerk writes the final entry in a ledger.", 0), "write")
+        self.assertEqual(_scene_action("The traveler carries a heavy satchel.", 0), "carry")
+        self.assertEqual(_scene_action("The crowd celebrates and waves overhead.", 0), "raise")
+        self.assertEqual(_scene_action("A figure walks across the courtyard.", 0), "walk")
+        self.assertEqual(_scene_action("An observer watches the quiet street.", 0), "observe")
+
     def test_narrative_beats_select_distinct_facial_expressions(self):
         from app.story import _scene_expression
         self.assertEqual(_scene_expression("The discovery was astonishing.", "", 0), "surprised")
