@@ -150,13 +150,13 @@ def parse_production_brief(brief):
 def _scene_action(visual, index):
     v=(visual or "").lower()
     rules=[
-      (("walk","walking","approaches"),"walk"),
+      (("walk","walking","approaches","crossing","crosses","steps","moves across","travels"),"walk"),
       (("point","points","signals"),"point"),
       (("study","studies","examines","reads","inspects"),"study"),
       (("turn","turns","looks back","faces away"),"turn"),
       (("gesture","gestures","addresses","raises a hand"),"gesture"),
       (("present","presents","opens","places","holds up"),"present"),
-      (("watch","watches","observes","looks toward","stares"),"observe")
+      (("watch","watches","observes","looks toward","looks down","stares"),"observe")
     ]
     for words,action in rules:
         if any(word in v for word in words): return action
