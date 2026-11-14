@@ -207,7 +207,14 @@ def render_project(project,outdir:Path):
         run([ffmpeg,"-y","-loglevel","error","-framerate",str(FPS),"-i",str(frames_dir/"frame_%05d.png"),
              "-vf",camera_filter,"-c:v","libx264","-preset","veryfast","-crf","19",str(clip)])
         shutil.rmtree(frames_dir,ignore_errors=True); gc.collect()
-        clips.append(clip); audios.append(wav)
+        # Pad each narration beat to its matching clip duration so the voice remains
+        # distributed throughout the full episode instead of ending early and leaving silence.
+        clip_duration=frames/FPS
+        padded_wav=sd/f"voice_padded_{i:03d}.wav"
+        pad_seconds=max(0.0,clip_duration-speech_seconds)
+        run([ffmpeg,"-y","-loglevel","error","-i",str(wav),"-af",f"apad=pad_dur={pad_seconds:.3f}",
+             "-t",f"{clip_duration:.3f}","-ar","24000","-ac","1",str(padded_wav)])
+        clips.append(clip); audios.append(padded_wav)
     concat=outdir/"clips.txt"; concat.write_text("".join(f"file '{x.as_posix()}'\n" for x in clips))
     audio_list=outdir/"audio.txt"; audio_list.write_text("".join(f"file '{x.as_posix()}'\n" for x in audios))
     silent=outdir/"silent.mp4"; voice=outdir/"voice.wav"; final=outdir/"final.mp4"
