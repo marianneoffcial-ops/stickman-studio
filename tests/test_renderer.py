@@ -64,6 +64,20 @@ class RenderSmokeTests(unittest.TestCase):
                         role="Narrator", action="observe", expression=expression)
             self.assertEqual(image.size, (240, 300))
 
+    def test_walk_cycle_alternates_foot_lift(self):
+        from worker.render import draw_person
+        from PIL import Image, ImageDraw, ImageChops
+        grounded = Image.new("RGB", (240, 300), (220, 211, 190))
+        stepping = Image.new("RGB", (240, 300), (220, 211, 190))
+        draw_person(ImageDraw.Draw(grounded), 120, 120, .55, (52,70,90), 0.0,
+                    role="Narrator", action="walk")
+        draw_person(ImageDraw.Draw(stepping), 120, 120, .55, (52,70,90), 1.57079632679,
+                    role="Narrator", action="walk")
+        # Lower-leg and foot region must change as the alternating step lifts.
+        diff = ImageChops.difference(grounded.crop((65, 215, 190, 295)),
+                                     stepping.crop((65, 215, 190, 295)))
+        self.assertIsNotNone(diff.getbbox())
+
     def test_closeup_prioritizes_story_object_over_character(self):
         from worker.render import scene_composition
         width, height = dimensions("16:9")

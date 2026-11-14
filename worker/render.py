@@ -104,9 +104,17 @@ def draw_person(d,x,y,scale,color,phase,pose=0,role='',action='idle',expression=
         d.ellipse((hand[0]-rr,hand[1]-rr,hand[0]+rr,hand[1]+rr),fill=INK)
         # Small cuff marks make hand/arm direction legible at normal viewing size.
         d.line((hand[0]-3*q,hand[1],hand[0]+3*q,hand[1]),fill=(224,216,195),width=max(1,int(2*q)))
-    # Bent legs with knees and simple shoes; gait is synchronized with the arm swing.
-    knee_l=(cx-20*q-leg*.55,y+83*q); knee_r=(cx+20*q+leg*.55,y+83*q)
-    foot_l=(cx-34*q-leg,y+174*q); foot_r=(cx+34*q+leg,y+174*q)
+    # Bent legs with knees and simple shoes; walking feet lift alternately
+    # so the character reads as stepping forward rather than sliding.
+    if action=='walk':
+        lift_l=max(0.0,sway)*12*q
+        lift_r=max(0.0,-sway)*12*q
+    else:
+        lift_l=lift_r=0.0
+    knee_l=(cx-20*q-leg*.55,y+83*q-lift_l*.48)
+    knee_r=(cx+20*q+leg*.55,y+83*q-lift_r*.48)
+    foot_l=(cx-34*q-leg,y+174*q-lift_l)
+    foot_r=(cx+34*q+leg,y+174*q-lift_r)
     d.line((hip_l,knee_l,foot_l),fill=INK,width=limb,joint='curve')
     d.line((hip_r,knee_r,foot_r),fill=INK,width=limb,joint='curve')
     for px,py in (knee_l,knee_r):
