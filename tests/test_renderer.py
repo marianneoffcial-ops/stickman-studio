@@ -2,9 +2,10 @@ import json
 import subprocess
 import unittest
 from pathlib import Path
+from PIL import Image
 
 from app.story import make_project
-from worker.render import render_project, dimensions
+from worker.render import render_project, dimensions, draw_frame
 
 
 class RenderSmokeTests(unittest.TestCase):
@@ -22,6 +23,10 @@ class RenderSmokeTests(unittest.TestCase):
         )
         output_dir = Path("artifacts/smoke")
         output_dir.mkdir(parents=True, exist_ok=True)
+        frame = output_dir / "supersampled-frame.png"
+        draw_frame(project["scenes"][0], project, 0, 2, frame)
+        with Image.open(frame) as image:
+            self.assertEqual(image.size, (1280, 720))
         output = render_project(project, output_dir)
         self.assertTrue(output.exists())
         self.assertGreater(output.stat().st_size, 2048)
