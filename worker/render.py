@@ -267,7 +267,7 @@ def story_prop_kind(prompt):
     return "object"
 
 
-def draw_primary_story_prop(d,w,h,kind):
+def draw_primary_story_prop(d,w,h,kind,phase=0.0):
     """Draw one oversized, simple inked prop on the right side of the composition."""
     ink=INK
     cx,cy=w*.70,h*.49
@@ -291,15 +291,21 @@ def draw_primary_story_prop(d,w,h,kind):
         r=unit*.19
         d.ellipse((cx-r,cy-r,cx+r,cy+r),fill=(207,196,169),outline=ink,width=6)
         d.ellipse((cx-r*.78,cy-r*.78,cx+r*.78,cy+r*.78),outline=(115,105,86),width=3)
-        d.polygon([(cx,cy-r*.68),(cx+unit*.035,cy+unit*.035),(cx,cy+unit*.10),(cx-unit*.035,cy+unit*.035)],
+        angle=phase*.85
+        tip=(cx+math.sin(angle)*r*.68,cy-math.cos(angle)*r*.68)
+        tail=(cx-math.sin(angle)*r*.30,cy+math.cos(angle)*r*.30)
+        d.polygon([tip,(cx+unit*.035,cy+unit*.035),tail,(cx-unit*.035,cy+unit*.035)],
                   fill=(143,75,59),outline=ink)
         d.ellipse((cx-unit*.018,cy-unit*.018,cx+unit*.018,cy+unit*.018),fill=ink)
     elif kind=="lantern":
         d.arc((cx-unit*.10,cy-unit*.22,cx+unit*.10,cy+unit*.03),180,360,fill=ink,width=5)
         d.rounded_rectangle((cx-unit*.105,cy-unit*.12,cx+unit*.105,cy+unit*.18),radius=int(unit*.025),
                             fill=(151,139,111),outline=ink,width=5)
-        d.rectangle((cx-unit*.065,cy-unit*.075,cx+unit*.065,cy+unit*.12),fill=(218,202,158),outline=ink,width=3)
-        d.line((cx,cy-unit*.05,cx,cy+unit*.08),fill=(116,94,66),width=4)
+        flicker=.5+.5*math.sin(phase*3.1)
+        glow=(min(235,int(205+18*flicker)),min(220,int(187+17*flicker)),min(185,int(148+18*flicker)))
+        d.rectangle((cx-unit*.065,cy-unit*.075,cx+unit*.065,cy+unit*.12),fill=glow,outline=ink,width=3)
+        flame_y=cy+unit*(.015+.012*math.sin(phase*2.4))
+        d.ellipse((cx-unit*.018,flame_y-unit*.045,cx+unit*.018,flame_y+unit*.045),fill=(174,126,75),outline=(116,94,66),width=2)
         d.line((cx-unit*.12,cy+unit*.19,cx+unit*.12,cy+unit*.19),fill=ink,width=5)
     elif kind=="key":
         r=unit*.075
@@ -312,8 +318,10 @@ def draw_primary_story_prop(d,w,h,kind):
         r=unit*.17
         d.ellipse((cx-r,cy-r,cx+r,cy+r),fill=(218,207,181),outline=ink,width=6)
         d.ellipse((cx-r*.78,cy-r*.78,cx+r*.78,cy+r*.78),outline=ink,width=3)
-        d.line((cx,cy,cx,cy-r*.10),fill=ink,width=5)
-        d.line((cx,cy,cx+r*.47,cy+r*.22),fill=ink,width=5)
+        minute=phase*.22
+        hour=phase*.018+math.pi*.18
+        d.line((cx,cy,cx+math.sin(hour)*r*.43,cy-math.cos(hour)*r*.43),fill=ink,width=5)
+        d.line((cx,cy,cx+math.sin(minute)*r*.68,cy-math.cos(minute)*r*.68),fill=ink,width=4)
         d.arc((cx-unit*.04,cy-unit*.24,cx+unit*.04,cy-unit*.14),180,360,fill=ink,width=4)
     elif kind=="ledger":
         d.polygon([(cx-unit*.19,cy-unit*.17),(cx,cy-unit*.14),(cx,cy+unit*.17),(cx-unit*.19,cy+unit*.14)],
@@ -335,7 +343,7 @@ def draw_primary_story_prop(d,w,h,kind):
         d.ellipse((cx-r,cy-r,cx+r,cy+r),fill=(157,151,132),outline=ink,width=6)
         d.ellipse((cx-r*.36,cy-r*.36,cx+r*.36,cy+r*.36),fill=(215,204,179),outline=ink,width=4)
         for a in range(8):
-            angle=math.tau*a/8
+            angle=math.tau*a/8+phase*.16
             x1=cx+math.cos(angle)*r*.72; y1=cy+math.sin(angle)*r*.72
             x2=cx+math.cos(angle)*r*1.22; y2=cy+math.sin(angle)*r*1.22
             d.line((x1,y1,x2,y2),fill=ink,width=max(4,int(unit*.025)))
@@ -512,7 +520,7 @@ def draw_story_details(im,d,index,phase,scene):
     # In close-up beats, give the story's named object a large, clean silhouette.
     # This is the focal subject; the recurring figure remains a small observer.
     if "close-up" in (scene.get("camera","") or "").lower():
-        draw_primary_story_prop(d,w,h,story_prop_kind(p))
+        draw_primary_story_prop(d,w,h,story_prop_kind(p),phase)
     # Light foreground hatching adds imperfect hand-inked contours without clutter.
     rng=random.Random(index+909)
     for _ in range(18):
