@@ -41,6 +41,21 @@ class StoryTimingTests(unittest.TestCase):
         self.assertIn("exactly 2 seconds", project["animation_agent_instruction"])
 
 
+    def test_narrative_beats_select_distinct_facial_expressions(self):
+        from app.story import _scene_expression
+        self.assertEqual(_scene_expression("The discovery was astonishing.", "", 0), "surprised")
+        self.assertEqual(_scene_expression("Officials feared the worst.", "", 0), "concerned")
+        self.assertEqual(_scene_expression("After years of waiting, they were exhausted.", "", 0), "weary")
+        self.assertEqual(_scene_expression("The team finally resolved to rebuild.", "", 0), "resolved")
+        self.assertEqual(_scene_expression("A quiet ordinary morning.", "", 0), "neutral")
+
+    def test_scene_expression_is_attached_to_every_rendered_beat(self):
+        project = make_project("A test story", 8, "16:9",
+            "The discovery was astonishing. Officials feared the worst.",
+            "A sudden discovery. Officials study the evidence.")
+        self.assertEqual(len(project["scenes"]), 2)
+        self.assertTrue(all(scene["expression"] in {"neutral","concerned","surprised","weary","resolved"} for scene in project["scenes"]))
+
     def test_scene_camera_matches_story_objects_and_locations(self):
         from app.story import _scene_camera
         self.assertIn("overhead", _scene_camera("A folded map shows the expedition route.", 0))

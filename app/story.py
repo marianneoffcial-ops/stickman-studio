@@ -164,6 +164,21 @@ def _scene_action(visual, index):
     return ("observe","study","present","walk","turn","gesture")[index%6]
 
 
+def _scene_expression(narration, visual, index=0):
+    """Select a restrained facial expression from the spoken story beat."""
+    text=(str(narration or "")+" "+str(visual or "")).lower()
+    rules=[
+      (("astonishing","astonished","shocked","surprised","unexpected","suddenly","could not believe","unbelievable"),"surprised"),
+      (("danger","threat","risk","worried","fear","uncertain","anxious","missing","vanished","mystery","crisis","trouble"),"concerned"),
+      (("exhausted","weary","years later","long wait","after months","after years","fatigue","tired"),"weary"),
+      (("success","finally","triumph","resolved","determined","hope","rescue","recovered","rebuild","victory","decided"),"resolved")
+    ]
+    for terms,expression in rules:
+        if any(term in text for term in terms):
+            return expression
+    return ("neutral","concerned","resolved","weary")[index%4]
+
+
 def _scene_camera(visual, index):
     """Match framing to the story beat while retaining deliberate shot variety."""
     v=(visual or "").lower()
@@ -218,6 +233,7 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
             visual = f"Distinct story beat about {topic}; show a new action, location or meaningful object."
         camera = _scene_camera(visual, i)
         action = _scene_action(visual, i)
+        expression = _scene_expression(narration, visual, i)
         title = re.sub(r"^.*?shot of ", "", visual, flags=re.I)[:52].strip(" .,:;") or f"Scene {i+1:03d}"
         visual_prompt = (
             f"This is a {min(4, duration-i*4)}-second hand-inked 2D animated clip in {aspect_ratio}. "
@@ -234,7 +250,7 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
         scenes.append({
             "scene_id": f"scene_{i+1:03d}", "title": title, "duration": min(4, duration-i*4),
             "narration": narration, "visual": visual, "visual_prompt": visual_prompt,
-            "camera": camera, "characters": [lead], "action": action, "shot_type": camera.split(" composition")[0].split(" view")[0].split(" tableau")[0]
+            "camera": camera, "characters": [lead], "action": action, "expression": expression, "shot_type": camera.split(" composition")[0].split(" view")[0].split(" tableau")[0]
         })
     final_duration = duration - 4*(count-1)
     character_sheet_prompt = (

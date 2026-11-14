@@ -27,7 +27,7 @@ def font(size,bold=False):
     for p in paths:
         if Path(p).exists(): return ImageFont.truetype(p,size)
     return ImageFont.load_default()
-def draw_person(d,x,y,scale,color,phase,pose=0,role='',action='idle'):
+def draw_person(d,x,y,scale,color,phase,pose=0,role='',action='idle',expression='neutral'):
     """Draw a consistent inked character with articulated, gently animated limbs."""
     q=scale
     outline=max(2,int(5*q)); limb=max(3,int(7*q))
@@ -102,17 +102,34 @@ def draw_person(d,x,y,scale,color,phase,pose=0,role='',action='idle'):
     else:
         d.ellipse((hx-17*q,eye_y-4*q,hx-8*q,eye_y+5*q),fill=INK)
         d.ellipse((hx+8*q,eye_y-4*q,hx+17*q,eye_y+5*q),fill=INK)
-    # Brows and mouth vary subtly with the performed action.
-    brow_l=(hx-20*q,hy-18*q,hx-5*q,hy-10*q)
-    brow_r=(hx+5*q,hy-18*q,hx+20*q,hy-10*q)
-    d.arc(brow_l,195,340,fill=INK,width=max(2,int(2*q)))
-    d.arc(brow_r,200,345,fill=INK,width=max(2,int(2*q)))
-    if action in ('study','observe','turn'):
-        d.arc((hx-10*q,hy+8*q,hx+10*q,hy+20*q),195,345,fill=INK,width=max(2,int(2*q)))
-    elif action in ('gesture','point','present'):
-        d.arc((hx-10*q,hy+7*q,hx+10*q,hy+23*q),5,175,fill=INK,width=max(2,int(2*q)))
+    # Facial features are driven by the narrative beat, not one repeated smile.
+    if expression == 'surprised':
+        d.arc((hx-22*q,hy-29*q,hx-4*q,hy-12*q),190,350,fill=INK,width=max(2,int(3*q)))
+        d.arc((hx+4*q,hy-29*q,hx+22*q,hy-12*q),190,350,fill=INK,width=max(2,int(3*q)))
+        d.ellipse((hx-7*q,hy+8*q,hx+7*q,hy+25*q),outline=INK,width=max(2,int(2*q)))
+    elif expression == 'concerned':
+        d.line((hx-21*q,hy-13*q,hx-6*q,hy-19*q),fill=INK,width=max(2,int(3*q)))
+        d.line((hx+6*q,hy-19*q,hx+21*q,hy-13*q),fill=INK,width=max(2,int(3*q)))
+        d.arc((hx-10*q,hy+13*q,hx+10*q,hy+27*q),195,345,fill=INK,width=max(2,int(2*q)))
+    elif expression == 'weary':
+        d.line((hx-21*q,hy-13*q,hx-6*q,hy-11*q),fill=INK,width=max(2,int(3*q)))
+        d.line((hx+6*q,hy-11*q,hx+21*q,hy-13*q),fill=INK,width=max(2,int(3*q)))
+        d.line((hx-8*q,hy+17*q,hx+8*q,hy+17*q),fill=INK,width=max(2,int(2*q)))
+    elif expression == 'resolved':
+        d.line((hx-21*q,hy-17*q,hx-6*q,hy-12*q),fill=INK,width=max(2,int(3*q)))
+        d.line((hx+6*q,hy-12*q,hx+21*q,hy-17*q),fill=INK,width=max(2,int(3*q)))
+        d.line((hx-9*q,hy+16*q,hx+9*q,hy+16*q),fill=INK,width=max(2,int(3*q)))
     else:
-        d.arc((hx-10*q,hy+7*q,hx+10*q,hy+21*q),10,170,fill=INK,width=max(2,int(2*q)))
+        brow_l=(hx-20*q,hy-18*q,hx-5*q,hy-10*q)
+        brow_r=(hx+5*q,hy-18*q,hx+20*q,hy-10*q)
+        d.arc(brow_l,195,340,fill=INK,width=max(2,int(2*q)))
+        d.arc(brow_r,200,345,fill=INK,width=max(2,int(2*q)))
+        if action in ('study','observe','turn'):
+            d.arc((hx-10*q,hy+8*q,hx+10*q,hy+20*q),195,345,fill=INK,width=max(2,int(2*q)))
+        elif action in ('gesture','point','present'):
+            d.arc((hx-10*q,hy+7*q,hx+10*q,hy+23*q),5,175,fill=INK,width=max(2,int(2*q)))
+        else:
+            d.arc((hx-10*q,hy+7*q,hx+10*q,hy+21*q),10,170,fill=INK,width=max(2,int(2*q)))
     # A few loose, repeatable hair strokes finish the hand-inked silhouette.
     d.arc((hx-29*q,hy-39*q,hx+18*q,hy+2*q),185,270,fill=INK,width=max(2,int(3*q)))
     d.line((hx-22*q,hy-29*q,hx-8*q,hy-43*q,hx+4*q,hy-31*q),fill=INK,width=max(2,int(3*q)))
@@ -600,7 +617,7 @@ def draw_frame(scene,project,frame,total_frames,out):
         shadow_w=46*scale
         d.ellipse((x-shadow_w,foot_y-5*scale,x+shadow_w,foot_y+7*scale),
                   fill=(126,119,102))
-        draw_person(d,x,y,scale,rgb,phase+j,int(scene.get("scene_index",0))%3,name,action)
+        draw_person(d,x,y,scale,rgb,phase+j,int(scene.get("scene_index",0))%3,name,action,scene.get("expression","neutral"))
     apply_house_texture(im,int(scene.get("scene_index",0)))
     # The brief prohibits burned-in titles, captions and subtitles.
     vign=Image.new("L",(w,h),0); vd=ImageDraw.Draw(vign)
