@@ -18,7 +18,7 @@ def font(size,bold=False):
     for p in paths:
         if Path(p).exists(): return ImageFont.truetype(p,size)
     return ImageFont.load_default()
-def draw_person(d,x,y,scale,color,phase,pose=0):
+def draw_person(d,x,y,scale,color,phase,pose=0,role=''):
     s=scale
     # soft clothing silhouette and inked stick-figure limbs
     d.ellipse((x-34*s,y-184*s,x+34*s,y-116*s),fill=(242,238,224),outline=INK,width=max(2,int(5*s)))
@@ -29,6 +29,16 @@ def draw_person(d,x,y,scale,color,phase,pose=0):
     d.arc((x-30*s,y-190*s,x+20*s,y-150*s),185,270,fill=INK,width=max(2,int(3*s)))
     d.line((x-19*s,y-180*s,x-4*s,y-193*s,x+5*s,y-181*s),fill=INK,width=max(2,int(3*s)))
     d.rounded_rectangle((x-29*s,y-118*s,x+29*s,y+8*s),radius=int(15*s),fill=color,outline=INK,width=max(2,int(5*s)))
+    # Costume details keep recurring roles visually identifiable.
+    if role.lower() == 'emperor':
+        d.polygon([(x-30*s,y-180*s),(x-22*s,y-218*s),(x-7*s,y-197*s),(x,y-224*s),(x+9*s,y-197*s),(x+24*s,y-218*s),(x+30*s,y-180*s)],fill=(177,145,82),outline=INK)
+        d.line((x-25*s,y-178*s,x+25*s,y-178*s),fill=INK,width=max(2,int(3*s)))
+        d.line((x,y-112*s,x,y-35*s),fill=(177,145,82),width=max(2,int(3*s)))
+    elif role.lower() == 'herald':
+        d.line((x+48*s,y-105*s,x+48*s,y+92*s),fill=(139,105,65),width=max(3,int(5*s)))
+        d.ellipse((x+42*s,y-113*s,x+54*s,y-101*s),fill=(177,145,82),outline=INK)
+    elif role.lower() in ('scholar','architect'):
+        d.line((x-17*s,y-85*s,x+17*s,y-85*s),fill=(211,198,166),width=max(2,int(3*s)))
     d.line((x,y+5*s,x,y+104*s),fill=INK,width=max(3,int(7*s)))
     swing=math.sin(phase)*18*s
     if pose==1: arms=[(x-48*s,y-48*s,x-62*s,y-90*s),(x+48*s,y-48*s,x+60*s,y-8*s)]
@@ -105,6 +115,21 @@ def draw_background(im,d,index,phase,scene=None):
         for _ in range(35):
             sx=rng_snow.randrange(w); sy=rng_snow.randrange(int(h*.62))
             d.ellipse((sx,sy,sx+3,sy+3),fill=(238,234,219))
+    # Scene-specific narrative props for the Mansa Musa brief and related historical stories.
+    if any(k in prompt for k in ('throne','emperor','crowned','king','sovereign')):
+        tx,ty=int(w*.48),int(h*.53)
+        d.rectangle((tx,ty,tx+int(w*.14),int(h*.74)),fill=(112,86,57),outline=INK,width=4)
+        d.arc((tx,ty-int(h*.13),tx+int(w*.14),ty+int(h*.12)),180,360,fill=INK,width=5)
+        d.rectangle((tx+int(w*.025),ty+int(h*.06),tx+int(w*.115),ty+int(h*.19)),fill=(157,132,87),outline=INK,width=3)
+    if any(k in prompt for k in ('gold','nugget','gold dust','golden')):
+        for j in range(7):
+            gx=int(w*(.57+(j%4)*.055)); gy=int(h*(.66-(j//4)*.025))
+            d.ellipse((gx,gy,gx+int(w*.045),gy+int(h*.035)),fill=(171,139,76),outline=INK,width=2)
+    if any(k in prompt for k in ('staff','scepter','banner')):
+        for j in range(3):
+            sx=int(w*(.16+j*.055))
+            d.line((sx,int(h*.42),sx,int(h*.72)),fill=(139,105,65),width=max(3,int(w*.004)))
+            d.ellipse((sx-int(w*.006),int(h*.405),sx+int(w*.006),int(h*.43)),fill=(177,145,82),outline=INK)
     # paper grain and scanlines
     grain=Image.new("RGBA",(w,h),(0,0,0,0)); gd=ImageDraw.Draw(grain)
     rng=random.Random(index+17)
@@ -127,7 +152,7 @@ def draw_frame(scene,project,frame,total_frames,out):
         x=int(w*positions[j]+drift); y=int(h*.70)
         color=project.get("characters",{}).get(name,{}).get("color","#34465a")
         rgb=tuple(int(color[k:k+2],16) for k in (1,3,5))
-        draw_person(d,x,y,scale*(1.0 if w/h>1 else .82),rgb,phase+j,int(scene.get("scene_index",0))%3)
+        draw_person(d,x,y,scale*(1.0 if w/h>1 else .82),rgb,phase+j,int(scene.get("scene_index",0))%3,name)
     title=scene.get("title","A new chapter")
     d.text((int(w*.045),int(h*.055)),title,font=font(max(22,int(w*.034)),True),fill=(246,239,220),stroke_width=2,stroke_fill=INK)
     caption=scene.get("narration","")
@@ -140,7 +165,8 @@ def draw_frame(scene,project,frame,total_frames,out):
     vign=Image.new("L",(w,h),0); vd=ImageDraw.Draw(vign)
     vd.ellipse((-w*.12,-h*.12,w*1.12,h*1.12),fill=230)
     vign=vign.filter(ImageFilter.GaussianBlur(max(10,int(w*.07))))
-    dark=Image.new("RGB",(w,h),(15,16,15)); im=Image.composite(im,dark,Image.eval(vign,lambda p:255-p))
+    # White mask at the centre preserves the illustration; dark edges create a subtle vignette.
+    dark=Image.new("RGB",(w,h),(15,16,15)); im=Image.composite(im,dark,vign)
     im.save(out,quality=92)
 def synthesize_voice(text,destination,ffmpeg):
     edge=shutil.which("edge-tts")
