@@ -87,11 +87,16 @@ def draw_background(im,d,index,phase,scene=None):
             x=int(w*(.06+j*.18)); hh=int(h*(.20+(j%3)*.06))
             d.rectangle((x,horizon-hh,x+w*.12,horizon),fill=(169,160,140),outline=INK,width=4)
             for yy in range(3): d.rectangle((x+w*.025,horizon-hh+yy*24,x+w*.05,horizon-hh+yy*24+12),fill=(75,78,70))
-    elif mode==2: # sea / ship
+    elif mode==2: # sea / ship, with restrained bobbing and moving wave lines
         d.rectangle((0,h*.48,w,h*.72),fill=(142,154,147))
-        d.polygon([(w*.2,h*.59),(w*.72,h*.59),(w*.63,h*.68),(w*.29,h*.68)],fill=(83,85,78),outline=INK,width=4)
-        d.line((w*.47,h*.58,w*.47,h*.28),fill=INK,width=5)
-        d.polygon([(w*.48,h*.29),(w*.65,h*.52),(w*.48,h*.52)],fill=(211,201,179),outline=INK,width=3)
+        shift=math.sin(phase)*w*.022; bob=math.sin(phase*2)*h*.008
+        d.polygon([(w*.2+shift,h*.59+bob),(w*.72+shift,h*.59+bob),(w*.63+shift,h*.68+bob),(w*.29+shift,h*.68+bob)],fill=(83,85,78),outline=INK,width=4)
+        d.line((w*.47+shift,h*.58+bob,w*.47+shift,h*.28+bob),fill=INK,width=5)
+        d.polygon([(w*.48+shift,h*.29+bob),(w*.65+shift,h*.52+bob),(w*.48+shift,h*.52+bob)],fill=(211,201,179),outline=INK,width=3)
+        for j in range(7):
+            xx=((j*.17+phase*.035)%1.15-.08)*w
+            yy=h*(.72+j%3*.018)
+            d.arc((xx,yy,xx+w*.13,yy+h*.035),185,345,fill=(91,111,107),width=2)
     elif mode==3: # archive / interior
         d.rectangle((w*.08,h*.18,w*.92,h*.72),fill=(190,177,151),outline=INK,width=5)
         for j in range(4):
@@ -193,6 +198,8 @@ def draw_frame(scene,project,frame,total_frames,out):
     action=scene.get("action","idle")
     for j,name in enumerate(names[:3]):
         drift=math.sin(phase*2+j)*w*.004
+        if action=="walk" and len(names)==1:
+            positions[j]=.20+.60*(frame/max(1,total_frames-1))
         x=int(w*positions[j]+drift); y=int(h*y_fraction)
         color=project.get("characters",{}).get(name,{}).get("color","#34465a")
         rgb=tuple(int(color[k:k+2],16) for k in (1,3,5))
