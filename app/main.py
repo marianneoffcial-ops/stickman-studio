@@ -6,6 +6,7 @@ import subprocess
 import threading
 import time
 import uuid
+from fractions import Fraction
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import urlparse
@@ -180,7 +181,7 @@ def verify_mp4(path, project):
         raise RuntimeError("FFprobe is required to verify the finished MP4.")
     result = subprocess.run(
         [ffprobe, "-v", "error", "-show_entries",
-         "format=duration:stream=codec_type,width,height",
+         "format=duration:stream=codec_type,width,height,avg_frame_rate",
          "-of", "json", str(path)],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=30
     )
@@ -192,8 +193,9 @@ def verify_mp4(path, project):
         video = next(stream for stream in streams if stream.get("codec_type") == "video")
         audio = next(stream for stream in streams if stream.get("codec_type") == "audio")
         duration = float(metadata["format"]["duration"])
-    except (ValueError, KeyError, StopIteration, TypeError):
-        raise RuntimeError("The MP4 is missing a valid video, audio, or duration stream.")
+        fps = float(Fraction(video.get("avg_frame_rate", "0/1")))
+    except (ValueError, KeyError, StopIteration, TypeError, ZeroDivisionError):
+        raise RuntimeError("The MP4 is missing a valid video, audio, duration, or frame-rate stream.")
     expected_width, expected_height = dimensions(project["aspect_ratio"])
     if (int(video.get("width", 0)), int(video.get("height", 0))) != (expected_width, expected_height):
         raise RuntimeError("The rendered MP4 dimensions do not match the selected aspect ratio.")
@@ -201,8 +203,10 @@ def verify_mp4(path, project):
         raise RuntimeError(
             f"MP4 duration verification failed: expected {project['duration_seconds']} seconds, got {duration:.2f}."
         )
+    if abs(fps - 24.0) > 0.05:
+        raise RuntimeError(f"MP4 frame-rate verification failed: expected 24 fps, got {fps:.3f}.")
     return {"duration_seconds": round(duration, 3), "width": expected_width, "height": expected_height,
-            "has_audio": bool(audio)}
+            "fps": round(fps, 3), "has_audio": bool(audio)}
 
 
 def _render_work(job_id, project):
@@ -230,7 +234,8 @@ def _render_work(job_id, project):
             job_id, status="completed", progress=100, completed_scenes=len(project["scenes"]),
             output=f"/api/jobs/{job_id}/download", output_bytes=result.stat().st_size,
             duration_seconds=verification["duration_seconds"], aspect_ratio=project["aspect_ratio"],
-            width=verification["width"], height=verification["height"], has_audio=verification["has_audio"],
+            width=verification["width"], height=verification["height"], fps=verification["fps"],
+            has_audio=verification["has_audio"],
             voice_engine=project.get("voice_engine"), completed_at=finished,
             elapsed_seconds=round(finished - started, 2), error=None
         )
