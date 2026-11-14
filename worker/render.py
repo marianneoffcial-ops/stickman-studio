@@ -12,7 +12,15 @@ def run(cmd):
     if p.returncode:
         raise RuntimeError((p.stderr or "Render command failed")[-2500:])
 def dimensions(ratio):
-    return {"16:9":(1280,720),"9:16":(720,1280),"1:1":(960,960)}.get(ratio,(1280,720))
+    presets={"16:9":(1280,720),"9:16":(720,1280),"1:1":(960,960)}
+    if ratio in presets: return presets[ratio]
+    try:
+        a,b=(int(x) for x in ratio.split(":",1))
+        if a<1 or b<1: raise ValueError()
+        if a>=b: return (1280,max(2,int(round(1280*b/a/2)*2)))
+        return (max(2,int(round(1280*a/b/2)*2)),1280)
+    except Exception:
+        return (1280,720)
 def font(size,bold=False):
     paths=["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
            "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"]
@@ -303,7 +311,7 @@ def render_project(project,outdir:Path):
     color=project.get("characters",{}).get(name,{}).get("color","#34465a")
     rgb=tuple(int(color[k:k+2],16) for k in (1,3,5))
     draw_person(td,330,500,1.0,rgb,0,0,name,"observe")
-    words=re.findall(r"[A-Za-z0-9']+",project.get("title","STICKMAN STORY").upper())[:4]
+    words=re.findall(r"[A-Za-z0-9']+",project.get("thumbnail_headline",project.get("title","STICKMAN STORY")).upper())[:4]
     headline=" ".join(words) or "STICKMAN STORY"
     td.rounded_rectangle((590,190,1225,555),radius=18,fill=(30,32,29),outline=(192,174,137),width=5)
     lines=textwrap.wrap(headline,width=12)[:3]
