@@ -41,6 +41,20 @@ class RenderSmokeTests(unittest.TestCase):
             self.assertLessEqual(last[3], height)
             self.assertGreater(first[2] - first[0], width * .90)
 
+    def test_scene_transition_cross_dissolves_without_changing_frame_size(self):
+        from worker.render import blend_scene_transition
+        previous = Image.new("RGB", (32, 24), (0, 0, 0))
+        current = Image.new("RGB", (32, 24), (255, 255, 255))
+        first = blend_scene_transition(previous, current, 0, 3)
+        middle = blend_scene_transition(previous, current, 1, 3)
+        final = blend_scene_transition(previous, current, 2, 3)
+        self.assertEqual(first.size, (32, 24))
+        self.assertEqual(first.getpixel((0, 0)), (85, 85, 85))
+        self.assertEqual(middle.getpixel((0, 0)), (170, 170, 170))
+        self.assertEqual(final.getpixel((0, 0)), (255, 255, 255))
+        self.assertEqual(blend_scene_transition(previous, current, 3, 3).getpixel((0, 0)), (255, 255, 255))
+        self.assertEqual(blend_scene_transition(None, current, 0, 3).getpixel((0, 0)), (255, 255, 255))
+
     def test_draw_person_accepts_narrative_expression_styles(self):
         from worker.render import draw_person
         from PIL import Image, ImageDraw
