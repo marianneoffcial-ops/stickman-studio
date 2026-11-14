@@ -185,6 +185,19 @@ def contains_any(text, terms):
                for term in terms)
 
 
+
+def scene_transport_kind(prompt):
+    """Choose one dominant transport motif so mixed keywords cannot stack props."""
+    p = str(prompt or "").lower()
+    if contains_any(p, ("ship", "vessel", "boat", "ocean", "sea", "sail", "coast")):
+        return "sea"
+    if contains_any(p, ("train", "railway", "locomotive", "carriage")):
+        return "rail"
+    if contains_any(p, ("aircraft", "airplane", "plane", "parachute", "flight", "pilot")):
+        return "air"
+    return "none"
+
+
 def draw_background(im,d,index,phase,scene=None,closeup=False):
     w,h=im.size; base=PALETTE[index%len(PALETTE)]
     im.paste(base,(0,0,w,h))
@@ -456,11 +469,12 @@ def draw_story_details(im,d,index,phase,scene):
         for j in range(3):
             yy=h*(.18+j*.06)
             d.arc((w*(.27+j*.12),yy,w*(.42+j*.12),yy+h*.07),190,345,fill=(125,128,115),width=2)
-    if contains_any(p, ("coast","sea","ocean","ship","flight","aircraft","plane","mountain")):
+    transport = scene_transport_kind(p)
+    if transport in ("sea", "air") or contains_any(p, ("mountain",)):
         for j in range(3):
             bx=w*(.61+j*.045)+math.sin(phase+j)*w*.002; by=h*(.25+j*.025)
             d.arc((bx,by,bx+w*.018,by+h*.012),190,345,fill=ink,width=2)
-    if contains_any(p, ("train","railway","locomotive","carriage")):
+    if transport == "rail":
         y=h*.66; x=w*.60
         d.rectangle((x,y-h*.16,w*.94,y),fill=(105,108,100),outline=ink,width=4)
         for j in range(2):
