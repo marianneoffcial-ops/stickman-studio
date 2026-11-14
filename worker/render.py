@@ -384,9 +384,7 @@ def character_scale(width,height,camera=""):
     """Return a frame-aware character scale with shot-specific framing."""
     camera=(camera or "").lower()
     scale=(height/720) if width/height<=1 else min(width/1280,height/720)
-    if "close-up" in camera:
-        scale*=1.25
-    elif "wide silhouette" in camera:
+    if "wide silhouette" in camera:
         scale*=.62
     elif "wide establishing" in camera:
         scale*=.78
@@ -399,6 +397,39 @@ def character_scale(width,height,camera=""):
     elif "interior" in camera:
         scale*=.92
     return scale
+
+
+def scene_composition(width,height,camera="",frame=0,total_frames=1):
+    """Choose a readable subject scale and position for the semantic camera shot."""
+    camera=(camera or "").lower()
+    scale=character_scale(width,height,camera)
+    x_fraction=.50
+    y_fraction=.70
+    if "close-up" in camera:
+        # Keep the recurring character as a small foreground observer while
+        # the story-specific prop on the right becomes the visual subject.
+        scale*=.55
+        x_fraction=.16
+        y_fraction=.82
+    elif "wide silhouette" in camera:
+        x_fraction=.76
+        y_fraction=.73
+    elif "wide establishing" in camera:
+        x_fraction=.28
+        y_fraction=.73
+    elif "side-on tracking" in camera:
+        x_fraction=.18+.64*(frame/max(1,total_frames-1))
+        y_fraction=.70
+    elif "overhead" in camera:
+        x_fraction=.54
+        y_fraction=.72
+    elif "low-angle" in camera:
+        x_fraction=.52
+        y_fraction=.64
+    elif "interior" in camera:
+        x_fraction=.50
+        y_fraction=.70
+    return scale,x_fraction,y_fraction
 
 
 def draw_frame(scene,project,frame,total_frames,out):
@@ -429,22 +460,7 @@ def draw_frame(scene,project,frame,total_frames,out):
     camera=(scene.get("camera","") or "").lower()
     # Framing follows the output orientation and the semantic shot selected
     # by the storyboard engine; portrait figures stay readable without clipping.
-    scale=character_scale(w,h,camera)
-    x_fraction=.50; y_fraction=.70
-    if "close-up" in camera:
-        x_fraction=.52; y_fraction=.63
-    elif "wide silhouette" in camera:
-        x_fraction=.76; y_fraction=.73
-    elif "wide establishing" in camera:
-        x_fraction=.28; y_fraction=.73
-    elif "side-on tracking" in camera:
-        x_fraction=.18+.64*(frame/max(1,total_frames-1)); y_fraction=.70
-    elif "overhead" in camera:
-        x_fraction=.54; y_fraction=.72
-    elif "low-angle" in camera:
-        x_fraction=.52; y_fraction=.64
-    elif "interior" in camera:
-        x_fraction=.50; y_fraction=.70
+    scale,x_fraction,y_fraction=scene_composition(w,h,camera,frame,total_frames)
     names=scene.get("characters",["Narrator"])
     positions=[x_fraction] if len(names)==1 else ([.30,.52,.74] if w/h>1 else [.36,.66,.50])
     action=scene.get("action","idle")
@@ -537,7 +553,9 @@ def render_project(project,outdir:Path):
         if "pull-back" in camera:
             zoom_expr="max(1.05-on*0.0005,1.0)"
         elif "close-up" in camera:
-            zoom_expr="min(1.0+on*0.0005,1.05)"
+            # The right-side story prop is the focal subject in close-up shots.
+            zoom_expr="min(1.35+on*0.001,1.40)"
+            x_expr="min(iw-iw/zoom,max(0,iw*0.70-iw/zoom/2))"
         if "lateral pan" in camera or "tracking" in camera:
             x_expr="min(iw-iw/zoom,max(0,iw/2-(iw/zoom/2)+on*0.22))"
         elif "gentle pan" in camera:
