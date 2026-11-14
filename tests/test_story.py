@@ -48,6 +48,11 @@ class StoryTimingTests(unittest.TestCase):
         self.assertIn("low-angle", _scene_camera("The new bridge rises above the river.", 2))
         self.assertIn("tracking", _scene_camera("The crew travels across the sea.", 3))
 
+    def test_story_props_trigger_object_closeups(self):
+        from app.story import _scene_camera
+        for prop in ("a brass compass", "a signal lantern", "a weathered telescope", "a folded newspaper"):
+            self.assertIn("close-up", _scene_camera(prop, 1))
+
     def test_storyboard_beats_produce_multiple_camera_angles(self):
         project = make_project(
             "A test story", 32, "16:9", " ".join(["A fact."] * 80),
