@@ -201,12 +201,13 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
             f"This is a {min(4, duration-i*4)}-second hand-inked 2D animated clip in {aspect_ratio}. "
             f"{locked} Background and story action: {visual}. Shot composition: {camera}. "
             f"One clear action: {action}. {HOUSE_STYLE} "
+            "Visual safety: use generic people and places only; no real named people, flags, insignia, logos, violence, injury, death, blood or weapons being fired; "
+            "use restrained objects, empty spaces, distant silhouettes or aftermath. "
             "Audio is diegetic ambient sound only — no voice, no narration, no dialogue, no music. "
             "Only the sounds present in the scene such as wind, footsteps, distant rumble, rain, machinery or room tone. "
-            "Keep the camera locked or moving only in a very slow push; character design, clothing and proportions never change; "
-            "texture overlay and vignette stay consistent; no glitching, warping, morphing, flickering, extra limbs, duplicate or unintended characters, "
-            "on-screen text, subtitles or watermark. Visual safety: use generic people and places only; no real named people, flags, insignia, logos, "
-            "violence, injury, death, blood or weapons being fired; use restrained objects, empty spaces, distant silhouettes or aftermath."
+            "The camera stays locked or moves only in a very slow push; the character design, clothing and proportions never change; "
+            "the texture overlay and vignette stay consistent; no glitching, no warping, no morphing, no flickering, no extra limbs, no duplicate characters, "
+            "no unintended characters, no on-screen text, no subtitles and no watermark."
         )
         scenes.append({
             "scene_id": f"scene_{i+1:03d}", "title": title, "duration": min(4, duration-i*4),
