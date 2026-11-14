@@ -48,6 +48,11 @@ class StoryTimingTests(unittest.TestCase):
         self.assertIn("low-angle", _scene_camera("The new bridge rises above the river.", 2))
         self.assertIn("tracking", _scene_camera("The crew travels across the sea.", 3))
 
+    def test_story_props_trigger_object_closeups(self):
+        from app.story import _scene_camera
+        for prop in ("a brass compass", "a signal lantern", "a weathered telescope", "a folded newspaper"):
+            self.assertIn("close-up", _scene_camera(prop, 1))
+
     def test_storyboard_beats_produce_multiple_camera_angles(self):
         project = make_project(
             "A test story", 32, "16:9", " ".join(["A fact."] * 80),
@@ -62,6 +67,33 @@ class StoryTimingTests(unittest.TestCase):
         )
         cameras = [scene["camera"] for scene in project["scenes"]]
         self.assertGreaterEqual(len(set(cameras)), 4)
+
+    def test_same_topic_gets_distinct_researched_visual_locations_and_props(self):
+        from app.research import _generic_scene
+        scenes = [_generic_scene("The ship crossed the sea toward a distant harbour.", i) for i in range(6)]
+        self.assertEqual(len(set(scenes)), 6)
+        self.assertTrue(all("primary story prop on the right third" in scene for scene in scenes))
+        self.assertTrue(any("nautical chart" in scene for scene in scenes))
+        self.assertTrue(any("brass compass" in scene for scene in scenes))
+        self.assertTrue(any("ship's logbook" in scene for scene in scenes))
+
+    def test_research_language_changes_visual_story_stage(self):
+        from app.research import _generic_scene
+        discovery = _generic_scene("Investigators discovered the empty ship.", 0)
+        decision = _generic_scene("Officials decided on a careful plan.", 1)
+        journey = _generic_scene("The expedition travelled across the ice.", 2)
+        aftermath = _generic_scene("The rescue team returned and began rebuilding.", 3)
+        self.assertIn("discovery in the story", discovery)
+        self.assertIn("decision in the story", decision)
+        self.assertIn("journey in the story", journey)
+        self.assertIn("aftermath in the story", aftermath)
+
+    def test_storyboard_visuals_keep_safety_constraints(self):
+        from app.research import _generic_scene
+        scene = _generic_scene("A group studied a map before the journey.", 0)
+        self.assertIn("No named people", scene)
+        self.assertIn("no violence", scene)
+        self.assertIn("no weapons", scene)
 
     def test_idea_pool_has_enough_fresh_topics(self):
         self.assertGreaterEqual(len(IDEAS), 20)
