@@ -78,7 +78,7 @@ def _chunk_script(script, count):
     return chunks
 
 def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=None, storyboard=None):
-    topic = re.sub(r"\\s+", " ", topic).strip()[:500]
+    topic = re.sub(r"\s+", " ", topic).strip()[:500]
     duration = int(duration_seconds)
     count = max(1, math.ceil(duration / 4))
     script = (narration_script or "").strip()
