@@ -930,4 +930,14 @@ def render_project(project,outdir:Path,progress_callback=None):
     td.multiline_text((875,260),"\n".join(lines),font=font(52,True),fill=(244,237,218),spacing=8,stroke_width=1,stroke_fill=INK)
     thumb_im.save(thumb,quality=92)
     project["thumbnail_path"]=str(thumb)
+    # A completed project only needs its verified MP4, thumbnail and metadata.
+    # Scene PNGs, per-scene WAV/MP3 files, intermediate clips and concat lists can
+    # consume substantial disk space (especially for a 10-minute production).
+    # Remove them only after both deliverables have been written successfully.
+    shutil.rmtree(sd,ignore_errors=True)
+    for temporary in (concat,audio_list,silent,voice):
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            pass
     return final
