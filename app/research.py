@@ -141,7 +141,7 @@ def research_topic(topic, duration_seconds):
     selected = words[:target_words]
     script = " ".join(selected)
     if script and script[-1] not in ".!?":
-        script = script.rsplit(" ", 1)[0].rstrip(" ,;:") + "."
+        script = script.rstrip(" ,;:") + "."
     # Re-segment the researched narration into one beat per animation scene.
     script_words = script.split()
     beats = []
