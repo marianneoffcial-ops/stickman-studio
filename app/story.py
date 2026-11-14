@@ -33,7 +33,7 @@ CHARACTERS = {
 }
 
 def make_project(topic, duration_seconds, aspect_ratio="16:9"):
-    topic=re.sub(r"\\s+"," ",topic).strip()[:500]
+    topic=re.sub(r"\s+"," ",topic).strip()[:500]
     duration=int(duration_seconds)
     count=max(1,math.ceil(duration/4))
     # Each beat is a distinct visual moment; avoid recycling the same five-line script.
