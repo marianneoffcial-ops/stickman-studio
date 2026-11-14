@@ -28,6 +28,9 @@ class ResearchRequest(BaseModel):
 class ProductionRequest(BaseModel):
  production_brief:str=Field(min_length=100,max_length=60000)
 
+class DualProductionRequest(BaseModel):
+ topic:str=Field(min_length=3,max_length=500)
+
 def save(path,obj):
  path.write_text(json.dumps(obj,ensure_ascii=False,indent=2),encoding="utf-8")
 
@@ -104,6 +107,31 @@ def create(req:Request):
  p["research_sources"]=req.research_sources
  job=queue_project(p)
  return {"project":p,"job":job}
+
+@app.post("/api/production/topic")
+def create_dual_production(req:DualProductionRequest):
+ try:
+  short_research=research_topic(req.topic,60)
+  long_research=research_topic(req.topic,600)
+ except ValueError as e:
+  raise HTTPException(422,str(e))
+ except Exception as e:
+  raise HTTPException(503,"Free research source unavailable. Please retry later. "+str(e)[:300])
+ topic=short_research["topic"]
+ short=make_project(topic,60,"9:16",short_research["narration_script"],short_research["storyboard"])
+ long=make_project(topic,600,"16:9",long_research["narration_script"],long_research["storyboard"])
+ short["research_sources"]=short_research["sources"]
+ long["research_sources"]=long_research["sources"]
+ short_job=queue_project(short)
+ long_job=queue_project(long)
+ return {
+  "topic":topic,
+  "short":{"project_id":short["project_id"],"duration_seconds":60,"aspect_ratio":"9:16",
+           "scene_count":short["scene_count"],"script_word_count":short["script_word_count"],"job":short_job},
+  "long":{"project_id":long["project_id"],"duration_seconds":600,"aspect_ratio":"16:9",
+          "scene_count":long["scene_count"],"script_word_count":long["script_word_count"],"job":long_job},
+  "sources":short_research["sources"]
+ }
 
 @app.post("/api/production")
 def create_production(req:ProductionRequest):
