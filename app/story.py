@@ -32,7 +32,7 @@ IDEAS = [
  ("The Chilean Miners Rescue","Thirty-three miners waited underground while an extraordinary rescue operation took shape."),
  ("The Tunguska Event","A vast Siberian forest was flattened by an explosion in the sky."),
  ("The 1969 Moon Landing","A small crew carried out a carefully planned journey to another world."),
- ("The Great Boston Molasses Flood Aftermath","A city rebuilt streets and infrastructure after an unusual industrial disaster."),
+ ("The Great Canadian Maple Syrup Heist","Millions of dollars in maple syrup vanished from a strategic reserve."),
  ("The Han van Meegeren Art Forgery","A painter fooled experts with convincingly forged old-master works."),
  ("The Great Library of Alexandria","The library's long history is more complicated than the famous legend."),
  ("The 1906 San Francisco Earthquake","A major earthquake transformed the city and its rebuilding."),
