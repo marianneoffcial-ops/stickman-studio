@@ -73,9 +73,11 @@ async function pollDualJobs(){
    }
   }
   $("videoLinks").innerHTML=links.join("");
-  if(sj.status==="failed"||lj.status==="failed"){$("renderDetail").textContent+=" One render failed; the other may still complete.";if(sj.status!=="completed"&&lj.status!=="completed")return;}
-  if(sj.status!=="completed"||lj.status!=="completed")pollTimer=setTimeout(pollDualJobs,5000);
-  else $("renderDetail").textContent="Both MP4 files passed the server's output-file verification. Review them before publishing.";
+  const shortDone=["completed","failed"].includes(sj.status);
+  const longDone=["completed","failed"].includes(lj.status);
+  if(!shortDone||!longDone)pollTimer=setTimeout(pollDualJobs,5000);
+  else if(sj.status==="completed"&&lj.status==="completed")$("renderDetail").textContent="Both MP4 files passed the server's output-file verification. Review them before publishing.";
+  else $("renderDetail").textContent="Rendering finished with at least one failed job. Any completed video is still available above; inspect the error details.";
  }catch(e){$("renderDetail").textContent=e.message;pollTimer=setTimeout(pollDualJobs,7000);}
 }
 $("research").onclick=async()=>{duration=+$("customLength").value||duration;if(duration<15||duration>600){alert("Duration must be between 15 and 600 seconds.");return;}const b=$("research");b.disabled=true;$("researchStatus").textContent="Researching the topic using free public sources…";try{const r=await fetch("/api/research",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({topic:selected,duration_seconds:duration})});const d=await r.json();if(!r.ok)throw new Error(d.detail||"Research failed");researchData=d;selected=d.topic;$("script").textContent=d.narration_script;$("scriptMeta").textContent=d.scene_count+" scenes · "+d.script_word_count+" narration words · "+duration+" seconds · "+ratio;$("sources").innerHTML="";(d.sources||[]).forEach(s=>{const li=document.createElement("li");const a=document.createElement("a");a.href=s.url;a.target="_blank";a.rel="noopener";a.textContent=s.title;li.appendChild(a);$("sources").appendChild(li);});$("license").textContent=d.source_license+" "+d.research_note;$("researchStatus").textContent="";step(4);}catch(e){$("researchStatus").textContent=e.message;}finally{b.disabled=false;}};
