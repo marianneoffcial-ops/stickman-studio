@@ -286,8 +286,8 @@ def render_project(project,outdir:Path):
              "-filter_complex","[0:a]volume=1.0[v];[1:a]volume=0.16[a];[v][a]amix=inputs=2:duration=first:dropout_transition=0[m]",
              "-map","[m]","-ar","24000","-ac","1",str(mixed)])
         clips.append(clip); audios.append(mixed)
-    concat=outdir/"clips.txt"; concat.write_text("".join(f"file '{x.as_posix()}'\n" for x in clips))
-    audio_list=outdir/"audio.txt"; audio_list.write_text("".join(f"file '{x.as_posix()}'\n" for x in audios))
+    concat=outdir/"clips.txt"; concat.write_text("".join(f"file '{x.resolve().as_posix()}'\n" for x in clips))
+    audio_list=outdir/"audio.txt"; audio_list.write_text("".join(f"file '{x.resolve().as_posix()}'\n" for x in audios))
     silent=outdir/"silent.mp4"; voice=outdir/"voice.wav"; final=outdir/"final.mp4"
     run([ffmpeg,"-y","-loglevel","error","-f","concat","-safe","0","-i",str(concat),"-c","copy",str(silent)])
     run([ffmpeg,"-y","-loglevel","error","-f","concat","-safe","0","-i",str(audio_list),"-c:a","pcm_s16le",str(voice)])
