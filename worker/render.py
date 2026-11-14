@@ -30,73 +30,75 @@ def font(size,bold=False):
 def draw_person(d,x,y,scale,color,phase,pose=0,role='',action='idle',expression='neutral'):
     """Draw a consistent inked character with articulated, gently animated limbs."""
     q=scale
+    # A small double-step body bounce gives the torso weight while the legs stay grounded.
+    upper_y=float(y - (abs(math.sin(phase*2))*2.5*q if action=='walk' else 0.0))
     outline=max(2,int(5*q)); limb=max(3,int(7*q))
-    cx=float(x); head_y=float(y-151*q); radius=34*q
+    cx=float(x); head_y=float(upper_y-151*q); radius=34*q
     breath=math.sin(phase*2)*2.0*q
     head_tilt=math.sin(phase*1.4)*2.0*q
     # Neck and compact jacket silhouette
-    d.line((cx,head_y+radius-1*q,cx,y-119*q),fill=INK,width=max(3,int(6*q)))
-    torso=[(cx-22*q,y-118*q),(cx+22*q,y-118*q),(cx+30*q,y-91*q),
-           (cx+26*q,y+4*q),(cx-26*q,y+4*q),(cx-30*q,y-91*q)]
+    d.line((cx,head_y+radius-1*q,cx,upper_y-119*q),fill=INK,width=max(3,int(6*q)))
+    torso=[(cx-22*q,upper_y-118*q),(cx+22*q,upper_y-118*q),(cx+30*q,upper_y-91*q),
+           (cx+26*q,upper_y+4*q),(cx-26*q,upper_y+4*q),(cx-30*q,upper_y-91*q)]
     d.polygon(torso,fill=color,outline=INK)
-    d.line((cx-22*q,y-118*q,cx+22*q,y-118*q),fill=INK,width=max(2,int(3*q)))
+    d.line((cx-22*q,upper_y-118*q,cx+22*q,upper_y-118*q),fill=INK,width=max(2,int(3*q)))
     # Subtle seams and folds keep the clothing from reading as a plain rectangle.
-    d.line((cx-14*q,y-83*q,cx-9*q,y-22*q),fill=tuple(max(0,int(c*.78)) for c in color),width=max(1,int(2*q)))
-    d.line((cx+15*q,y-70*q,cx+11*q,y-36*q),fill=tuple(min(255,int(c*1.12)) for c in color),width=max(1,int(2*q)))
+    d.line((cx-14*q,upper_y-83*q,cx-9*q,upper_y-22*q),fill=tuple(max(0,int(c*.78)) for c in color),width=max(1,int(2*q)))
+    d.line((cx+15*q,upper_y-70*q,cx+11*q,upper_y-36*q),fill=tuple(min(255,int(c*1.12)) for c in color),width=max(1,int(2*q)))
     if role.lower() in ('emperor','official'):
-        d.line((cx,y-111*q,cx,y-10*q),fill=(193,174,133),width=max(2,int(3*q)))
+        d.line((cx,upper_y-111*q,cx,upper_y-10*q),fill=(193,174,133),width=max(2,int(3*q)))
     elif role.lower() in ('scholar','architect'):
-        d.line((cx-17*q,y-84*q,cx+17*q,y-84*q),fill=(211,198,166),width=max(2,int(3*q)))
+        d.line((cx-17*q,upper_y-84*q,cx+17*q,upper_y-84*q),fill=(211,198,166),width=max(2,int(3*q)))
     sway=math.sin(phase)
-    shoulder_l=(cx-25*q,y-100*q+breath); shoulder_r=(cx+25*q,y-100*q+breath)
-    hip_l=(cx-12*q,y+1*q); hip_r=(cx+12*q,y+1*q)
+    shoulder_l=(cx-25*q,upper_y-100*q+breath); shoulder_r=(cx+25*q,upper_y-100*q+breath)
+    hip_l=(cx-12*q,upper_y+1*q); hip_r=(cx+12*q,upper_y+1*q)
     # Jointed arms: shoulder, elbow and hand positions change smoothly by action.
     if action=='walk':
         arm=26*q*sway; leg=25*q*sway
-        elbows=[(cx-43*q+arm*.35,y-65*q),(cx+43*q-arm*.35,y-65*q)]
-        hands=[(cx-48*q+arm,y-26*q),(cx+48*q-arm,y-26*q)]
+        elbows=[(cx-43*q+arm*.35,upper_y-65*q),(cx+43*q-arm*.35,upper_y-65*q)]
+        hands=[(cx-48*q+arm,upper_y-26*q),(cx+48*q-arm,upper_y-26*q)]
     elif action=='point':
         leg=3*q*sway
-        elbows=[(cx-43*q,y-64*q),(cx+46*q,y-116*q)]
-        hands=[(cx-54*q,y-34*q),(cx+76*q,y-129*q+4*q*sway)]
+        elbows=[(cx-43*q,upper_y-64*q),(cx+46*q,upper_y-116*q)]
+        hands=[(cx-54*q,upper_y-34*q),(cx+76*q,upper_y-129*q+4*q*sway)]
     elif action=='present':
         reach=(.5-.5*math.cos(phase))*5*q
         leg=3*q*sway
-        elbows=[(cx-43*q,y-64*q),(cx+46*q+reach,y-116*q)]
-        hands=[(cx-54*q,y-34*q),(cx+76*q+reach,y-129*q+4*q*sway)]
+        elbows=[(cx-43*q,upper_y-64*q),(cx+46*q+reach,upper_y-116*q)]
+        hands=[(cx-54*q,upper_y-34*q),(cx+76*q+reach,upper_y-129*q+4*q*sway)]
     elif action=='reveal':
         # The raised hand eases upward, holds, then settles instead of remaining static.
         lift=(.5-.5*math.cos(phase))*7*q
         leg=3*q*sway
-        elbows=[(cx-43*q,y-66*q),(cx+38*q,y-121*q-lift*.55)]
-        hands=[(cx-55*q,y-34*q),(cx+43*q,y-163*q-lift+5*q*sway)]
+        elbows=[(cx-43*q,upper_y-66*q),(cx+38*q,upper_y-121*q-lift*.55)]
+        hands=[(cx-55*q,upper_y-34*q),(cx+43*q,upper_y-163*q-lift+5*q*sway)]
         head_tilt-=3*q+math.sin(phase)*1.2*q
     elif action=='ponder':
         # A restrained chin-touch and head tilt create a living thinking pose.
         nod=math.sin(phase*1.5)*2.2*q
         leg=2*q*sway
-        elbows=[(cx-38*q,y-67*q),(cx+35*q,y-73*q+nod)]
-        hands=[(cx-30*q,y-44*q),(cx+18*q,y-119*q+nod+3*q*sway)]
+        elbows=[(cx-38*q,upper_y-67*q),(cx+35*q,upper_y-73*q+nod)]
+        hands=[(cx-30*q,upper_y-44*q),(cx+18*q,upper_y-119*q+nod+3*q*sway)]
         head_tilt+=5*q
     elif action in ('study','observe'):
         leg=2*q*sway
-        elbows=[(cx-36*q,y-68*q),(cx+36*q,y-68*q)]
-        hands=[(cx-28*q,y-45*q),(cx+28*q,y-45*q)]
+        elbows=[(cx-36*q,upper_y-68*q),(cx+36*q,upper_y-68*q)]
+        hands=[(cx-28*q,upper_y-45*q),(cx+28*q,upper_y-45*q)]
     elif action=='turn':
         leg=7*q*sway
-        elbows=[(cx-43*q+5*q*sway,y-59*q),(cx+42*q-5*q*sway,y-68*q)]
-        hands=[(cx-52*q+6*q*sway,y-18*q),(cx+48*q-6*q*sway,y-29*q)]
+        elbows=[(cx-43*q+5*q*sway,upper_y-59*q),(cx+42*q-5*q*sway,upper_y-68*q)]
+        hands=[(cx-52*q+6*q*sway,upper_y-18*q),(cx+48*q-6*q*sway,upper_y-29*q)]
     elif action=='gesture':
         # Alternating arm emphasis gives speeches a readable, gentle cadence.
         emphasis=math.sin(phase*2)
         leg=4*q*sway
-        elbows=[(cx-46*q,y-83*q+7*q*sway),(cx+46*q,y-80*q-7*q*sway)]
-        hands=[(cx-67*q,y-104*q+10*q*sway),(cx+68*q,y-101*q-10*q*sway-5*q*max(0,emphasis))]
+        elbows=[(cx-46*q,upper_y-83*q+7*q*sway),(cx+46*q,upper_y-80*q-7*q*sway)]
+        hands=[(cx-67*q,upper_y-104*q+10*q*sway),(cx+68*q,upper_y-101*q-10*q*sway-5*q*max(0,emphasis))]
 
     else:
         leg=5*q*sway
-        elbows=[(cx-40*q+5*q*sway,y-60*q),(cx+40*q-5*q*sway,y-60*q)]
-        hands=[(cx-49*q+6*q*sway,y-8*q),(cx+49*q-6*q*sway,y-8*q)]
+        elbows=[(cx-40*q+5*q*sway,upper_y-60*q),(cx+40*q-5*q*sway,upper_y-60*q)]
+        hands=[(cx-49*q+6*q*sway,upper_y-8*q),(cx+49*q-6*q*sway,upper_y-8*q)]
     for shoulder,elbow,hand in ((shoulder_l,elbows[0],hands[0]),(shoulder_r,elbows[1],hands[1])):
         d.line((shoulder,elbow,hand),fill=INK,width=limb,joint='curve')
         rr=max(2,3*q)
