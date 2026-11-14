@@ -152,10 +152,13 @@ def _scene_action(visual, index):
     v=(visual or "").lower()
     rules=[
       (("walk","walking","approaches","crossing","crosses","steps","moves across","travels","journey","arrives"),"walk"),
-      (("point","points","signals","indicates","marks"),"point"),
+      (("writes","writing","records","recording","sketches","draws a plan","takes notes","signs the document"),"write"),
+      (("carries","carrying","hauls","lifts a crate","holds a bundle","transports a case"),"carry"),
+      (("celebrates","celebration","waves","signals overhead","raises both arms","cheers"),"raise"),
+      (("points","pointing","indicates","marks","signals"),"point"),
       (("study","studies","examines","reads","inspects","decodes","calculates","compares"),"study"),
       (("turn","turns","looks back","faces away","discovers","realizes","reveals"),"turn"),
-      (("gesture","gestures","addresses","raises a hand","debates","announces","speaks"),"gesture"),
+      (("gesture","gestures","addresses","raises a hand","debates","announces","speaks","explains"),"gesture"),
       (("present","presents","opens","places","holds up","unfolds","hands over"),"present"),
       (("watch","watches","observes","looks toward","looks down","stares","waits","listens"),"observe")
     ]
