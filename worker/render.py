@@ -406,7 +406,9 @@ def draw_frame(scene,project,frame,total_frames,out):
             px=(rng.random()*w+frame*(.35+j*.025))%w; py=h*(.2+rng.random()*.55)
             d.ellipse((px,py,px+w*.012,py+h*.004),fill=(205,198,178))
     camera=(scene.get("camera","") or "").lower()
-    scale=min(w/1280,h/720)*(1.0 if w/h>1 else .82)
+    # Portrait and square videos need a character sized against frame height,
+    # not landscape width; otherwise the figure becomes tiny in 9:16 exports.
+    scale=(h/720) if w/h<=1 else min(w/1280,h/720)
     x_fraction=.50; y_fraction=.70
     if "close-up" in camera:
         scale*=1.25; x_fraction=.52; y_fraction=.63

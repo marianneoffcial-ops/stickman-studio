@@ -13,6 +13,12 @@ class RenderSmokeTests(unittest.TestCase):
         width, height = dimensions("4:5")
         self.assertEqual(width / height, 4 / 5)
 
+    def test_portrait_character_scale_uses_frame_height(self):
+        # At supersampled 9:16 dimensions, character scale tracks frame height.
+        width, height = dimensions("9:16")
+        scale = height * 1.5 / 720
+        self.assertGreater(scale, 2.5)
+
     def test_one_scene_produces_mp4_and_thumbnail(self):
         project = make_project(
             "A quiet boat crossing",
