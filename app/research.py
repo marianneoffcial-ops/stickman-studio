@@ -1,4 +1,5 @@
 import html
+from html.parser import HTMLParser
 import json
 import math
 import re
@@ -204,8 +205,67 @@ def _title_relevance(topic, title):
     return (coverage, precision)
 
 
+class _ArticleTextParser(HTMLParser):
+    """Extract readable article paragraphs while ignoring navigation and references."""
+
+    BLOCK_TAGS = {"p", "h2", "h3"}
+    SKIP_TAGS = {"table", "sup", "style", "script", "noscript", "nav", "aside",
+                 "figure", "ol", "ul"}
+    SKIP_CLASSES = {"navbox", "infobox", "metadata", "mw-references-wrap",
+                    "hatnote", "ambox", "sidebar"}
+    VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img", "input",
+                 "link", "meta", "param", "source", "track", "wbr"}
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.paragraphs = []
+        self._skip_stack = []
+        self._active_tag = None
+        self._buffer = []
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        classes = set((attrs.get("class") or "").split())
+        if self._skip_stack:
+            if tag not in self.VOID_TAGS:
+                self._skip_stack.append(tag)
+            return
+        if tag in self.SKIP_TAGS or classes.intersection(self.SKIP_CLASSES):
+            if tag not in self.VOID_TAGS:
+                self._skip_stack = [tag]
+            return
+        if tag in self.BLOCK_TAGS:
+            self._active_tag = tag
+            self._buffer = []
+
+    def handle_endtag(self, tag):
+        if self._skip_stack:
+            for index in range(len(self._skip_stack) - 1, -1, -1):
+                if self._skip_stack[index] == tag:
+                    del self._skip_stack[index:]
+                    break
+            return
+        if tag == self._active_tag:
+            value = re.sub(r"\\s+", " ", html.unescape("".join(self._buffer))).strip()
+            if value:
+                self.paragraphs.append(value)
+            self._active_tag = None
+            self._buffer = []
+
+    def handle_data(self, data):
+        if not self._skip_stack and self._active_tag:
+            self._buffer.append(data)
+
+
+def _extract_article_text(markup):
+    parser = _ArticleTextParser()
+    parser.feed(markup or "")
+    parser.close()
+    return "\\n".join(parser.paragraphs)
+
+
 def research_topic(topic, duration_seconds):
-    topic = re.sub(r"\s+", " ", (topic or "")).strip()
+    topic = re.sub(r"\\s+", " ", (topic or "")).strip()
     if len(topic) < 3:
         raise ValueError("Enter a story topic with at least three characters.")
     count = max(1, math.ceil(int(duration_seconds) / 4))
@@ -217,10 +277,7 @@ def research_topic(topic, duration_seconds):
         "gsrsearch": topic,
         "gsrnamespace": 0,
         "gsrlimit": 10,
-        "prop": "extracts|info",
-        "explaintext": 1,
-        "exsectionformat": "plain",
-        "exchars": 45000,
+        "prop": "info",
         "inprop": "url",
         "format": "json",
         "formatversion": 2,
@@ -241,23 +298,40 @@ def research_topic(topic, duration_seconds):
             "Try a more specific title so the video is not built from an unrelated story."
         )
     title = primary.get("title", topic)
-    primary_text = primary.get("extract", "")
-    sources = []
-    for page in ranked_pages:
-        if page.get("title") and page.get("fullurl"):
-            sources.append({"title": page["title"], "url": page["fullurl"]})
+    page_id = primary.get("pageid")
+    if not page_id:
+        raise ValueError("Wikipedia search did not provide a readable article identifier. Try again.")
+
+    # Search-generator extracts are capped and may be attached to a different
+    # result page. Fetch the selected primary article directly by page ID.
+    parsed = _api({
+        "action": "parse",
+        "pageid": page_id,
+        "prop": "text",
+        "disableeditsection": 1,
+        "disabletoc": 1,
+        "format": "json",
+        "formatversion": 2,
+    })
+    primary_text = _extract_article_text(parsed.get("parse", {}).get("text", ""))
+    if not primary_text:
+        raise ValueError(
+            "Wikipedia returned no readable text for the selected primary article. "
+            "Try another topic or retry later."
+        )
     sentences = _sentences(primary_text)
-    if len(" ".join(sentences).split()) < target_words * 0.82:
-        for page in pages[1:]:
-            sentences.extend(_sentences(page.get("extract", "")))
-            if len(" ".join(sentences).split()) >= target_words:
-                break
     words = " ".join(sentences).split()
     if len(words) < target_words:
         raise ValueError(
-            f"The free research sources provide only {len(words)} usable words, but a complete {duration_seconds}-second narration needs {target_words}. "
-            "Choose a shorter duration or a topic with more documented material. The engine will not invent missing facts."
+            f"The primary Wikipedia article provides only {len(words)} usable words, but a complete {duration_seconds}-second narration needs {target_words}. "
+            "Choose a shorter duration or a topic with a longer primary article. The engine will not fill gaps from unrelated pages or invent facts."
         )
+    sources = []
+    for page in ranked_pages:
+        page_coverage, page_precision = _title_relevance(topic, page.get("title", ""))
+        if page is primary or (page_coverage >= 0.60 and page_precision >= 0.50):
+            if page.get("title") and page.get("fullurl"):
+                sources.append({"title": page["title"], "url": page["fullurl"]})
     selected = words[:target_words]
     script = " ".join(selected)
     if script and script[-1] not in ".!?":
@@ -272,7 +346,6 @@ def research_topic(topic, duration_seconds):
         cursor += len(beat)
         if beat:
             beats.append(" ".join(beat).rstrip(" ,;:") + ("" if beat[-1][-1:] in ".!?" else "."))
-    # Keep the beat array authoritative; the continuous script is its joined text.
     script = " ".join(beats)
     anchors = [_generic_scene(" ".join(beats[i].split()), i) for i in range(count)]
     return {
@@ -283,8 +356,8 @@ def research_topic(topic, duration_seconds):
         "script_word_count": len(script.split()),
         "narration_script": script,
         "narration_beats": beats,
-        "storyboard": "\n".join(anchors),
+        "storyboard": "\\n".join(anchors),
         "sources": sources,
-        "research_note": "Narration is assembled from the retrieved encyclopedia source text. Review the citations and wording before publication.",
+        "research_note": "Narration is assembled from the selected primary Wikipedia article. Review the citations and wording before publication.",
         "source_license": "Wikipedia text is available under CC BY-SA; attribute the linked sources when publishing adapted text."
     }
