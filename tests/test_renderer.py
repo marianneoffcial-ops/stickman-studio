@@ -265,5 +265,53 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertEqual([scene["duration"] for scene in project["scenes"]], [4, 4, 2])
         self.assertTrue(all("in 9:16" in scene["visual_prompt"] for scene in project["scenes"]))
         self.assertIn("16:9 YouTube thumbnail", project["thumbnail_prompt"])
+
+    def test_cloudflare_background_generation_is_opt_in(self):
+        import os
+        from unittest.mock import patch
+        from worker.render import cloudflare_ai_configured, generate_cloudflare_background
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertFalse(cloudflare_ai_configured())
+            self.assertIsNone(generate_cloudflare_background(
+                {"visual": "A quiet archive"}, {"aspect_ratio": "16:9"}, "unused.jpg"
+            ))
+
+    def test_cloudflare_background_prompt_requests_environment_plate_only(self):
+        from worker.render import cloudflare_background_prompt
+        prompt = cloudflare_background_prompt(
+            {"visual": "A ship crosses a grey sea at dawn"}, "16:9"
+        )
+        self.assertIn("hand-inked 2D illustrated animation", prompt)
+        self.assertIn("no people", prompt)
+        self.assertIn("A ship crosses a grey sea at dawn", prompt)
+        self.assertIn("16:9", prompt)
+
+    def test_cloudflare_background_decodes_and_fits_image(self):
+        import base64
+        import os
+        import tempfile
+        from io import BytesIO
+        from unittest.mock import patch, MagicMock
+        from worker.render import generate_cloudflare_background
+        buffer = BytesIO()
+        Image.new("RGB", (32, 24), (120, 130, 140)).save(buffer, format="PNG")
+        payload = json.dumps({"result": {"image": base64.b64encode(buffer.getvalue()).decode("ascii")}})
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = payload.encode("utf-8")
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {
+            "CLOUDFLARE_ACCOUNT_ID": "test-account",
+            "CLOUDFLARE_API_TOKEN": "test-token",
+        }), patch("worker.render.urllib.request.urlopen", return_value=response) as request:
+            target = Path(folder) / "background.jpg"
+            result = generate_cloudflare_background(
+                {"visual": "A quiet archive"}, {"aspect_ratio": "16:9"}, target
+            )
+            self.assertEqual(result, str(target))
+            self.assertTrue(target.is_file())
+            with Image.open(target) as generated:
+                self.assertEqual(generated.size, dimensions("16:9"))
+            self.assertIn("@cf/black-forest-labs/flux-1-schnell", request.call_args.args[0].full_url)
+            self.assertEqual(request.call_args.kwargs["timeout"], 90)
+
 if __name__ == "__main__":
     unittest.main()
