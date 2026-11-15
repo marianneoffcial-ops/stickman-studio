@@ -16,7 +16,7 @@ A Docker-ready FastAPI application that follows the user's eight-step Stickman E
 ## API
 
 - `GET /` — browser workflow
-- `GET /health` — health, queue and renderer metadata
+- `GET /health` — health, queue and renderer metadata; also reports whether both Cloudflare Workers AI credentials are configured (without exposing either secret)
 - `GET /ready` — readiness checks for FFmpeg, TTS and writable project storage
 - `GET /api/ideas` — curated real-story idea pool
 - `POST /api/research` — source-linked research and timed narration
