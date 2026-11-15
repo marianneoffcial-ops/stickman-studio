@@ -482,6 +482,9 @@ def draw_primary_story_prop(d,w,h,kind,phase=0.0,center_x=.70,center_y=.49,size_
                     fill=(66,61,54),outline=ink,width=4)
         d.ellipse((cx-unit*.045,cy+unit*.065,cx+unit*.045,cy+unit*.12),
                   fill=(171,119,76),outline=(96,72,55),width=3)
+        flame_y=cy+unit*(.155+.012*math.sin(phase*2.5))
+        d.polygon([(cx,flame_y-unit*.035),(cx-unit*.025,flame_y+unit*.02),
+                   (cx+unit*.025,flame_y+unit*.02)],fill=(202,151,91),outline=ink)
     elif kind=="bucket":
         d.polygon([(cx-unit*.15,cy-unit*.06),(cx+unit*.15,cy-unit*.06),
                    (cx+unit*.12,cy+unit*.19),(cx-unit*.12,cy+unit*.19)],
@@ -491,6 +494,8 @@ def draw_primary_story_prop(d,w,h,kind,phase=0.0,center_x=.70,center_y=.49,size_
         d.arc((cx-unit*.12,cy-unit*.22,cx+unit*.12,cy+unit*.05),180,360,fill=ink,width=5)
         d.line((cx-unit*.11,cy+unit*.015,cx-unit*.08,cy+unit*.15),fill=(91,80,65),width=3)
         d.line((cx+unit*.11,cy+unit*.015,cx+unit*.08,cy+unit*.15),fill=(91,80,65),width=3)
+        water_y=cy+unit*(.035+.08*math.sin(phase*2.0))
+        d.line((cx-unit*.09,water_y,cx+unit*.09,water_y),fill=(116,132,126),width=4)
     elif kind=="paper":
         d.rectangle((cx-unit*.18,cy-unit*.20,cx+unit*.18,cy+unit*.20),fill=(223,212,185),outline=ink,width=5)
         for j in range(7):
@@ -508,23 +513,6 @@ def draw_primary_story_prop(d,w,h,kind,phase=0.0,center_x=.70,center_y=.49,size_
         d.line((cx-unit*.19,cy+unit*.055,cx+unit*(.19-math.sin(pivot)*.08),cy-unit*(.15+math.cos(pivot)*.02)),fill=(163,148,118),width=max(5,int(unit*.035)))
         d.ellipse((ex-unit*.05,ey-unit*.10,ex+unit*.05,ey),fill=(191,184,162),outline=ink,width=4)
         d.line((cx,cy+unit*.07,cx-unit*.04,cy+unit*.20),fill=ink,width=4)
-    elif kind=="bucket":
-        d.polygon([(cx-unit*.14,cy-unit*.08),(cx+unit*.14,cy-unit*.08),
-                   (cx+unit*.10,cy+unit*.17),(cx-unit*.10,cy+unit*.17)],
-                  fill=(151,137,112),outline=ink)
-        d.arc((cx-unit*.15,cy-unit*.20,cx+unit*.15,cy+unit*.08),180,360,fill=ink,width=5)
-        d.line((cx-unit*.11,cy-unit*.02,cx+unit*.11,cy-unit*.02),fill=(112,104,87),width=3)
-        water_y=cy+unit*(.035+.008*math.sin(phase*2))
-        d.line((cx-unit*.09,water_y,cx+unit*.09,water_y),fill=(116,132,126),width=4)
-    elif kind=="oven":
-        d.rounded_rectangle((cx-unit*.22,cy-unit*.12,cx+unit*.22,cy+unit*.18),
-                            radius=int(unit*.035),fill=(157,126,98),outline=ink,width=6)
-        d.arc((cx-unit*.13,cy-unit*.12,cx+unit*.13,cy+unit*.16),180,360,fill=ink,width=5)
-        d.ellipse((cx-unit*.075,cy-unit*.015,cx+unit*.075,cy+unit*.15),fill=(165,91,63),outline=ink,width=3)
-        flame_y=cy+unit*(.055+.012*math.sin(phase*2.5))
-        d.polygon([(cx,flame_y-unit*.055),(cx-unit*.035,flame_y+unit*.025),
-                   (cx+unit*.035,flame_y+unit*.025)],fill=(202,151,91),outline=ink)
-        d.line((cx-unit*.25,cy+unit*.19,cx+unit*.25,cy+unit*.19),fill=ink,width=5)
     elif kind=="barrel":
         d.rounded_rectangle((cx-unit*.16,cy-unit*.18,cx+unit*.16,cy+unit*.18),
                             radius=int(unit*.04),fill=(142,112,81),outline=ink,width=6)

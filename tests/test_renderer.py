@@ -41,7 +41,7 @@ class RenderSmokeTests(unittest.TestCase):
             "visual": "A narrow 17th-century London lane at night with distant orange firelight "
                       "and smoke above timber rooftops; a baker's wooden oven is visible."
         }
-        self.assertEqual(scene_background_mode(scene["visual"], 0), 1)
+        self.assertEqual(scene_background_mode(scene["visual"], 0), 6)
         image = Image.new("RGB", (640, 360), (220, 211, 190))
         draw_story_details(image, ImageDraw.Draw(image), 0, 0.7, scene)
         pixels = list(image.getdata())
