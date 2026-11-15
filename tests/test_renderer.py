@@ -35,6 +35,16 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertEqual(story_prop_kind("a simple leather fire bucket"), "bucket")
         self.assertEqual(story_prop_kind("a wooden water bucket"), "bucket")
 
+    def test_background_prompt_explicitly_rejects_floating_symbols_and_characters(self):
+        from worker.render import cloudflare_background_prompt
+        prompt = cloudflare_background_prompt(
+            {"visual": "A quiet 17th-century London lane with timbered houses."}, "16:9"
+        ).lower()
+        self.assertIn("no floating circles", prompt)
+        self.assertIn("no icons", prompt)
+        self.assertIn("no symbols", prompt)
+        self.assertIn("no people", prompt)
+
     def test_london_fire_scene_uses_city_background_and_visible_fire_motifs(self):
         from worker.render import scene_background_mode, draw_story_details
         scene = {
@@ -104,6 +114,18 @@ class RenderSmokeTests(unittest.TestCase):
                         role="Narrator", action="observe", expression=expression)
             self.assertEqual(image.size, (240, 300))
 
+    def test_character_wardrobe_is_a_small_muted_accent_not_a_filled_jacket(self):
+        from worker.render import draw_person
+        color = (52, 70, 90)
+        image = Image.new("RGB", (240, 300), (220, 211, 190))
+        draw_person(ImageDraw.Draw(image), 120, 250, .55, color, 0.7,
+                    role="Narrator", action="observe")
+        colored_pixels = sum(1 for pixel in image.getdata() if pixel == color)
+        self.assertGreater(colored_pixels, 0)
+        self.assertLess(colored_pixels, 500)
+        # The torso remains open: no broad filled shirt or jacket panel.
+        self.assertEqual(image.getpixel((145, 220)), (220, 211, 190))
+
     def test_walk_cycle_alternates_foot_lift(self):
         from worker.render import draw_person
         from PIL import Image, ImageDraw, ImageChops
@@ -125,14 +147,16 @@ class RenderSmokeTests(unittest.TestCase):
         closeup = scene_composition(width, height, "close-up of a story-specific object")
         self.assertLess(closeup[0], normal[0])
         self.assertLess(closeup[1], .25)
-        self.assertGreater(closeup[2], .75)
+        self.assertGreater(closeup[2], .65)
+        self.assertLess(closeup[2], .75)
+        self.assertLess(.70 * height + 174 * closeup[0], height)
 
     def test_closeup_camera_crop_focuses_right_side_story_prop(self):
         from worker.render import scene_composition
         width, height = dimensions("16:9")
         scale, x_fraction, y_fraction = scene_composition(width, height, "close-up of a story-specific object")
         self.assertAlmostEqual(x_fraction, .16)
-        self.assertAlmostEqual(y_fraction, .82)
+        self.assertAlmostEqual(y_fraction, .70)
 
     def test_scene_semantics_exclude_style_boilerplate_and_use_word_boundaries(self):
         from worker.render import scene_description, contains_any
@@ -155,7 +179,7 @@ class RenderSmokeTests(unittest.TestCase):
             "visual_prompt": "A restrained hand-inked illustrated scene."
         }
         particles = atmosphere_particles(scene, 0, 48, 1280, 720)
-        self.assertTrue(all(kind == "dust" for kind, _, _ in particles))
+        self.assertEqual(particles, [])
         self.assertEqual(ambience_profile(scene), (430, 54, .72))
 
     def test_story_prop_classifier_covers_distinct_objects(self):

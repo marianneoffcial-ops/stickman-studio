@@ -2,9 +2,9 @@ import math, re, uuid
 
 HOUSE_STYLE = ("Hand-inked 2D illustrated animation with thick slightly rough black ink outlines of varying weight. "
 "Characters are simple stick figures with a large perfectly round white head, small solid black oval eyes, thin curved eyebrow strokes, a single simple curved line for the mouth, no nose, and a few loose ink strokes suggesting hair across the top of the head. "
-"Bodies are minimal with softly rounded shoulders and flat muted clothing in desaturated colours such as navy blue, brick red and olive. "
-"Backgrounds are flat hand-drawn illustrated environments in a muted earthy palette of tan, sage, dusty grey and cream, outlined in the same black ink, with simple geometric architecture and sparse detail. "
-"A fine horizontal scanline and paper-grain texture overlays the entire frame, with a soft dark vignette at the edges. "
+"Bodies are true stick-figure anatomy: one thin black torso line and thin articulated line limbs, with no filled torso, no jacket silhouette and no bulky clothing. Wardrobe is limited to one small flat muted neck scarf and a narrow matching diagonal sash, unchanged in every shot. "
+"Backgrounds are painterly ink-wash storybook environments in a muted earthy palette of tan, sage, dusty grey and cream, with watercolor and gouache washes, visible brush texture, rough black ink contours and layered foreground, middle distance and atmosphere. Architecture and details must be historically appropriate and story-specific, not floating decorative shapes. "
+"Keep the recurring character large and immediately readable; use clean negative space and only story-relevant environmental details. No decorative floating circles, icons, symbols, random dots or generic cloud marks. A fine horizontal scanline and paper-grain texture overlays the entire frame, with a soft dark vignette at the edges. "
 "Cinematic desaturated colour grade, restrained and slightly melancholy, no bright saturated colours, no gradients, no photorealism, no 3D render, no anime, no glossy digital finish.")
 
 IDEAS = [
@@ -41,15 +41,15 @@ IDEAS = [
 ]
 
 CHARACTERS = {
- "Narrator":{"costume":"desaturated navy coat","color":"#34465a"},
- "Emperor":{"costume":"muted olive robes and geometric gold crown","color":"#737653"},
- "Herald":{"costume":"brick-red tunic and tall ochre staff","color":"#9a5144"},
- "Merchant":{"costume":"dusty navy merchant robe","color":"#536276"},
- "Architect":{"costume":"muted sage robe","color":"#737d68"},
- "Scholar":{"costume":"muted sage robe","color":"#737d68"},
- "Traveler":{"costume":"deep navy desert robe","color":"#34465a"},
- "Witness":{"costume":"brick-red scarf","color":"#9a5144"},
- "Official":{"costume":"charcoal coat","color":"#55565a"}
+ "Narrator":{"costume":"small desaturated navy neck scarf and matching narrow sash","color":"#34465a"},
+ "Emperor":{"costume":"small muted olive neck scarf and matching narrow sash","color":"#737653"},
+ "Herald":{"costume":"small brick-red neck scarf and matching narrow sash","color":"#9a5144"},
+ "Merchant":{"costume":"small dusty navy neck scarf and matching narrow sash","color":"#536276"},
+ "Architect":{"costume":"small muted sage neck scarf and matching narrow sash","color":"#737d68"},
+ "Scholar":{"costume":"small muted sage neck scarf and matching narrow sash","color":"#737d68"},
+ "Traveler":{"costume":"small deep navy neck scarf and matching narrow sash","color":"#34465a"},
+ "Witness":{"costume":"small brick-red neck scarf and matching narrow sash","color":"#9a5144"},
+ "Official":{"costume":"small charcoal neck scarf and matching narrow sash","color":"#55565a"}
 }
 
 CAMERAS = [
@@ -215,7 +215,7 @@ def _lead_for_topic(topic):
 
 def _locked_character_block(role):
     costume=CHARACTERS.get(role,CHARACTERS["Narrator"])["costume"]
-    return ("One recurring simple stick figure with a large perfectly round white head, small solid black oval eyes, thin curved eyebrow strokes, one simple curved mouth, no nose, and a few loose ink hair strokes; minimal softly rounded body, wearing exactly a "+costume+", with simple dark footwear and no changing accessories or proportions.")
+    return ("One recurring simple stick figure with a large perfectly round white head, small solid black oval eyes, thin curved eyebrow strokes, one simple curved mouth, no nose, and a few loose ink hair strokes. The torso is one visible black ink line; arms and legs are thin articulated black lines with clear elbows and knees. Absolutely no filled body, no solid jacket, no coat silhouette and no bulky clothing. Wardrobe is exactly one small flat muted neck scarf and a narrow matching diagonal sash ("+costume+"), with simple dark shoes. Keep head size, body proportions, scarf, sash and line weight identical in every shot.")
 
 def _story_phase(index, count):
     """Assign each shot a narrative job so the film progresses instead of repeating poses."""
@@ -337,7 +337,7 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
     agent_instruction = (
         f"Create one coherent {duration}-second film in {aspect_ratio}, made from {count} ordered shots. "
         f"Each standard shot is exactly 4 seconds; the final shot is exactly {final_duration} seconds. "
-        "Use the same recurring character identity, wardrobe, body proportions, palette and world design in every shot. "
+        "Use the same recurring character identity, wardrobe, body proportions, palette and world design in every shot. The hero must remain clearly visible and occupy roughly 45–60% of frame height in normal shots; never shrink it into a tiny background extra. In close-up object shots, keep the full stickman visible beside the focal object. The body must remain unfilled line-art, with only the small muted scarf and sash as clothing accents. "
         "Build a cause-and-effect story: hook, establish the goal and obstacle, escalate through visible consequences, turn the situation, then resolve the objective. "
         "Each shot must inherit the previous shot's location, screen direction and important prop state unless a motivated transition is shown. "
         "Use motivated cuts and vary framing only when it improves story clarity; never use random montage or contradictory camera instructions. "
@@ -373,6 +373,9 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
         "character identity and wardrobe remain fixed",
         "adjacent scenes preserve location, direction and important prop state or explain a transition",
         "the final scene resolves the stated story objective",
+        "the recurring stickman remains large, fully visible and visually identical across shots",
+        "the torso and limbs remain open black ink lines with only small muted wardrobe accents",
+        "backgrounds contain only story-relevant painted scenery, never decorative floating symbols or duplicate prop overlays",
         "thumbnail remains 16:9 with a headline of no more than four words"
       ],
       "quality_notice": ("Production brief supplied." if script and len(anchors) >= count else
