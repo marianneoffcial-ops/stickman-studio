@@ -356,7 +356,7 @@ def research_topic(topic, duration_seconds):
         "script_word_count": len(script.split()),
         "narration_script": script,
         "narration_beats": beats,
-        "storyboard": "\\n".join(anchors),
+        "storyboard": "\n".join(anchors),
         "sources": sources,
         "research_note": "Narration is assembled from the selected primary Wikipedia article. Review the citations and wording before publication.",
         "source_license": "Wikipedia text is available under CC BY-SA; attribute the linked sources when publishing adapted text."
