@@ -6,6 +6,32 @@ from app.research import research_topic
 
 class ResearchTests(unittest.TestCase):
 
+
+    def test_research_selects_the_exact_subject_article_over_a_misleading_top_result(self):
+        plague = " ".join([f"Plague detail {i} describes a documented event in London." for i in range(1, 80)])
+        fire = " ".join([f"Fire detail {i} describes a documented event in London." for i in range(1, 80)])
+        response = {"query": {"pages": [
+            {"title": "Great Plague of London", "extract": plague,
+             "fullurl": "https://en.wikipedia.org/wiki/Great_Plague_of_London"},
+            {"title": "Great Fire of London", "extract": fire,
+             "fullurl": "https://en.wikipedia.org/wiki/Great_Fire_of_London"},
+        ]}}
+        with patch("app.research._api", return_value=response):
+            result = research_topic("The Great Fire of London", 15)
+        self.assertEqual(result["topic"], "Great Fire of London")
+        self.assertEqual(result["sources"][0]["title"], "Great Fire of London")
+        self.assertIn("Fire detail", result["narration_script"])
+
+    def test_research_rejects_results_that_do_not_match_the_requested_subject(self):
+        text = " ".join([f"Plague detail {i} describes a documented event in London." for i in range(1, 80)])
+        response = {"query": {"pages": [
+            {"title": "Great Plague of London", "extract": text,
+             "fullurl": "https://en.wikipedia.org/wiki/Great_Plague_of_London"},
+        ]}}
+        with patch("app.research._api", return_value=response):
+            with self.assertRaisesRegex(ValueError, "clearly matching article"):
+                research_topic("The Great Fire of London", 15)
+
     def test_ten_minute_research_produces_all_150_beats(self):
         text = " ".join([f"Historical fact {i} describes a documented event and its wider context." for i in range(1, 500)])
         response = {"query": {"pages": [
