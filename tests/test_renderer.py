@@ -45,6 +45,17 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertIn("thames riverbank", meaning)
         self.assertNotIn("great fire of london", meaning)
 
+    def test_cloudflare_background_prompt_never_exceeds_model_character_limit(self):
+        from worker.render import cloudflare_background_prompt
+        prompt = cloudflare_background_prompt(
+            {"scene_index": 2, "visual": "A detailed historical scene. " * 400}, "16:9"
+        )
+        self.assertLessEqual(len(prompt), 2048)
+        self.assertIn("painterly watercolor and gouache", prompt.lower())
+        self.assertIn("no floating circles", prompt.lower())
+        self.assertIn("no people", prompt.lower())
+        self.assertIn("storyboard scene 3", prompt.lower())
+
     def test_background_prompt_explicitly_rejects_floating_symbols_and_characters(self):
         from worker.render import cloudflare_background_prompt
         prompt = cloudflare_background_prompt(
