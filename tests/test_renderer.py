@@ -45,6 +45,27 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertIn("no symbols", prompt)
         self.assertIn("no people", prompt)
 
+    def test_ai_background_prompt_prioritizes_each_unique_storyboard_location(self):
+        from worker.render import cloudflare_background_prompt
+        river = cloudflare_background_prompt({
+            "scene_index": 2,
+            "title": "The Great Fire of London",
+            "visual": "Thames riverbank at dawn with small boats and fleeing families."
+        }, "16:9").lower()
+        aftermath = cloudflare_background_prompt({
+            "scene_index": 3,
+            "title": "The Great Fire of London",
+            "visual": "Ruined city foundations with masons rebuilding in stone."
+        }, "16:9").lower()
+        self.assertIn("storyboard scene 3", river)
+        self.assertIn("thames riverbank", river)
+        self.assertIn("open water, riverbank and boats", river)
+        self.assertNotIn("the great fire of london", river)
+        self.assertIn("storyboard scene 4", aftermath)
+        self.assertIn("ruined city foundations", aftermath)
+        self.assertIn("ruins, cleared foundations and masonry work", aftermath)
+        self.assertIn("do not reuse the previous scene", aftermath)
+
     def test_london_fire_scene_uses_city_background_and_visible_fire_motifs(self):
         from worker.render import scene_background_mode, draw_story_details
         scene = {
