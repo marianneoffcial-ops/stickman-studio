@@ -33,7 +33,23 @@ A Docker-ready FastAPI application that follows the user's eight-step Stickman E
 - Python 3.11, FastAPI, Pillow, FFmpeg, eSpeak NG
 - Edge TTS is attempted for a more natural English voice; eSpeak NG is the offline fallback.
 - Wikipedia's public API is used for research. Source URLs and CC BY-SA attribution guidance are returned with each research result.
-- No API key, paid image API, or paid video API is required.
+- The standard video workflow needs no AI API key or paid media service.
+- Optional Cloudflare FLUX background plates require the two credentials described below; without them the local illustrated renderer is used.
+
+## Optional AI-generated scene backgrounds (Cloudflare Workers AI)
+
+The renderer can optionally request one FLUX.1 schnell image per scene as an environment-only background plate. The recurring stickman, its poses and movement, camera animation, narration, and final MP4 assembly remain locally rendered with Pillow and FFmpeg. This is **AI-assisted background artwork**, not neural text-to-video generation.
+
+To enable it without entering secrets in chat:
+
+1. In the Cloudflare dashboard, open **Workers & Pages → Workers AI → Use REST API**.
+2. Choose **Create a Workers AI API Token**. If creating a custom token, grant both **Workers AI – Read** and **Workers AI – Edit** permissions.
+3. Copy the **Account ID** shown on the same page. Keep the API token private; Cloudflare may show the secret only at creation time.
+4. In the Railway service's **Variables** settings, add `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`. Save them as service variables, not in source code, commits, or chat messages.
+5. Keep the Cloudflare account on the **Workers Free** plan. Workers AI currently includes 10,000 Neurons per day at no charge. The free-plan requests stop when that allowance is exhausted; do not upgrade to a paid Workers plan for this project.
+6. Check `GET /health`. The field `cloudflare_ai_backgrounds_configured` should become `true`. Generate a short test video and inspect it before relying on the feature.
+
+Cloudflare's FLUX.1 schnell API is documented at [the model page](https://developers.cloudflare.com/workers-ai/models/flux-1-schnell/); REST credentials and permission requirements are documented in [the REST API guide](https://developers.cloudflare.com/workers-ai/get-started/rest-api/), and daily free allowance details are on [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/). Neuron consumption depends on image size and steps. If the free quota is unavailable or the request fails, the worker falls back to procedural illustrated backgrounds and still attempts to finish the video. The application does not change your Cloudflare plan or enable billing.
 
 ## Important limitations
 
