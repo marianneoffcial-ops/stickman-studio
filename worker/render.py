@@ -885,7 +885,7 @@ def atmosphere_particles(scene,frame,total_frames,width,height):
     if contains_any(prompt, ("snow","winter","ice","antarctic")):
         kind="snow"; count=22
     elif contains_any(prompt, ("rain","storm","wet")):
-        kind="rain"; count=36
+        kind="rain"; count=58
     else:
         # No default floating dust, steam puffs or decorative particles.
         return []
