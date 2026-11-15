@@ -172,15 +172,16 @@ def draw_person(d,x,y,scale,color,phase,pose=0,role='',action='idle',expression=
     d.line((hx-22*q,hy-29*q,hx-8*q,hy-43*q,hx+4*q,hy-31*q),fill=INK,width=max(2,int(3*q)))
 
 def scene_description(scene):
-    """Return scene meaning without repeated visual-style or safety instructions."""
+    """Return the scene-specific visual anchor without repeating the shared story title."""
     scene = scene or {}
-    title = str(scene.get("title", "")).strip()
     visual = str(scene.get("visual", "")).strip()
     if not visual:
         prompt = str(scene.get("visual_prompt", ""))
         match = re.search(r"Background and story action:\s*(.*?)\s*Shot composition:", prompt, re.I | re.S)
         visual = match.group(1).strip() if match else prompt
-    return (title + " " + visual).strip().lower()
+    if not visual:
+        visual = str(scene.get("title", "")).strip()
+    return visual.strip().lower()
 
 
 def contains_any(text, terms):
