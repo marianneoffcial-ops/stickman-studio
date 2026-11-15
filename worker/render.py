@@ -786,18 +786,20 @@ def character_scale(width,height,camera=""):
     camera=(camera or "").lower()
     scale=(height/720) if width/height<=1 else min(width/1280,height/720)
     if "wide silhouette" in camera:
-        scale*=.62
+        scale*=.82
     elif "wide establishing" in camera:
-        scale*=.78
+        scale*=.98
     elif "side-on tracking" in camera:
-        scale*=.88
+        scale*=1.05
     elif "overhead" in camera:
-        scale*=.72
+        scale*=.88
     elif "low-angle" in camera:
-        scale*=1.08
+        scale*=1.18
     elif "interior" in camera:
-        scale*=.92
-    return scale
+        scale*=1.08
+    # The recurring stickman must read clearly at 720p, not disappear into the
+    # AI-painted environment. Keep the same proportions in every shot.
+    return scale*1.16
 
 
 def scene_composition(width,height,camera="",frame=0,total_frames=1):
@@ -807,9 +809,8 @@ def scene_composition(width,height,camera="",frame=0,total_frames=1):
     x_fraction=.50
     y_fraction=.70
     if "close-up" in camera:
-        # Keep the recurring character as a small foreground observer while
-        # the story-specific prop on the right becomes the visual subject.
-        scale*=.55
+        # Keep the recurring hero legible even in prop-focused shots.
+        scale*=.82
         x_fraction=.16
         y_fraction=.82
     elif "wide silhouette" in camera:
@@ -939,14 +940,18 @@ def cloudflare_background_prompt(scene, aspect_ratio):
     return (
         "Create a hand-inked 2D illustrated animation background plate, "
         "wide cinematic composition in aspect ratio " + str(aspect_ratio) + ". "
-        "Thick slightly rough black ink outlines with varied line weight, "
-        "flat muted earthy colours: tan, sage, dusty grey, cream, muted navy and brick. "
-        "Layered illustrated environment with clear foreground, middle distance and background, "
-        "simple geometric architecture, sparse meaningful details, subtle paper grain and fine scanlines, "
-        "restrained melancholy cinematic composition. "
-        "Depict this setting only: " + (description[:1].upper() + description[1:]) + ". "
-        "Environment plate only: no people, no stick figures, no faces, no text, no letters, "
-        "no captions, no logos, no watermark, no photorealism, no 3D, no anime, no gradients."
+        "Thick, hand-drawn, slightly irregular black ink outlines with varied line weight; "
+        "flat desaturated earthy colours: parchment cream, dusty tan, muted sage, charcoal, "
+        "soft brick red and restrained navy. Build a carefully composed 2D storybook illustration "
+        "with foreground, middle distance and atmospheric background, expressive architectural "
+        "silhouettes and a few historically appropriate details. Add visible paper grain, subtle "
+        "print scanlines and a gentle dark vignette. Match a hand-inked documentary explainer frame, "
+        "not a generic AI concept-art image. "
+        "Depict this exact story beat and setting only: " + (description[:1].upper() + description[1:]) + ". "
+        "Keep the central action area visually clear for a separately animated stickman. "
+        "Absolutely no people, no characters, no stick figures, no faces, no arrows, no floating "
+        "circles, no icons, no symbols, no interface elements, no labels, no lettering, no text, "
+        "no captions, no logos, no watermark, no photorealism, no 3D, no anime, no glossy gradients."
     )
 
 

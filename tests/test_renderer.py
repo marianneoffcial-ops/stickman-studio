@@ -62,7 +62,8 @@ class RenderSmokeTests(unittest.TestCase):
         pw, ph = dimensions("9:16")
         landscape = character_scale(int(lw * 1.5), int(lh * 1.5), "medium character")
         portrait = character_scale(int(pw * 1.5), int(ph * 1.5), "medium character")
-        self.assertAlmostEqual(landscape, 1.5)
+        # The prompt-faithful renderer deliberately enlarges the recurring hero by 16%.
+        self.assertAlmostEqual(landscape, 1.74)
         self.assertGreater(portrait, landscape)
         self.assertLess(character_scale(1920, 1080, "wide silhouette"), landscape)
 
