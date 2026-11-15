@@ -1102,6 +1102,27 @@ def synthesize_voice(text,destination,ffmpeg):
     if not tts: raise RuntimeError("No TTS engine available. Check cloud network access for Edge TTS.")
     run([tts,"-s","150","-v","en-us","-w",str(destination),text])
     return "eSpeak fallback (robotic; neural voice unavailable)"
+def background_generation_summary(scenes, configured):
+    """Return truthful, non-secret per-scene status for optional AI background generation."""
+    results = []
+    for index, scene in enumerate(scenes or []):
+        generation = scene.get("background_generation") or {}
+        status = generation.get("status", "fallback")
+        item = {"scene_index": index, "status": status}
+        if generation.get("error"):
+            item["error"] = str(generation["error"])[:240]
+        results.append(item)
+    generated = sum(1 for item in results if item["status"] == "generated")
+    return {
+        "provider": "Cloudflare Workers AI FLUX.1 schnell",
+        "configured": bool(configured),
+        "generated_scenes": generated,
+        "fallback_scenes": len(results) - generated,
+        "total_scenes": len(results),
+        "scenes": results,
+    }
+
+
 def render_project(project,outdir:Path,progress_callback=None):
     ffmpeg=shutil.which("ffmpeg")
     if not ffmpeg: raise RuntimeError("FFmpeg is not installed in the cloud worker")
@@ -1111,17 +1132,24 @@ def render_project(project,outdir:Path,progress_callback=None):
     background_engine = "procedural illustrated backgrounds"
     for i,scene in enumerate(project["scenes"]):
         scene["scene_index"]=i
+        scene["background_generation"] = {"provider": "Cloudflare Workers AI FLUX.1 schnell", "status": "fallback"}
         if cloudflare_ai_configured():
             ai_plate = sd/f"ai_background_{i:03d}.jpg"
             try:
                 generated = generate_cloudflare_background(scene, project, ai_plate)
                 if generated:
                     scene["ai_background_path"] = generated
+                    scene["background_generation"] = {"provider": "Cloudflare Workers AI FLUX.1 schnell", "status": "generated"}
                     background_engine = "Cloudflare Workers AI FLUX.1 schnell backgrounds with procedural stickman animation"
+                else:
+                    scene["background_generation"]["error"] = "No background image was returned; procedural fallback used."
             except Exception as exc:
                 # Free-tier throttling, network errors or malformed responses must never
                 # prevent a complete video; keep the local scene renderer as a fallback.
                 scene["ai_background_error"] = str(exc)[:240]
+                scene["background_generation"]["error"] = str(exc)[:240]
+        else:
+            scene["background_generation"]["error"] = "Cloudflare credentials are not configured."
         wav=sd/f"voice_{i:03d}.wav"
         engine=synthesize_voice(scene["narration"],wav,ffmpeg); voice_engine=engine
         with wave.open(str(wav),"rb") as wf:
@@ -1196,6 +1224,7 @@ def render_project(project,outdir:Path,progress_callback=None):
          "-c:v","copy","-af","apad","-c:a","aac","-b:a","192k","-shortest","-movflags","+faststart",str(final)])
     project["voice_engine"]=voice_engine
     project["background_engine"]=background_engine
+    project["background_generation"] = background_generation_summary(project["scenes"], cloudflare_ai_configured())
     # Matching illustrated 16:9 thumbnail with the recurring character and a <=4-word headline.
     thumb=outdir/"thumbnail.jpg"
     thumb_im=Image.new("RGB",(1280,720),PAPER); td=ImageDraw.Draw(thumb_im)
