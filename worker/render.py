@@ -1,4 +1,4 @@
-import subprocess, shutil, math, textwrap, random, os, wave, re, gc, json, base64, urllib.request
+import subprocess, shutil, math, textwrap, random, os, wave, re, gc, json, base64, urllib.request, urllib.error
 from io import BytesIO
 from pathlib import Path
 from array import array
@@ -292,22 +292,24 @@ def draw_background(im,d,index,phase,scene=None,closeup=False):
                 if top < h*yy < horizon:
                     d.rectangle((x+building_w*.42,h*yy,x+building_w*.58,h*yy+h*.055),
                                 fill=(66,68,61),outline=INK,width=2)
-        # Distant flames remain behind rooftops; no people or injuries are shown.
+        # Warm firelight stays attached to the roofline rather than appearing as floating triangles.
         for j in range(5):
             x=w*(.30+j*.105)
-            y=horizon-h*(.20+(j%2)*.035)
-            d.polygon([(x,y),(x-w*.018,y-h*.075),(x-w*.006,y-h*.045),
-                       (x+w*.006,y-h*.12),(x+w*.020,y-h*.035),(x+w*.030,y)],
-                      fill=(153,91,67),outline=(88,66,56))
-        # Layered grey smoke drifts above the distant rooftops.
+            y=horizon-h*(.055+(j%2)*.012)
+            flicker=math.sin(phase*2+j)*h*.006
+            d.line([(x-w*.012,y+h*.018),(x-w*.006,y+flicker),
+                    (x,y-h*.028+flicker),(x+w*.008,y+flicker*.3),
+                    (x+w*.014,y+h*.018)],
+                   fill=(166,92,63),width=max(5,int(w*.010)),joint="curve")
+        # Connected smoke brushstrokes rise from the burning roofline.
         for j in range(4):
             x=w*(.34+j*.12)+math.sin(phase+j)*w*.008
-            y=h*(.18+(j%2)*.045)
-            for k in range(3):
-                radius=w*(.025+k*.009)
-                d.ellipse((x-radius+k*w*.012,y-radius*.40-k*h*.045,
-                           x+radius+k*w*.012,y+radius*.40-k*h*.045),
-                          fill=(157,154,140),outline=(120,116,103),width=2)
+            y=h*(.30+(j%2)*.025)
+            drift=math.sin(phase*.7+j)*w*.012
+            plume=[(x,y+h*.13),(x-drift*.35,y+h*.05),
+                   (x+drift,y-h*.025),(x-drift*.55,y-h*.10)]
+            d.line(plume,fill=(158,157,145),width=max(10,int(w*.024)),joint="curve")
+            d.line(plume,fill=(120,116,103),width=max(2,int(w*.002)),joint="curve")
         if contains_any(prompt, ('riverside','thames','river','boats')):
             d.rectangle((0,h*.58,w,h*.73),fill=(142,154,147))
             for j in range(7):
@@ -552,25 +554,24 @@ def draw_fire_story_motifs(d,w,h,phase,scene):
     if not london_fire:
         return
 
-    # Distant, restrained firelight behind the roofline; no people or buildings
-    # are shown collapsing, and the warm tones stay within the muted house palette.
+    # Firelight clings to the roofline as a continuous painted glow, not floating flame icons.
     for j in range(3):
         x = w*(.59+j*.105)
-        y = h*(.585+(j%2)*.012)
-        flicker = math.sin(phase*2.2+j)*h*.008
-        d.polygon([(x,y+h*.045),(x-w*.018,y+h*.005+flicker),
-                   (x-w*.006,y-h*.035+flicker),(x+w*.006,y-h*.004+flicker),
-                   (x+w*.018,y-h*.045+flicker),(x+w*.024,y+h*.045)],
-                  fill=(166,92,63),outline=INK)
-    # Layered grey smoke plumes rise above the old rooftops.
+        y = h*(.625+(j%2)*.012)
+        flicker = math.sin(phase*2.2+j)*h*.006
+        d.line([(x-w*.014,y+h*.025),(x-w*.007,y+flicker),
+                (x,y-h*.018+flicker),(x+w*.008,y+flicker*.35),
+                (x+w*.016,y+h*.025)],
+               fill=(166,92,63),width=max(5,int(w*.012)),joint="curve")
+    # Smoke rises from the fire as irregular, connected brush-like strokes.
     for j in range(4):
         x = w*(.60+j*.075)
-        y = h*(.34-(j%2)*.045)+math.sin(phase*1.1+j)*h*.006
-        radius = w*(.025+(j%2)*.004)
-        d.ellipse((x-radius,y-radius*.62,x+radius,y+radius*.62),
-                  fill=(158,157,145),outline=INK,width=max(2,int(w*.002)))
-        d.arc((x-radius*1.5,y-radius*1.5,x+radius*.8,y+radius*.2),
-              185,345,fill=(118,119,111),width=max(2,int(w*.002)))
+        y = h*(.39-(j%2)*.035)+math.sin(phase*1.1+j)*h*.006
+        drift = math.sin(phase*.7+j)*w*.012
+        plume = [(x,y+h*.18),(x-drift*.35,y+h*.10),
+                 (x+drift,y+h*.015),(x-drift*.55,y-h*.075)]
+        d.line(plume,fill=(158,157,145),width=max(10,int(w*.026)),joint="curve")
+        d.line(plume,fill=(118,119,111),width=max(2,int(w*.002)),joint="curve")
     if contains_any(p, ("firebreak",)):
         # A clear empty strip separates two rooflines.
         d.rectangle((w*.425,h*.43,w*.535,h*.69),fill=(184,176,151))
@@ -934,43 +935,37 @@ def cloudflare_ai_configured():
 
 
 def cloudflare_background_prompt(scene, aspect_ratio):
-    """Request a scene-specific ink-wash plate without repeating the story title's generic setting."""
+    """Build a compact, scene-specific prompt below FLUX's documented input limit."""
     scene = scene or {}
-    # The title is identical across every beat and can overpower the unique location cue.
-    # Prefer the actual storyboard anchor so a river, street, interior and aftermath stay distinct.
     description = str(scene.get("visual", "")).strip() or scene_description(scene)
-    description = description[:900]
     scene_number = int(scene.get("scene_index", 0)) + 1
-    location_rule = (
-        "Follow the stated location literally. If this is a bakery/interior, show an enclosed room and oven; "
-        "if this is a river/Thames/boat scene, show open water, riverbank and boats; "
-        "if this is an exterior lane/street, show a street-level view of timber buildings; "
-        "if this is aftermath/rebuilding, show ruins, cleared foundations and masonry work. "
-        "Do not replace a river, street, or rebuilding scene with a bakery interior. "
-        "Do not reuse the previous scene's setting or camera composition."
+    prefix = (
+        "Create one hand-inked 2D watercolor and gouache background plate, aspect ratio "
+        + str(aspect_ratio) + ". Storyboard scene " + str(scene_number) + ". "
+        "Depict only this exact location and action: "
     )
-    return (
-        "Create a hand-inked 2D illustrated animation background plate for storyboard scene "
-        + str(scene_number) + " in aspect ratio " + str(aspect_ratio) + ". "
-        "This plate must depict the specific location and action in the storyboard anchor, not a generic image for the overall story. "
-        "Thick, hand-drawn, slightly irregular black ink outlines with varied line weight; "
-        "matte watercolor and gouache washes in desaturated earthy colours: parchment cream, "
-        "dusty tan, muted sage, charcoal, soft brick red and restrained navy. Use visible hand-painted "
-        "brush texture beneath rough ink contours; build a carefully composed 2D storybook painting "
-        "with distinct foreground, middle distance and atmospheric background, expressive historically "
-        "accurate architecture and a few meaningful story details. Avoid flat vector polygons. Add visible paper grain, subtle "
-        "print scanlines and a gentle dark vignette. Match a hand-inked documentary explainer frame, "
-        "not a generic AI concept-art image. "
-        "Exact scene-specific setting and action: " + (description[:1].upper() + description[1:]) + ". "
-        + location_rule + " "
-        "Keep the central action area visually clear for a separately animated stickman. "
-        "Absolutely no people, no characters, no stick figures, no faces, no arrows, no floating "
-        "circles, no icons, no symbols, no emojis, no emoticons, no cartoon-face stickers, no badges, "
-        "no speech bubbles, no thought bubbles, no pictograms, no decorative marks, no street signs, "
-        "no letters, no numerals, no interface elements, no labels, no lettering, no text, no captions, "
-        "no logos, no watermark, no photorealism, no 3D, no anime, no glossy gradients."
+    suffix = (
+        ". The unique scene setting overrides the shared story title. "
+        "Location rules: bakery means an enclosed oven room; Thames/river/boats means open water, "
+        "riverbank and boats; street/lane means an exterior timber-framed street; aftermath/rebuilding "
+        "means charred ruins, stone foundations and masons. Never substitute another location or "
+        "reuse the previous scene's composition. "
+        "Painterly watercolor and gouache washes, visible brush texture, rough irregular black ink "
+        "contours, historically accurate 17th-century London architecture, layered foreground and "
+        "background, atmospheric depth, muted parchment, tan, sage, brick-red and navy colours, "
+        "paper grain and subtle vignette. Never flat vector polygons. Leave central space for the "
+        "separately animated stickman. no people, no characters, no faces, no figures, no arrows, no floating circles, "
+        "no icons, no symbols, no emojis, no emoticons, no stickers, no badges, no speech bubbles, no pictograms, no street signs, "
+        "no letters, no numerals, no text, no captions, no logos, no watermark, no photorealism, no 3D, no anime or glossy gradients."
     )
-
+    # Keep a generous margin below the model's 2,048-character hard limit.
+    max_prompt_length = 1600
+    available = max(0, max_prompt_length - len(prefix) - len(suffix))
+    original_description = description
+    description = description[:available].rstrip()
+    if len(description) < len(original_description) and " " in description:
+        description = description.rsplit(" ", 1)[0]
+    return prefix + description + suffix
 
 def generate_cloudflare_background(scene, project, destination):
     """Generate an optional FLUX.1 schnell environment plate through Cloudflare's free Workers AI quota.
@@ -993,8 +988,15 @@ def generate_cloudflare_background(scene, project, destination):
         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         method="POST",
     )
-    with urllib.request.urlopen(request, timeout=90) as response:
-        result = json.loads(response.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(request, timeout=90) as response:
+            result = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace").strip()
+        raise RuntimeError(
+            f"Cloudflare AI rejected the background request (HTTP {exc.code}): "
+            + (detail[:600] or str(exc.reason))
+        ) from exc
     encoded = (result.get("result") or {}).get("image") or result.get("image")
     if not encoded:
         raise RuntimeError("Cloudflare AI returned no image payload")
