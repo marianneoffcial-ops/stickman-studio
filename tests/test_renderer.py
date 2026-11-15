@@ -244,5 +244,26 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertNotEqual(image.getpixel((320, 300)), PALETTE[0])
 
 
+    def test_story_package_has_causal_phases_continuity_and_scene_sound(self):
+        project = make_project("The Lost Telegraph Cable", 20, "16:9",
+            "A cable was laid across the ocean. Storms threatened the fragile line. Engineers repaired the connection. Messages finally crossed the Atlantic. The world was suddenly closer.",
+            "A ship carries cable across the sea.\nEngineers inspect a damaged cable in a workshop.\nA storm moves over the ocean.\nWorkers repair the cable at a coastal station.\nA message arrives at the telegraph office.")
+        scenes = project["scenes"]
+        self.assertEqual([s["story_phase"] for s in scenes], ["hook", "setup", "escalation", "turning_point", "payoff"])
+        self.assertTrue(all(s["continuity"] for s in scenes))
+        self.assertTrue(all(s["sound_design"] for s in scenes))
+        self.assertTrue(all("visible consequence" in s["visual_prompt"] for s in scenes))
+        self.assertIn("cause-and-effect", project["animation_agent_instruction"])
+        self.assertEqual(project["story_arc"]["shot_count"], 5)
+        self.assertEqual(len(project["reference_manifest"]), 3)
+        self.assertGreaterEqual(len(project["quality_checks"]), 5)
+
+    def test_scene_timing_and_aspect_ratio_remain_locked(self):
+        project = make_project("A short history", 10, "9:16",
+            "The first event happened. The next event changed everything. The final result surprised everyone.",
+            "A person discovers a letter.\nA person studies the letter.\nA person shares the message.")
+        self.assertEqual([scene["duration"] for scene in project["scenes"]], [4, 4, 2])
+        self.assertTrue(all("in 9:16" in scene["visual_prompt"] for scene in project["scenes"]))
+        self.assertIn("16:9 YouTube thumbnail", project["thumbnail_prompt"])
 if __name__ == "__main__":
     unittest.main()

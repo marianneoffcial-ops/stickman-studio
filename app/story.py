@@ -217,6 +217,45 @@ def _locked_character_block(role):
     costume=CHARACTERS.get(role,CHARACTERS["Narrator"])["costume"]
     return ("One recurring simple stick figure with a large perfectly round white head, small solid black oval eyes, thin curved eyebrow strokes, one simple curved mouth, no nose, and a few loose ink hair strokes; minimal softly rounded body, wearing exactly a "+costume+", with simple dark footwear and no changing accessories or proportions.")
 
+def _story_phase(index, count):
+    """Assign each shot a narrative job so the film progresses instead of repeating poses."""
+    if count <= 1:
+        return "payoff"
+    position = index / max(1, count - 1)
+    if position < 0.16:
+        return "hook"
+    if position < 0.36:
+        return "setup"
+    if position < 0.70:
+        return "escalation"
+    if position < 0.88:
+        return "turning_point"
+    return "payoff"
+
+
+def _scene_sound(visual):
+    """Describe a restrained diegetic bed from visible scene content."""
+    v = (visual or "").lower()
+    rules = [
+        (("sea", "ship", "boat", "harbour", "port"), "soft wind, water movement and distant harbour room tone"),
+        (("train", "railway", "locomotive"), "rail rhythm, low mechanical rumble and distant station ambience"),
+        (("rain", "storm", "flood"), "steady rain or weather ambience with occasional distant rumble"),
+        (("archive", "library", "letter", "document", "office", "room"), "quiet indoor room tone, paper handling and subtle movement"),
+        (("street", "city", "market", "crowd"), "distant city room tone, soft footsteps and restrained crowd murmur"),
+        (("desert", "sahara", "mountain", "snow", "ice"), "open-air wind and sparse environmental room tone"),
+    ]
+    return next((sound for terms, sound in rules if any(term in v for term in terms)),
+                "soft location-appropriate wind or room tone and subtle object handling")
+
+
+def _continuity_state(visual, index):
+    """Record the persistent visual facts that the next beat should inherit."""
+    v = (visual or "").strip().rstrip(".")
+    return ("Continue from the previous shot's established location, screen direction, "
+            "character wardrobe and prop state. " + (f"Keep this beat's key visual fact visible: {v}." if v else
+            "Do not introduce a new location or prop without a visible story transition."))
+
+
 def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=None, storyboard=None):
     topic = re.sub(r"\s+", " ", (topic or "Untitled story")).strip()[:500]
     duration = int(duration_seconds)
@@ -239,23 +278,32 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
         camera = _scene_camera(visual, i)
         action = _scene_action(visual, i)
         expression = _scene_expression(narration, visual, i)
+        phase = _story_phase(i, count)
+        sound = _scene_sound(visual)
+        continuity = _continuity_state(visual, i)
         title = re.sub(r"^.*?shot of ", "", visual, flags=re.I)[:52].strip(" .,:;") or f"Scene {i+1:03d}"
+        duration_this = min(4, duration-i*4)
         visual_prompt = (
-            f"This is a {min(4, duration-i*4)}-second hand-inked 2D animated clip in {aspect_ratio}. "
-            f"{locked} Background and story action: {visual}. Shot composition: {camera}. "
-            f"One clear action: {action}. {HOUSE_STYLE} "
+            f"This is a {duration_this}-second hand-inked 2D animated clip in {aspect_ratio}. "
+            f"Narrative job: {phase}. {locked} Background and story action: {visual}. "
+            f"Shot composition and motivated camera movement: {camera}. "
+            f"One readable character action: {action}; facial expression: {expression}. "
+            f"Continuity from the prior beat: {continuity} "
+            "Show a visible consequence of the action and leave the character and important props in a state the next shot can inherit. "
+            f"Diegetic sound only: {sound}; no voice, narration, dialogue or music. " + "Audio is diegetic ambient sound only — no voice, no narration, no dialogue, no music. Only the sounds present in the scene. " + f"{HOUSE_STYLE} "
             "Visual safety: use generic people and places only; no real named people, flags, insignia, logos, violence, injury, death, blood or weapons being fired; "
             "use restrained objects, empty spaces, distant silhouettes or aftermath. "
-            "Audio is diegetic ambient sound only — no voice, no narration, no dialogue, no music. "
-            "Only the sounds present in the scene such as wind, footsteps, distant rumble, rain, machinery or room tone. "
-            "The camera stays locked or moves only in a very slow push; the character design, clothing and proportions never change; "
-            "the texture overlay and vignette stay consistent; no glitching, no warping, no morphing, no flickering, no extra limbs, no duplicate characters, "
+            "Keep the chosen camera movement consistent with this shot; do not combine a continuous take with instant angle changes. "
+            "Character identity, clothing, proportions, palette, lighting and texture remain consistent; no glitching, warping, morphing, flickering, extra limbs, duplicate characters, "
+            "unintended characters, on-screen text, subtitles or watermark. "
             "no unintended characters, no on-screen text, no subtitles and no watermark."
         )
         scenes.append({
-            "scene_id": f"scene_{i+1:03d}", "title": title, "duration": min(4, duration-i*4),
+            "scene_id": f"scene_{i+1:03d}", "title": title, "duration": duration_this,
             "narration": narration, "visual": visual, "visual_prompt": visual_prompt,
-            "camera": camera, "characters": [lead], "action": action, "expression": expression, "shot_type": camera.split(" composition")[0].split(" view")[0].split(" tableau")[0]
+            "camera": camera, "characters": [lead], "action": action, "expression": expression,
+            "story_phase": phase, "continuity": continuity, "sound_design": sound,
+            "shot_type": camera.split(" composition")[0].split(" view")[0].split(" tableau")[0]
         })
     final_duration = duration - 4*(count-1)
     character_sheet_prompt = (
@@ -287,12 +335,15 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
     )
     last_full_scene = count if final_duration == 4 else count - 1
     agent_instruction = (
-        f"You are generating {count} animated clips for one continuous film in {aspect_ratio}. "
-        "A character sheet is attached showing the recurring character in multiple views, expressions and poses; use it as the visual reference in every clip. "
-        f"Scenes 1 through {last_full_scene} are exactly 4 seconds each. "
-        f"If the final scene is shorter, generate Scene {count} at exactly {final_duration} seconds so the complete film reaches {duration} seconds. "
-        "Generate all clips autonomously, in order, without stopping or asking for confirmation. "
-        "The character, ink style, colour palette, texture overlay and vignette must stay identical across every clip."
+        f"Create one coherent {duration}-second film in {aspect_ratio}, made from {count} ordered shots. "
+        f"Each standard shot is exactly 4 seconds; the final shot is exactly {final_duration} seconds. "
+        "Use the same recurring character identity, wardrobe, body proportions, palette and world design in every shot. "
+        "Build a cause-and-effect story: hook, establish the goal and obstacle, escalate through visible consequences, turn the situation, then resolve the objective. "
+        "Each shot must inherit the previous shot's location, screen direction and important prop state unless a motivated transition is shown. "
+        "Use motivated cuts and vary framing only when it improves story clarity; never use random montage or contradictory camera instructions. "
+        "The character sheet is an identity reference, not an opening composition. Preserve the supplied visual style instead of restyling it. "
+        "Generate all shots in order and do not silently omit beats. "
+        "The final image must resolve the story and hold a clean readable silhouette."
     )
     return {
       "project_id": str(uuid.uuid4()), "title": topic[:90].title(), "topic": topic,
@@ -305,6 +356,25 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
       "status": "queued", "scene_count": count, "thumbnail_path": None,
       "script_word_count": len(script.split()), "script_supplied": bool(script),
       "storyboard_anchor_count": len(anchors),
+      "story_arc": {
+        "goal": f"Explain the central event: {topic}",
+        "sequence": ["hook", "setup", "escalation", "turning_point", "payoff"],
+        "continuity_rule": "Carry character identity, location, screen direction and key prop state across adjacent shots; show a transition when any changes.",
+        "shot_count": count
+      },
+      "reference_manifest": [
+        {"role": "character_identity", "asset": "character_sheet_prompt", "reuse": "same recurring character across every scene"},
+        {"role": "environment", "asset": "scene-specific environment plates", "reuse": "keep one coherent time, palette and geography until a story transition"},
+        {"role": "story_props", "asset": "scene-specific key objects", "reuse": "preserve object count, attachment, hand and state"}
+      ],
+      "quality_checks": [
+        "scene count and total duration match the requested runtime",
+        "each scene has narration, one readable action, a camera choice and diegetic sound",
+        "character identity and wardrobe remain fixed",
+        "adjacent scenes preserve location, direction and important prop state or explain a transition",
+        "the final scene resolves the stated story objective",
+        "thumbnail remains 16:9 with a headline of no more than four words"
+      ],
       "quality_notice": ("Production brief supplied." if script and len(anchors) >= count else
         "DRAFT ONLY: this output is not publish-ready until every scene has researched narration and its own visual prompt.")
     }
