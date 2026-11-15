@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/production-render-smoke.yml"
+      - "app/research.py"
+      - "tests/test_research.py"
   workflow_dispatch:
 
 permissions:
@@ -102,7 +104,14 @@ jobs:
               + researched.get("topic", "")
           )
           assert len(researched.get("sources", [])) > 0, "Research returned no citations."
-          assert len(researched.get("narration_script", "").split()) >= 30, "Narration is too short."
+          narration = researched.get("narration_script", "")
+          assert len(narration.split()) >= 30, "Narration is too short."
+          assert "1666" in narration and "great fire" in narration.lower(), (
+              "Narration does not describe the 1666 Great Fire: " + narration
+          )
+          assert "boudica" not in narration.lower() and "60 ad" not in narration.lower(), (
+              "Narration was taken from the unrelated Early fires of London article: " + narration
+          )
 
           created = call("/api/projects", {
               "topic": researched["topic"],
@@ -147,6 +156,8 @@ jobs:
               "topic": researched["topic"],
               "sources": researched["sources"],
               "narration_script": researched["narration_script"],
+              "narration_beats": researched.get("narration_beats", []),
+              "storyboard": researched.get("storyboard", ""),
               "scene_count": researched["scene_count"],
               "job": job,
               "video_bytes": len(video),
