@@ -803,7 +803,7 @@ def cloudflare_background_prompt(scene, aspect_ratio):
         "Layered illustrated environment with clear foreground, middle distance and background, "
         "simple geometric architecture, sparse meaningful details, subtle paper grain and fine scanlines, "
         "restrained melancholy cinematic composition. "
-        "Depict this setting only: " + description + ". "
+        "Depict this setting only: " + (description[:1].upper() + description[1:]) + ". "
         "Environment plate only: no people, no stick figures, no faces, no text, no letters, "
         "no captions, no logos, no watermark, no photorealism, no 3D, no anime, no gradients."
     )
