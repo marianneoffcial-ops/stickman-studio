@@ -334,6 +334,12 @@ class RenderSmokeTests(unittest.TestCase):
             with Image.open(target) as generated:
                 self.assertEqual(generated.size, dimensions("16:9"))
             self.assertIn("@cf/black-forest-labs/flux-1-schnell", request.call_args.args[0].full_url)
+            sent_payload = json.loads(request.call_args.args[0].data.decode("utf-8"))
+            self.assertEqual(set(sent_payload), {"prompt", "steps"})
+            self.assertGreater(len(sent_payload["prompt"]), 0)
+            self.assertLessEqual(len(sent_payload["prompt"]), 2048)
+            self.assertGreaterEqual(sent_payload["steps"], 1)
+            self.assertLessEqual(sent_payload["steps"], 8)
             self.assertEqual(request.call_args.kwargs["timeout"], 90)
 
     def test_background_generation_summary_reports_real_per_scene_fallbacks(self):
