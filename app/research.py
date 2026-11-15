@@ -177,6 +177,29 @@ def _generic_scene(sentence, index):
         "No named people, no flags, no insignia, no logos, no violence, no injury and no weapons."
     )
 
+_TOPIC_STOPWORDS = {
+    "the", "a", "an", "of", "in", "on", "at", "to", "from", "and", "for",
+    "story", "history", "event", "true", "remarkable", "great", "lost", "city",
+    "first", "man", "who", "race", "reach", "mystery", "disappearance", "case",
+}
+
+
+def _topic_terms(value):
+    """Keep distinctive subject words; discard generic framing and dates."""
+    return {
+        token for token in re.findall(r"[a-z]+", (value or "").lower())
+        if len(token) > 1 and token not in _TOPIC_STOPWORDS
+    }
+
+
+def _title_relevance(topic, title):
+    terms = _topic_terms(topic)
+    if not terms:
+        return 1.0
+    title_terms = _topic_terms(title)
+    return len(terms & title_terms) / len(terms)
+
+
 def research_topic(topic, duration_seconds):
     topic = re.sub(r"\s+", " ", (topic or "")).strip()
     if len(topic) < 3:
@@ -201,12 +224,22 @@ def research_topic(topic, duration_seconds):
     pages = data.get("query", {}).get("pages", [])
     if not pages:
         raise ValueError("No suitable Wikipedia research page was found. Try a more specific topic.")
-    primary = pages[0]
+    ranked_pages = sorted(
+        pages,
+        key=lambda page: _title_relevance(topic, page.get("title", "")),
+        reverse=True,
+    )
+    primary = ranked_pages[0]
+    relevance = _title_relevance(topic, primary.get("title", ""))
+    if len(_topic_terms(topic)) >= 2 and relevance < 0.60:
+        raise ValueError(
+            "Wikipedia search did not return a clearly matching article for this topic. "
+            "Try a more specific title so the video is not built from an unrelated story."
+        )
     title = primary.get("title", topic)
     primary_text = primary.get("extract", "")
     sources = []
-    combined = primary_text
-    for page in pages:
+    for page in ranked_pages:
         if page.get("title") and page.get("fullurl"):
             sources.append({"title": page["title"], "url": page["fullurl"]})
     sentences = _sentences(primary_text)
