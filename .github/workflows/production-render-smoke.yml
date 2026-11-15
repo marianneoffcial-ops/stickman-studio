@@ -9,6 +9,8 @@ on:
       - "tests/test_research.py"
       - "worker/render.py"
       - "tests/test_renderer.py"
+      - "worker/render.py"
+      - "tests/test_renderer.py"
   workflow_dispatch:
 
 permissions:
@@ -114,6 +116,12 @@ jobs:
           assert "boudica" not in narration.lower() and "60 ad" not in narration.lower(), (
               "Narration was taken from the unrelated Early fires of London article: " + narration
           )
+          storyboard = researched.get("storyboard", "").lower()
+          for visual_anchor in ("firelight", "smoke", "fire bucket", "water bucket", "folded map"):
+              assert visual_anchor in storyboard, (
+                  "The Great Fire storyboard is missing its event-specific visual anchor: "
+                  + visual_anchor
+              )
 
           created = call("/api/projects", {
               "topic": researched["topic"],
