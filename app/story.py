@@ -193,7 +193,7 @@ def _scene_camera(visual, index):
       (("tower","palace","cathedral","monument","bridge","dam","lighthouse","skyscraper","architecture"),"low-angle architectural view with slow tilt upward"),
       (("room","office","council","meeting","court","laboratory","workshop","archive","library","interior"),"interior tableau with subtle camera drift"),
       (("walk","walking","journey","travel","crossing","crosses","escape","expedition","march","railway","train","ship","vessel","caravan"),"side-on tracking composition with figures crossing frame"),
-      (("crowd","city","street","harbour","port","landscape","mountain","desert","ocean","sea","storm","flood","eruption","smog"),"wide establishing shot with slow push-in"),
+      (("crowd","city","street","river","thames","boat","harbour","port","landscape","mountain","desert","ocean","sea","storm","flood","eruption","smog"),"wide establishing shot with slow push-in"),
       (("mystery","vanished","disappeared","unknown","aftermath","silhouette","empty"),"wide silhouette composition with slow pull-back")
     ]
     for terms,camera in rules:
