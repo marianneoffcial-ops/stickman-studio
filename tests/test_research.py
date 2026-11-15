@@ -7,6 +7,30 @@ from app.research import research_topic
 class ResearchTests(unittest.TestCase):
 
 
+    def test_exact_event_article_outranks_a_longer_article_title_about_its_monument(self):
+        monument = " ".join([f"Monument detail {i} describes the Great Fire of London." for i in range(1, 80)])
+        fire = " ".join([f"Fire detail {i} describes the Great Fire of London." for i in range(1, 80)])
+        response = {"query": {"pages": [
+            {"title": "Monument to the Great Fire of London", "extract": monument,
+             "fullurl": "https://en.wikipedia.org/wiki/Monument_to_the_Great_Fire_of_London"},
+            {"title": "Great Fire of London", "extract": fire,
+             "fullurl": "https://en.wikipedia.org/wiki/Great_Fire_of_London"},
+        ]}}
+        with patch("app.research._api", return_value=response):
+            result = research_topic("The Great Fire of London", 15)
+        self.assertEqual(result["topic"], "Great Fire of London")
+        self.assertEqual(result["sources"][0]["title"], "Great Fire of London")
+
+    def test_research_rejects_a_related_but_non_primary_monument_article(self):
+        text = " ".join([f"Monument detail {i} describes the Great Fire of London." for i in range(1, 80)])
+        response = {"query": {"pages": [
+            {"title": "Monument to the Great Fire of London", "extract": text,
+             "fullurl": "https://en.wikipedia.org/wiki/Monument_to_the_Great_Fire_of_London"},
+        ]}}
+        with patch("app.research._api", return_value=response):
+            with self.assertRaisesRegex(ValueError, "clearly matching article"):
+                research_topic("The Great Fire of London", 15)
+
     def test_research_selects_the_exact_subject_article_over_a_misleading_top_result(self):
         plague = " ".join([f"Plague detail {i} describes a documented event in London." for i in range(1, 80)])
         fire = " ".join([f"Fire detail {i} describes a documented event in London." for i in range(1, 80)])
