@@ -44,6 +44,16 @@ def draw_person(d,x,y,scale,color,phase,pose=0,role='',action='idle',expression=
     neck=(cx,head_y+radius-1*q)
     waist=(cx,upper_y+4*q)
     d.line((neck,waist),fill=INK,width=max(3,int(6*q)))
+    # Wardrobe stays minimal: a small muted scarf and a narrow sash, never
+    # a filled jacket or solid torso. The black stick-body remains visible.
+    scarf_y=neck[1]+2*q
+    d.polygon([(cx-10*q,scarf_y),(cx+10*q,scarf_y),
+               (cx+5*q,scarf_y+9*q),(cx-5*q,scarf_y+9*q)],
+              fill=color,outline=INK)
+    d.line((cx+3*q,scarf_y+7*q,cx+12*q,scarf_y+21*q),
+           fill=color,width=max(2,int(5*q)))
+    d.line((cx-2*q,upper_y-91*q,cx+3*q,upper_y-35*q),
+           fill=color,width=max(2,int(4*q)))
     sway=math.sin(phase)
     shoulder_l=(cx-3*q,upper_y-100*q+breath); shoulder_r=(cx+3*q,upper_y-100*q+breath)
     hip_l=(cx-2*q,upper_y+1*q); hip_r=(cx+2*q,upper_y+1*q)
@@ -100,7 +110,7 @@ def draw_person(d,x,y,scale,color,phase,pose=0,role='',action='idle',expression=
         d.ellipse((elbow[0]-rr,elbow[1]-rr,elbow[0]+rr,elbow[1]+rr),fill=INK)
         d.ellipse((hand[0]-rr,hand[1]-rr,hand[0]+rr,hand[1]+rr),fill=INK)
         # Small cuff marks make hand/arm direction legible at normal viewing size.
-        d.line((hand[0]-3*q,hand[1],hand[0]+3*q,hand[1]),fill=(224,216,195),width=max(1,int(2*q)))
+        d.line((hand[0]-3*q,hand[1],hand[0]+3*q,hand[1]),fill=color,width=max(1,int(2*q)))
     # Bent legs with knees and simple shoes; walking feet lift alternately
     # so the character reads as stepping forward rather than sliding.
     if action=='walk':
@@ -583,18 +593,12 @@ def draw_story_details(im,d,index,phase,scene):
     w,h=im.size
     p=scene_description(scene)
     ink=INK
-    if contains_any(p, ("night","midnight","moon","stars")):
+    # Only add a celestial object when the storyboard explicitly calls for it.
+    # Generic suns, stars and cloud-like arcs made unrelated scenes look decorated.
+    if contains_any(p, ("moon",)):
         d.ellipse((w*.78,h*.08,w*.88,h*.22),fill=(225,218,195),outline=ink,width=4)
-        rng=random.Random(index+310)
-        for _ in range(18):
-            x=rng.uniform(.05,.95)*w; y=rng.uniform(.04,.32)*h
-            d.line((x-3,y,x+3,y),fill=(93,98,91),width=2)
-            d.line((x,y-3,x,y+3),fill=(93,98,91),width=1)
-    else:
+    elif contains_any(p, ("sunrise","sunset","sunlit","sunlight")):
         d.ellipse((w*.08,h*.10,w*.17,h*.24),fill=(211,197,164),outline=ink,width=4)
-        for j in range(3):
-            yy=h*(.18+j*.06)
-            d.arc((w*(.27+j*.12),yy,w*(.42+j*.12),yy+h*.07),190,345,fill=(125,128,115),width=2)
     transport = scene_transport_kind(p)
     if transport in ("sea", "air") or contains_any(p, ("mountain",)):
         for j in range(3):
@@ -729,11 +733,6 @@ def draw_story_details(im,d,index,phase,scene):
     if "close-up" in (scene.get("camera","") or "").lower():
         draw_primary_story_prop(d,w,h,story_prop_kind(p),phase)
     draw_fire_story_motifs(d,w,h,phase,scene)
-    # Light foreground hatching adds imperfect hand-inked contours without clutter.
-    rng=random.Random(index+909)
-    for _ in range(18):
-        x=rng.uniform(.03,.97)*w; y=rng.uniform(.73,.94)*h
-        d.line((x,y,x+rng.uniform(.008,.025)*w,y-rng.uniform(.001,.009)*h),fill=(113,111,96),width=1)
     if contains_any(p, ("fire","flame","smoke","conflagration","burn","1666","pudding lane","bakery","firebreak")):
         if contains_any(p, ("oven","bakery","loaf","bread")):
             cx,cy=w*.76,h*.59
@@ -884,15 +883,12 @@ def atmosphere_particles(scene,frame,total_frames,width,height):
     rng=random.Random(int(scene.get("scene_index",0))+41)
     particles=[]
     if contains_any(prompt, ("snow","winter","ice","antarctic")):
-        kind="snow"; count=34
+        kind="snow"; count=22
     elif contains_any(prompt, ("rain","storm","wet")):
-        kind="rain"; count=58
-    elif contains_any(prompt, ("steam","factory","train","engine","smoke","fog")):
-        kind="steam"; count=18
-    elif contains_any(prompt, ("wind","dust","desert","sea","ocean","ship")):
-        kind="dust"; count=16
+        kind="rain"; count=36
     else:
-        kind="dust"; count=8
+        # No default floating dust, steam puffs or decorative particles.
+        return []
     for j in range(count):
         base_x=rng.random()*width
         base_y=rng.random()*height
@@ -1013,12 +1009,13 @@ def draw_frame(scene,project,frame,total_frames,out):
             draw_background(im,d,int(scene.get("scene_index",0)),phase,scene,closeup=closeup)
     else:
         draw_background(im,d,int(scene.get("scene_index",0)),phase,scene,closeup=closeup)
-    if closeup:
-        # Render only the focal prop on this clean stage; drawing the full scene
-        # details as well creates duplicate, overlapping versions of the same object.
-        draw_primary_story_prop(d,w,h,story_prop_kind(scene_description(scene)),phase)
-    else:
-        draw_story_details(im,d,int(scene.get("scene_index",0)),phase,scene)
+    # AI environment plates already contain the scene's architecture and props.
+    # Do not paint a second layer of symbolic objects over the generated artwork.
+    if not (ai_background and Path(ai_background).is_file()):
+        if closeup:
+            draw_primary_story_prop(d,w,h,story_prop_kind(scene_description(scene)),phase)
+        else:
+            draw_story_details(im,d,int(scene.get("scene_index",0)),phase,scene)
     prompt=scene_description(scene)
     draw_atmosphere(d,scene,frame,total_frames,w,h)
     # Framing follows the output orientation and the semantic shot selected
@@ -1027,6 +1024,9 @@ def draw_frame(scene,project,frame,total_frames,out):
     names=scene.get("characters",["Narrator"])
     positions=[x_fraction] if len(names)==1 else ([.30,.52,.74] if w/h>1 else [.36,.66,.50])
     action=scene.get("action","idle")
+    # A natural walking cadence is several steps per four-second shot;
+    # the background and camera retain their slower independent phase.
+    character_phase=2*math.pi*frame/FPS*1.45
     for j,name in enumerate(names[:3]):
         drift=math.sin(phase*2+j)*w*.004
         if action=="walk" and len(names)==1:
@@ -1039,7 +1039,7 @@ def draw_frame(scene,project,frame,total_frames,out):
         shadow_w=46*scale
         d.ellipse((x-shadow_w,foot_y-5*scale,x+shadow_w,foot_y+7*scale),
                   fill=(126,119,102))
-        draw_person(d,x,y,scale,rgb,phase+j,int(scene.get("scene_index",0))%3,name,action,scene.get("expression","neutral"))
+        draw_person(d,x,y,scale,rgb,character_phase+j,int(scene.get("scene_index",0))%3,name,action,scene.get("expression","neutral"))
     apply_house_texture(im,int(scene.get("scene_index",0)))
     # The brief prohibits burned-in titles, captions and subtitles.
     vign=Image.new("L",(w,h),0); vd=ImageDraw.Draw(vign)
@@ -1186,8 +1186,10 @@ def render_project(project,outdir:Path,progress_callback=None):
             zoom_expr="max(1.05-on*0.0005,1.0)"
         elif "close-up" in camera:
             # The right-side story prop is the focal subject in close-up shots.
-            zoom_expr="min(1.35+on*0.001,1.40)"
-            x_expr="min(iw-iw/zoom,max(0,iw*0.70-iw/zoom/2))"
+            # Keep both the focal prop and the recurring stickman in frame.
+            # The former 1.35x crop centered on the prop pushed the character off-screen.
+            zoom_expr="min(1.08+on*0.0003,1.12)"
+            x_expr="iw/2-(iw/zoom/2)"
         if "lateral pan" in camera or "tracking" in camera:
             x_expr="min(iw-iw/zoom,max(0,iw/2-(iw/zoom/2)+on*0.22))"
         elif "gentle pan" in camera:
