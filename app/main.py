@@ -517,6 +517,40 @@ def preview(job_id):
     return HTMLResponse(page, headers={"Cache-Control": "no-store"})
 
 
+@app.get("/api/jobs/{job_id}/frame")
+def preview_frame(job_id, second: float = 0.5):
+    """Extract one real MP4 frame so visual QA works even when a browser cannot decode playback."""
+    job_id = safe_uuid(job_id, "job")
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+        job = public_job(job) if job else None
+    if not job or job.get("status") != "completed":
+        raise HTTPException(409, "MP4 not ready or not verified")
+    folder = project_folder(job["project_id"])
+    project_path = folder / "project.json"
+    if not project_path.is_file():
+        raise HTTPException(404, "Project metadata missing")
+    project = json.loads(project_path.read_text(encoding="utf-8"))
+    path = Path(project.get("video_path", "")).resolve()
+    if path.parent != folder.resolve() or not path.is_file():
+        raise HTTPException(404, "Output file missing")
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        raise HTTPException(503, "Frame extraction requires ffmpeg")
+    duration = float(project.get("duration_seconds", 1))
+    timestamp = max(0.0, min(float(second), max(0.0, duration - 0.05)))
+    frame_path = folder / f"qa-frame-{int(timestamp * 1000)}.jpg"
+    result = subprocess.run(
+        [ffmpeg, "-y", "-loglevel", "error", "-ss", f"{timestamp:.3f}",
+         "-i", str(path), "-frames:v", "1", "-q:v", "2", str(frame_path)],
+        capture_output=True, text=True, timeout=25
+    )
+    if result.returncode != 0 or not frame_path.is_file():
+        raise HTTPException(500, "Could not extract a frame from the verified MP4")
+    return FileResponse(frame_path, media_type="image/jpeg",
+                        headers={"Cache-Control": "no-store"})
+
+
 @app.get("/api/jobs/{job_id}/download")
 def download(job_id, inline: bool = False):
     job_id = safe_uuid(job_id, "job")
