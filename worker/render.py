@@ -954,8 +954,8 @@ def cloudflare_background_prompt(scene, aspect_ratio):
         "contours, historically accurate 17th-century London architecture, layered foreground and "
         "background, atmospheric depth, muted parchment, tan, sage, brick-red and navy colours, "
         "paper grain and subtle vignette. Never flat vector polygons. Leave central space for the "
-        "separately animated stickman. No people, characters, faces, figures, arrows, floating circles, "
-        "icons, symbols, emojis, emoticons, stickers, badges, speech bubbles, pictograms, street signs, "
+        "separately animated stickman. no people, no characters, no faces, no figures, no arrows, no floating circles, "
+        "no icons, no symbols, no emojis, no emoticons, no stickers, no badges, no speech bubbles, no pictograms, no street signs, "
         "letters, numerals, text, captions, logos, watermark, photorealism, 3D, anime or glossy gradients."
     )
     # Keep a generous margin below the model's 2,048-character hard limit.
