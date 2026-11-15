@@ -965,8 +965,10 @@ def cloudflare_background_prompt(scene, aspect_ratio):
         + location_rule + " "
         "Keep the central action area visually clear for a separately animated stickman. "
         "Absolutely no people, no characters, no stick figures, no faces, no arrows, no floating "
-        "circles, no icons, no symbols, no interface elements, no labels, no lettering, no text, "
-        "no captions, no logos, no watermark, no photorealism, no 3D, no anime, no glossy gradients."
+        "circles, no icons, no symbols, no emojis, no emoticons, no cartoon-face stickers, no badges, "
+        "no speech bubbles, no thought bubbles, no pictograms, no decorative marks, no street signs, "
+        "no letters, no numerals, no interface elements, no labels, no lettering, no text, no captions, "
+        "no logos, no watermark, no photorealism, no 3D, no anime, no glossy gradients."
     )
 
 
