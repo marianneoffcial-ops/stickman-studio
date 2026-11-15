@@ -147,14 +147,16 @@ class RenderSmokeTests(unittest.TestCase):
         closeup = scene_composition(width, height, "close-up of a story-specific object")
         self.assertLess(closeup[0], normal[0])
         self.assertLess(closeup[1], .25)
-        self.assertGreater(closeup[2], .75)
+        self.assertGreater(closeup[2], .65)
+        self.assertLess(closeup[2], .75)
+        self.assertLess(.70 * height + 174 * closeup[0], height)
 
     def test_closeup_camera_crop_focuses_right_side_story_prop(self):
         from worker.render import scene_composition
         width, height = dimensions("16:9")
         scale, x_fraction, y_fraction = scene_composition(width, height, "close-up of a story-specific object")
         self.assertAlmostEqual(x_fraction, .16)
-        self.assertAlmostEqual(y_fraction, .82)
+        self.assertAlmostEqual(y_fraction, .70)
 
     def test_scene_semantics_exclude_style_boilerplate_and_use_word_boundaries(self):
         from worker.render import scene_description, contains_any
