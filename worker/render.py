@@ -1,7 +1,8 @@
-import subprocess, shutil, math, textwrap, random, os, wave, re, gc
+import subprocess, shutil, math, textwrap, random, os, wave, re, gc, json, base64, urllib.request
+from io import BytesIO
 from pathlib import Path
 from array import array
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageOps
 
 FPS=12
 INK=(29,30,27)
@@ -784,6 +785,66 @@ def draw_atmosphere(draw,scene,frame,total_frames,width,height):
             draw.ellipse((x,y,x+width*.009,y+height*.0035),fill=(205,198,178))
 
 
+
+def cloudflare_ai_configured():
+    """AI backgrounds are strictly opt-in; no external request occurs without both secrets."""
+    return bool(os.getenv("CLOUDFLARE_ACCOUNT_ID", "").strip() and
+                os.getenv("CLOUDFLARE_API_TOKEN", "").strip())
+
+
+def cloudflare_background_prompt(scene, aspect_ratio):
+    """Request only a clean environment plate; recurring stick figures remain renderer-controlled."""
+    description = scene_description(scene)[:900]
+    return (
+        "Create a hand-inked 2D illustrated animation background plate, "
+        "wide cinematic composition in aspect ratio " + str(aspect_ratio) + ". "
+        "Thick slightly rough black ink outlines with varied line weight, "
+        "flat muted earthy colours: tan, sage, dusty grey, cream, muted navy and brick. "
+        "Layered illustrated environment with clear foreground, middle distance and background, "
+        "simple geometric architecture, sparse meaningful details, subtle paper grain and fine scanlines, "
+        "restrained melancholy cinematic composition. "
+        "Depict this setting only: " + description + ". "
+        "Environment plate only: no people, no stick figures, no faces, no text, no letters, "
+        "no captions, no logos, no watermark, no photorealism, no 3D, no anime, no gradients."
+    )
+
+
+def generate_cloudflare_background(scene, project, destination):
+    """Generate an optional FLUX.1 schnell environment plate through Cloudflare's free Workers AI quota.
+
+    This never runs unless the owner explicitly configures a Cloudflare account ID and API token.
+    API failures are handled by the caller, which retains the deterministic local renderer.
+    """
+    if not cloudflare_ai_configured():
+        return None
+    account = os.environ["CLOUDFLARE_ACCOUNT_ID"].strip()
+    token = os.environ["CLOUDFLARE_API_TOKEN"].strip()
+    url = f"https://api.cloudflare.com/client/v4/accounts/{account}/ai/run/@cf/black-forest-labs/flux-1-schnell"
+    payload = {
+        "prompt": cloudflare_background_prompt(scene, project.get("aspect_ratio", "16:9")),
+        "steps": 4,
+        "seed": int(scene.get("scene_index", 0)) + 1729,
+    }
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=90) as response:
+        result = json.loads(response.read().decode("utf-8"))
+    encoded = (result.get("result") or {}).get("image") or result.get("image")
+    if not encoded:
+        raise RuntimeError("Cloudflare AI returned no image payload")
+    raw = base64.b64decode(encoded, validate=True)
+    width, height = dimensions(project.get("aspect_ratio", "16:9"))
+    with Image.open(BytesIO(raw)) as source:
+        plate = ImageOps.fit(source.convert("RGB"), (width, height), method=Image.Resampling.LANCZOS)
+        Path(destination).parent.mkdir(parents=True, exist_ok=True)
+        plate.save(destination, format="JPEG", quality=92, optimize=True)
+    return str(destination)
+
+
 def draw_frame(scene,project,frame,total_frames,out):
     # Draw above delivery resolution, then downsample once with Lanczos. This
     # smooths the hand-inked linework and small facial details without changing
@@ -795,7 +856,18 @@ def draw_frame(scene,project,frame,total_frames,out):
     phase=2*math.pi*frame/max(1,total_frames)
     camera=(scene.get("camera","") or "").lower()
     closeup="close-up" in camera
-    draw_background(im,d,int(scene.get("scene_index",0)),phase,scene,closeup=closeup)
+    ai_background = scene.get("ai_background_path")
+    if ai_background and Path(ai_background).is_file():
+        try:
+            with Image.open(ai_background) as plate:
+                plate = ImageOps.fit(plate.convert("RGB"), (w, h), method=Image.Resampling.LANCZOS)
+                im.paste(plate)
+            d = ImageDraw.Draw(im)
+        except (OSError, ValueError):
+            scene.pop("ai_background_path", None)
+            draw_background(im,d,int(scene.get("scene_index",0)),phase,scene,closeup=closeup)
+    else:
+        draw_background(im,d,int(scene.get("scene_index",0)),phase,scene,closeup=closeup)
     if closeup:
         # Render only the focal prop on this clean stage; drawing the full scene
         # details as well creates duplicate, overlapping versions of the same object.
@@ -889,8 +961,20 @@ def render_project(project,outdir:Path,progress_callback=None):
     clips=[]; audios=[]; sd=outdir/"scenes"; sd.mkdir(exist_ok=True)
     voice_engine=None
     previous_scene_frame=None
+    background_engine = "procedural illustrated backgrounds"
     for i,scene in enumerate(project["scenes"]):
         scene["scene_index"]=i
+        if cloudflare_ai_configured():
+            ai_plate = sd/f"ai_background_{i:03d}.jpg"
+            try:
+                generated = generate_cloudflare_background(scene, project, ai_plate)
+                if generated:
+                    scene["ai_background_path"] = generated
+                    background_engine = "Cloudflare Workers AI FLUX.1 schnell backgrounds with procedural stickman animation"
+            except Exception as exc:
+                # Free-tier throttling, network errors or malformed responses must never
+                # prevent a complete video; keep the local scene renderer as a fallback.
+                scene["ai_background_error"] = str(exc)[:240]
         wav=sd/f"voice_{i:03d}.wav"
         engine=synthesize_voice(scene["narration"],wav,ffmpeg); voice_engine=engine
         with wave.open(str(wav),"rb") as wf:
@@ -964,6 +1048,7 @@ def render_project(project,outdir:Path,progress_callback=None):
     run([ffmpeg,"-y","-loglevel","error","-i",str(silent),"-i",str(voice),"-map","0:v","-map","1:a",
          "-c:v","copy","-af","apad","-c:a","aac","-b:a","192k","-shortest","-movflags","+faststart",str(final)])
     project["voice_engine"]=voice_engine
+    project["background_engine"]=background_engine
     # Matching illustrated 16:9 thumbnail with the recurring character and a <=4-word headline.
     thumb=outdir/"thumbnail.jpg"
     thumb_im=Image.new("RGB",(1280,720),PAPER); td=ImageDraw.Draw(thumb_im)
