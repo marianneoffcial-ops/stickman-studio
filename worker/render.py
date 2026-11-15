@@ -514,7 +514,7 @@ def draw_primary_story_prop(d,w,h,kind,phase=0.0,center_x=.70,center_y=.49,size_
                   fill=(151,137,112),outline=ink)
         d.arc((cx-unit*.15,cy-unit*.20,cx+unit*.15,cy+unit*.08),180,360,fill=ink,width=5)
         d.line((cx-unit*.11,cy-unit*.02,cx+unit*.11,cy-unit*.02),fill=(112,104,87),width=3)
-        water_y=cy+unit*(.035+.008*math.sin(phase*2))
+        water_y=cy+unit*(.035+.025*math.sin(phase*2))
         d.line((cx-unit*.09,water_y,cx+unit*.09,water_y),fill=(116,132,126),width=4)
     elif kind=="oven":
         d.rounded_rectangle((cx-unit*.22,cy-unit*.12,cx+unit*.22,cy+unit*.18),
