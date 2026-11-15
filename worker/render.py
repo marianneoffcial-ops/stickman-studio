@@ -953,7 +953,7 @@ def cloudflare_background_prompt(scene, aspect_ratio):
         "visible watercolor brush texture, muted parchment, tan, sage, brick-red and navy colours, "
         "layered foreground and background, atmospheric depth, paper grain and a subtle vignette. "
         "Leave the central action area clear for the animated stickman. "
-        "No people, characters, faces, figures, arrows, floating circles, icons, symbols, emojis, "
+        "no people, characters, faces, figures, arrows, no floating circles, no icons, no symbols, no emojis, "
         "emoticons, stickers, badges, speech bubbles, thought bubbles, pictograms, street signs, "
         "letters, numerals, text, captions, "
         "logos, watermark, photorealism, 3D, anime or glossy gradients."
