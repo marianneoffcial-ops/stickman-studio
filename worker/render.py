@@ -935,30 +935,44 @@ def cloudflare_ai_configured():
 
 
 def cloudflare_background_prompt(scene, aspect_ratio):
-    """Build a compact, scene-specific prompt below FLUX's documented input limit."""
+    """Build a compact, scene-specific, unpopulated ink-wash plate prompt."""
     scene = scene or {}
     description = str(scene.get("visual", "")).strip() or scene_description(scene)
     scene_number = int(scene.get("scene_index", 0)) + 1
+    context = (str(scene.get("title", "")) + " " + description).lower()
+    london_fire = contains_any(context, (
+        "great fire of london", "london", "1666", "pudding lane", "thames"
+    ))
     prefix = (
         "Create one hand-inked 2D watercolor and gouache background plate, aspect ratio "
         + str(aspect_ratio) + ". Storyboard scene " + str(scene_number) + ". "
-        "Depict only this exact location and action: "
+        "Show only this exact location and action: "
+    )
+    historical_rule = (
+        "For 1666 London, show pre-Victorian timber-framed houses and period streets only; "
+        "no Big Ben, no Elizabeth Tower, no Houses of Parliament, no Victorian or modern buildings. "
+        if london_fire else
+        "Use architecture and objects accurate to the stated place and historical period. "
     )
     suffix = (
         ". The unique scene setting overrides the shared story title. "
-        "Location rules: bakery means an enclosed oven room; Thames/river/boats means open water, "
-        "riverbank and boats; street/lane means an exterior timber-framed street; aftermath/rebuilding "
-        "means charred ruins, stone foundations and masons. Never substitute another location or "
-        "reuse the previous scene's composition. "
+        "Follow the location literally: bakery means an enclosed oven room; Thames/river/boats "
+        "means open water, riverbank and boats; street/lane means an exterior timber-framed street; "
+        "aftermath/rebuilding means charred ruins, stone foundations and masons. Never substitute "
+        "another location or reuse the previous scene's composition. "
+        + historical_rule +
         "Painterly watercolor and gouache washes, visible brush texture, rough irregular black ink "
-        "contours, historically accurate 17th-century London architecture, layered foreground and "
-        "background, atmospheric depth, muted parchment, tan, sage, brick-red and navy colours, "
-        "paper grain and subtle vignette. Never flat vector polygons. Leave central space for the "
-        "separately animated stickman. no people, no characters, no faces, no figures, no arrows, no floating circles, "
-        "no icons, no symbols, no emojis, no emoticons, no stickers, no badges, no speech bubbles, no pictograms, no street signs, "
-        "no letters, no numerals, no text, no captions, no logos, no watermark, no photorealism, no 3D, no anime or glossy gradients."
+        "contours, layered foreground and background, atmospheric depth, muted parchment, tan, sage, "
+        "brick-red and navy colours, paper grain and subtle vignette. Never flat vector polygons. "
+        "EMPTY ENVIRONMENT PLATE: no human beings at all, no people, no crowds, no human silhouettes, "
+        "no statues, no portraits, no faces, no figures, no characters. The recurring stickman is "
+        "composited separately; do not draw any person or character in this background. "
+        "No signs, no signboards, no posters, no placards, no banners, no pictograms, no icons, "
+        "no symbols, no floating circles, no arrows, no emojis, no emoticons, no stickers, "
+        "no speech bubbles, no street signs, no writing, no letters, no numerals, no captions, "
+        "no logos and no watermark. No photorealism, 3D, anime or glossy gradients."
     )
-    # Keep a generous margin below the model's 2,048-character hard limit.
+    # Keep a generous margin below FLUX.1 schnell's 2,048-character hard limit.
     max_prompt_length = 1600
     available = max(0, max_prompt_length - len(prefix) - len(suffix))
     original_description = description

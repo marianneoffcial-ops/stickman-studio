@@ -56,6 +56,30 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertIn("no people", prompt.lower())
         self.assertIn("storyboard scene 3", prompt.lower())
 
+    def test_london_background_prompt_excludes_modern_landmarks_and_humans(self):
+        from worker.render import cloudflare_background_prompt
+        prompt = cloudflare_background_prompt({
+            "title": "The Great Fire of London",
+            "scene_index": 2,
+            "visual": "A riverfront view of the Thames in 1666."
+        }, "16:9").lower()
+        self.assertIn("no big ben", prompt)
+        self.assertIn("no elizabeth tower", prompt)
+        self.assertIn("no victorian", prompt)
+        self.assertIn("no human silhouettes", prompt)
+        self.assertIn("composited separately", prompt)
+        self.assertLessEqual(len(prompt), 1600)
+
+    def test_generic_background_prompt_does_not_force_london_architecture(self):
+        from worker.render import cloudflare_background_prompt
+        prompt = cloudflare_background_prompt({
+            "title": "A boat crossing the sea",
+            "visual": "A small boat crosses a grey sea at dawn."
+        }, "16:9").lower()
+        self.assertIn("architecture and objects accurate to the stated place", prompt)
+        self.assertNotIn("big ben", prompt)
+        self.assertLessEqual(len(prompt), 1600)
+
     def test_background_prompt_explicitly_rejects_floating_symbols_and_characters(self):
         from worker.render import cloudflare_background_prompt
         prompt = cloudflare_background_prompt(
