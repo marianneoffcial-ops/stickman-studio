@@ -50,6 +50,21 @@ class ResearchTests(unittest.TestCase):
         self.assertEqual(api.call_args_list[1].args[0]["pageid"], 202)
         self.assertEqual(result["sources"][0]["title"], "Great Fire of London")
 
+    def test_descriptive_question_matches_canonical_wikipedia_article_title(self):
+        search = _search_response(_search_page("Great Fire of London", 405))
+        article = (
+            "The Great Fire of London occurred from Sunday 2 September to Wednesday "
+            "5 September 1666, gutting the medieval City of London inside the old "
+            "Roman city wall. The fire started in a bakery in Pudding Lane shortly "
+            "after midnight and spread rapidly through the crowded streets."
+        )
+        with patch("app.research._api", side_effect=[search, _article_response(article, "Great Fire of London")]) as api:
+            result = research_topic("How the Great Fire of London spread in 1666", 15)
+        self.assertEqual(result["topic"], "Great Fire of London")
+        self.assertIn("Pudding Lane", result["narration_script"])
+        self.assertEqual(api.call_args_list[0].args[0]["gsrsearch"],
+                         "How the Great Fire of London spread in 1666")
+
     def test_great_fire_storyboard_uses_london_fire_specific_scenes(self):
         search = _search_response(_search_page("Great Fire of London", 303))
         article = (

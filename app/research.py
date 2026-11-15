@@ -225,6 +225,14 @@ _TOPIC_STOPWORDS = {
     "the", "a", "an", "of", "in", "on", "at", "to", "from", "and", "for",
     "story", "history", "event", "true", "remarkable", "great", "lost", "city",
     "first", "man", "who", "race", "reach", "mystery", "disappearance", "case",
+    # Natural-language question and explanatory framing should not count as
+    # distinctive subject terms when matching a Wikipedia article title.
+    "how", "what", "why", "when", "where", "does", "did", "do", "is", "are",
+    "was", "were", "be", "been", "being", "spread", "cause", "causes", "caused",
+    "happen", "happened", "occur", "occurs", "occurred", "start", "starts",
+    "started", "begin", "began", "become", "became", "affect", "affected",
+    "impact", "explain", "explained", "describe", "described", "during",
+    "lead", "led", "change", "changed", "result", "results", "resulted",
 }
 
 
