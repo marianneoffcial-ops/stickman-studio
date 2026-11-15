@@ -20,6 +20,8 @@ class RenderSmokeTests(unittest.TestCase):
         from worker.render import scene_background_mode
         self.assertEqual(scene_background_mode("A ship carries a map through the sea", 0), 2)
         self.assertEqual(scene_background_mode("A manuscript is studied in an archive", 0), 3)
+        self.assertEqual(scene_background_mode("A letter is opened on a desk", 0), 3)
+        self.assertEqual(scene_background_mode("An old map shows a route", 0), 5)
         self.assertEqual(scene_background_mode("A caravan crosses the desert", 0), 4)
         self.assertEqual(scene_background_mode("A market street in an old city", 0), 1)
         self.assertEqual(scene_background_mode("A palace beside a mountain", 0), 0)

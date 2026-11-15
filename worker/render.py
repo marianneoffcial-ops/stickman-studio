@@ -202,8 +202,8 @@ def scene_transport_kind(prompt):
 def scene_background_mode(prompt,index=0):
     """Return one dominant environment for a scene's background illustration."""
     if contains_any(prompt, ('ship','vessel','boat','ocean','sea','sail')): return 2
-    if contains_any(prompt, ('library','archive','book','scholar','manuscript','document','ledger')): return 3
-    if contains_any(prompt, ('map','atlas','chart','route','letter','close-up','close up')): return 5
+    if contains_any(prompt, ('library','archive','book','scholar','manuscript','document','ledger','letter','paper')): return 3
+    if contains_any(prompt, ('map','atlas','chart','route')): return 5
     if contains_any(prompt, ('mosque','palace','temple','cathedral','monument','architecture')): return 0
     if contains_any(prompt, ('market','street','city','cairo','town','crowd')): return 1
     if contains_any(prompt, ('snow','ice','antarctic','winter','mountain','desert','sahara','dune')): return 4
@@ -490,7 +490,7 @@ def draw_story_details(im,d,index,phase,scene):
         for xx in (x+w*.06,x+w*.25):
             d.ellipse((xx,y-h*.035,xx+w*.055,y+h*.045),fill=(63,65,60),outline=ink,width=4)
         d.line((w*.54,h*.76,w*.98,h*.76),fill=ink,width=3)
-    elif contains_any(p, ("aircraft","airplane","plane","parachute","flight","pilot")):
+    elif transport == "air":
         x=w*(.69+math.sin(phase)*.006); y=h*.36
         d.polygon([(x,y),(x+w*.20,y-h*.018),(x+w*.12,y+h*.018),(x+w*.07,y+h*.012)],fill=(119,124,116),outline=ink)
         if "parachute" in p:
