@@ -1,4 +1,4 @@
-import subprocess, shutil, math, textwrap, random, os, wave, re, gc, json, base64, urllib.request
+import subprocess, shutil, math, textwrap, random, os, wave, re, gc, json, base64, urllib.request, urllib.error
 from io import BytesIO
 from pathlib import Path
 from array import array
@@ -934,43 +934,44 @@ def cloudflare_ai_configured():
 
 
 def cloudflare_background_prompt(scene, aspect_ratio):
-    """Request a scene-specific ink-wash plate without repeating the story title's generic setting."""
+    """Build a scene-specific ink-wash prompt within FLUX's 2,048-character API limit."""
     scene = scene or {}
-    # The title is identical across every beat and can overpower the unique location cue.
-    # Prefer the actual storyboard anchor so a river, street, interior and aftermath stay distinct.
     description = str(scene.get("visual", "")).strip() or scene_description(scene)
-    description = description[:900]
     scene_number = int(scene.get("scene_index", 0)) + 1
-    location_rule = (
-        "Follow the stated location literally. If this is a bakery/interior, show an enclosed room and oven; "
-        "if this is a river/Thames/boat scene, show open water, riverbank and boats; "
-        "if this is an exterior lane/street, show a street-level view of timber buildings; "
-        "if this is aftermath/rebuilding, show ruins, cleared foundations and masonry work. "
-        "Do not replace a river, street, or rebuilding scene with a bakery interior. "
-        "Do not reuse the previous scene's setting or camera composition."
-    )
-    return (
+    prefix = (
         "Create a hand-inked 2D illustrated animation background plate for storyboard scene "
         + str(scene_number) + " in aspect ratio " + str(aspect_ratio) + ". "
-        "This plate must depict the specific location and action in the storyboard anchor, not a generic image for the overall story. "
-        "Thick, hand-drawn, slightly irregular black ink outlines with varied line weight; "
-        "matte watercolor and gouache washes in desaturated earthy colours: parchment cream, "
-        "dusty tan, muted sage, charcoal, soft brick red and restrained navy. Use visible hand-painted "
-        "brush texture beneath rough ink contours; build a carefully composed 2D storybook painting "
-        "with distinct foreground, middle distance and atmospheric background, expressive historically "
-        "accurate architecture and a few meaningful story details. Avoid flat vector polygons. Add visible paper grain, subtle "
-        "print scanlines and a gentle dark vignette. Match a hand-inked documentary explainer frame, "
-        "not a generic AI concept-art image. "
-        "Exact scene-specific setting and action: " + (description[:1].upper() + description[1:]) + ". "
-        + location_rule + " "
-        "Keep the central action area visually clear for a separately animated stickman. "
-        "Absolutely no people, no characters, no stick figures, no faces, no arrows, no floating "
-        "circles, no icons, no symbols, no emojis, no emoticons, no cartoon-face stickers, no badges, "
-        "no speech bubbles, no thought bubbles, no pictograms, no decorative marks, no street signs, "
-        "no letters, no numerals, no interface elements, no labels, no lettering, no text, no captions, "
-        "no logos, no watermark, no photorealism, no 3D, no anime, no glossy gradients."
+        "Depict this exact scene-specific location and action, not generic story art: "
     )
-
+    style = (
+        ". Painterly watercolor and gouache washes, visible hand-painted brush texture, "
+        "rough irregular black ink contours with varied line weight, layered foreground, "
+        "middle distance and atmospheric background, historically accurate architecture, "
+        "muted parchment cream, dusty tan, sage, charcoal, brick red and restrained navy. "
+        "Matte paper grain, subtle scanlines, gentle vignette. This must look like a painted "
+        "ink-wash storybook frame, never flat vector polygons or glossy concept art. "
+    )
+    setting = (
+        "Follow the location literally: bakery/interior means an enclosed bakery and oven; "
+        "Thames/river/boat means open water, riverbank and boats; exterior lane/street means "
+        "a street-level timber-framed lane; aftermath/rebuilding means ruins, cleared foundations "
+        "and masonry work. Do not reuse the previous scene's setting or camera composition. "
+        "Keep the central action area clear for a separately animated stickman. "
+    )
+    exclusions = (
+        "No people, characters, stick figures or faces; no arrows, floating circles, icons, "
+        "symbols, emojis, emoticons, stickers, badges, speech bubbles, thought bubbles, "
+        "pictograms, decorative marks, street signs, letters, numerals, interface elements, "
+        "labels, text, captions, logos or watermark. No photorealism, 3D, anime or glossy gradients."
+    )
+    # Cloudflare FLUX.1 schnell rejects prompts longer than 2,048 characters.
+    # Reserve space for all style/safety instructions, trimming only the scene-specific tail.
+    available = max(0, 2048 - len(prefix) - len(style) - len(setting) - len(exclusions))
+    description = description[:available].rstrip()
+    if len(description) < len(str(scene.get("visual", "")).strip() or scene_description(scene)):
+        description = description.rsplit(" ", 1)[0] if " " in description else description
+    prompt = prefix + description + style + setting + exclusions
+    return prompt[:2048]
 
 def generate_cloudflare_background(scene, project, destination):
     """Generate an optional FLUX.1 schnell environment plate through Cloudflare's free Workers AI quota.
@@ -993,8 +994,15 @@ def generate_cloudflare_background(scene, project, destination):
         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         method="POST",
     )
-    with urllib.request.urlopen(request, timeout=90) as response:
-        result = json.loads(response.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(request, timeout=90) as response:
+            result = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace").strip()
+        raise RuntimeError(
+            f"Cloudflare AI rejected the background request (HTTP {exc.code}): "
+            + (detail[:600] or str(exc.reason))
+        ) from exc
     encoded = (result.get("result") or {}).get("image") or result.get("image")
     if not encoded:
         raise RuntimeError("Cloudflare AI returned no image payload")
