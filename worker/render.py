@@ -599,6 +599,7 @@ def draw_story_details(im,d,index,phase,scene):
         d.ellipse((w*.78,h*.08,w*.88,h*.22),fill=(225,218,195),outline=ink,width=4)
     elif contains_any(p, ("sunrise","sunset","sunlit","sunlight")):
         d.ellipse((w*.08,h*.10,w*.17,h*.24),fill=(211,197,164),outline=ink,width=4)
+    transport = scene_transport_kind(p)
     # Cloud contours are drawn only when the storyboard explicitly names clouds.
     if contains_any(p, ("cloud","clouds","overcast")):
         for j in range(2):
