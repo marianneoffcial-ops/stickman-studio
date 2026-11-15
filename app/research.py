@@ -193,11 +193,15 @@ def _topic_terms(value):
 
 
 def _title_relevance(topic, title):
+    """Return query coverage and title precision for ranking candidate articles."""
     terms = _topic_terms(topic)
     if not terms:
-        return 1.0
+        return (1.0, 1.0)
     title_terms = _topic_terms(title)
-    return len(terms & title_terms) / len(terms)
+    overlap = len(terms & title_terms)
+    coverage = overlap / len(terms)
+    precision = overlap / len(title_terms) if title_terms else 0.0
+    return (coverage, precision)
 
 
 def research_topic(topic, duration_seconds):
@@ -230,8 +234,8 @@ def research_topic(topic, duration_seconds):
         reverse=True,
     )
     primary = ranked_pages[0]
-    relevance = _title_relevance(topic, primary.get("title", ""))
-    if len(_topic_terms(topic)) >= 2 and relevance < 0.60:
+    coverage, precision = _title_relevance(topic, primary.get("title", ""))
+    if len(_topic_terms(topic)) >= 2 and (coverage < 0.60 or precision < 0.75):
         raise ValueError(
             "Wikipedia search did not return a clearly matching article for this topic. "
             "Try a more specific title so the video is not built from an unrelated story."

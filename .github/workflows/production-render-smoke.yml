@@ -91,9 +91,14 @@ jobs:
               "duration_seconds": 15,
           })
           assert researched.get("scene_count") == 4, researched
-          normalized_topic = researched.get("topic", "").lower()
-          assert "fire" in normalized_topic and "london" in normalized_topic, (
-              "Research selected the wrong article for the Great Fire of London: "
+          import re
+          stopwords = {"the", "a", "an", "of", "in", "on", "at", "to", "from", "and", "great"}
+          def subject_terms(value):
+              return {word for word in re.findall(r"[a-z]+", value.lower()) if word not in stopwords}
+          expected_terms = subject_terms("The Great Fire of London")
+          actual_terms = subject_terms(researched.get("topic", ""))
+          assert actual_terms == expected_terms, (
+              "Research selected a related but non-primary article: "
               + researched.get("topic", "")
           )
           assert len(researched.get("sources", [])) > 0, "Research returned no citations."
@@ -160,6 +165,9 @@ jobs:
               "thumbnail_bytes": len(thumbnail),
           }, indent=2))
           PY
+
+      - name: Install FFmpeg for contact sheet
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
       - name: Build a four-frame contact sheet
         run: |
