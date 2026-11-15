@@ -552,25 +552,24 @@ def draw_fire_story_motifs(d,w,h,phase,scene):
     if not london_fire:
         return
 
-    # Distant, restrained firelight behind the roofline; no people or buildings
-    # are shown collapsing, and the warm tones stay within the muted house palette.
+    # Fire is a low, continuous glow attached to the roofline, not floating flame icons.
     for j in range(3):
         x = w*(.59+j*.105)
-        y = h*(.585+(j%2)*.012)
-        flicker = math.sin(phase*2.2+j)*h*.008
-        d.polygon([(x,y+h*.045),(x-w*.018,y+h*.005+flicker),
-                   (x-w*.006,y-h*.035+flicker),(x+w*.006,y-h*.004+flicker),
-                   (x+w*.018,y-h*.045+flicker),(x+w*.024,y+h*.045)],
-                  fill=(166,92,63),outline=INK)
-    # Layered grey smoke plumes rise above the old rooftops.
+        y = h*(.625+(j%2)*.012)
+        flicker = math.sin(phase*2.2+j)*h*.006
+        d.line([(x-w*.014,y+h*.025),(x-w*.007,y+flicker),
+                (x,y-h*.018+flicker),(x+w*.008,y+flicker*.35),
+                (x+w*.016,y+h*.025)],
+               fill=(166,92,63),width=max(5,int(w*.012)),joint="curve")
+    # Smoke rises as connected, irregular brush-like strokes from the burning roofs.
     for j in range(4):
         x = w*(.60+j*.075)
-        y = h*(.34-(j%2)*.045)+math.sin(phase*1.1+j)*h*.006
-        radius = w*(.025+(j%2)*.004)
-        d.ellipse((x-radius,y-radius*.62,x+radius,y+radius*.62),
-                  fill=(158,157,145),outline=INK,width=max(2,int(w*.002)))
-        d.arc((x-radius*1.5,y-radius*1.5,x+radius*.8,y+radius*.2),
-              185,345,fill=(118,119,111),width=max(2,int(w*.002)))
+        y = h*(.39-(j%2)*.035)+math.sin(phase*1.1+j)*h*.006
+        drift = math.sin(phase*.7+j)*w*.012
+        plume = [(x,y+h*.18),(x-drift*.35,y+h*.10),
+                 (x+drift,y+h*.015),(x-drift*.55,y-h*.075)]
+        d.line(plume,fill=(158,157,145),width=max(10,int(w*.026)),joint="curve")
+        d.line(plume,fill=(118,119,111),width=max(2,int(w*.002)),joint="curve")
     if contains_any(p, ("firebreak",)):
         # A clear empty strip separates two rooflines.
         d.rectangle((w*.425,h*.43,w*.535,h*.69),fill=(184,176,151))
