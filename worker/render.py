@@ -207,7 +207,7 @@ def scene_background_mode(prompt,index=0):
     if contains_any(prompt, ('library','archive','book','scholar','manuscript','document','ledger','letter','paper')): return 3
     if contains_any(prompt, ('map','atlas','chart','route')): return 5
     if contains_any(prompt, ('mosque','palace','temple','cathedral','monument','architecture')): return 0
-    if contains_any(prompt, ('market','street','city','cairo','town','crowd')): return 1
+    if contains_any(prompt, ('market','street','city','cairo','town','crowd','london','lane','timber-framed','medieval')): return 1
     if contains_any(prompt, ('snow','ice','antarctic','winter','mountain','desert','sahara','dune')): return 4
     return index%6
 
@@ -245,6 +245,11 @@ def draw_background(im,d,index,phase,scene=None,closeup=False):
             x=int(w*(.06+j*.18)); hh=int(h*(.20+(j%3)*.06))
             d.rectangle((x,horizon-hh,x+w*.12,horizon),fill=(169,160,140),outline=INK,width=4)
             for yy in range(3): d.rectangle((x+w*.025,horizon-hh+yy*24,x+w*.05,horizon-hh+yy*24+12),fill=(75,78,70))
+            if contains_any(prompt, ('london','lane','timber-framed','medieval')):
+                # Tudor-era timber framing gives London street scenes a distinct silhouette.
+                d.line((x+4,horizon-hh+4,x+w*.12-4,horizon-4),fill=(83,72,59),width=max(3,int(w*.003)))
+                d.line((x+w*.12-4,horizon-hh+4,x+4,horizon-4),fill=(83,72,59),width=max(3,int(w*.003)))
+                d.line((x+4,horizon-hh+hh*.48,x+w*.12-4,horizon-hh+hh*.48),fill=(83,72,59),width=max(3,int(w*.003)))
     elif mode==2: # sea / ship, with restrained bobbing and moving wave lines
         d.rectangle((0,h*.48,w,h*.72),fill=(142,154,147))
         shift=math.sin(phase)*w*.022; bob=math.sin(phase*2)*h*.008
@@ -349,6 +354,9 @@ def story_prop_kind(prompt):
     p=(prompt or "").lower()
     rules=[
         (("compass","navigation"),"compass"),
+        (("fire bucket","water bucket","bucket"),"bucket"),
+        (("bakery oven","brick oven","wooden oven","oven","bread peel"),"oven"),
+        (("water cask","water barrel","barrel"),"barrel"),
         (("lantern","lamp","light"),"lantern"),
         (("key","keys"),"key"),
         (("watch","pocket watch","clock"),"watch"),
@@ -500,6 +508,30 @@ def draw_primary_story_prop(d,w,h,kind,phase=0.0,center_x=.70,center_y=.49,size_
         d.line((cx-unit*.19,cy+unit*.055,cx+unit*(.19-math.sin(pivot)*.08),cy-unit*(.15+math.cos(pivot)*.02)),fill=(163,148,118),width=max(5,int(unit*.035)))
         d.ellipse((ex-unit*.05,ey-unit*.10,ex+unit*.05,ey),fill=(191,184,162),outline=ink,width=4)
         d.line((cx,cy+unit*.07,cx-unit*.04,cy+unit*.20),fill=ink,width=4)
+    elif kind=="bucket":
+        d.polygon([(cx-unit*.14,cy-unit*.08),(cx+unit*.14,cy-unit*.08),
+                   (cx+unit*.10,cy+unit*.17),(cx-unit*.10,cy+unit*.17)],
+                  fill=(151,137,112),outline=ink)
+        d.arc((cx-unit*.15,cy-unit*.20,cx+unit*.15,cy+unit*.08),180,360,fill=ink,width=5)
+        d.line((cx-unit*.11,cy-unit*.02,cx+unit*.11,cy-unit*.02),fill=(112,104,87),width=3)
+        water_y=cy+unit*(.035+.008*math.sin(phase*2))
+        d.line((cx-unit*.09,water_y,cx+unit*.09,water_y),fill=(116,132,126),width=4)
+    elif kind=="oven":
+        d.rounded_rectangle((cx-unit*.22,cy-unit*.12,cx+unit*.22,cy+unit*.18),
+                            radius=int(unit*.035),fill=(157,126,98),outline=ink,width=6)
+        d.arc((cx-unit*.13,cy-unit*.12,cx+unit*.13,cy+unit*.16),180,360,fill=ink,width=5)
+        d.ellipse((cx-unit*.075,cy-unit*.015,cx+unit*.075,cy+unit*.15),fill=(165,91,63),outline=ink,width=3)
+        flame_y=cy+unit*(.055+.012*math.sin(phase*2.5))
+        d.polygon([(cx,flame_y-unit*.055),(cx-unit*.035,flame_y+unit*.025),
+                   (cx+unit*.035,flame_y+unit*.025)],fill=(202,151,91),outline=ink)
+        d.line((cx-unit*.25,cy+unit*.19,cx+unit*.25,cy+unit*.19),fill=ink,width=5)
+    elif kind=="barrel":
+        d.rounded_rectangle((cx-unit*.16,cy-unit*.18,cx+unit*.16,cy+unit*.18),
+                            radius=int(unit*.04),fill=(142,112,81),outline=ink,width=6)
+        for offset in (-.10,.10):
+            d.arc((cx-unit*.17,cy+unit*offset-unit*.025,cx+unit*.17,cy+unit*offset+unit*.025),
+                  0,180,fill=ink,width=4)
+        d.ellipse((cx-unit*.12,cy-unit*.18,cx+unit*.12,cy-unit*.12),fill=(178,157,123),outline=ink,width=3)
     elif kind=="scale":
         d.line((cx,cy-unit*.18,cx,cy+unit*.17),fill=ink,width=6)
         beam_angle=math.sin(phase*1.1)*.045
@@ -515,6 +547,53 @@ def draw_primary_story_prop(d,w,h,kind,phase=0.0,center_x=.70,center_y=.49,size_
         d.rounded_rectangle((cx-unit*.16,cy-unit*.13,cx+unit*.16,cy+unit*.13),radius=int(unit*.025),
                             fill=(190,177,151),outline=ink,width=5)
         d.ellipse((cx-unit*.035,cy-unit*.035,cx+unit*.035,cy+unit*.035),outline=ink,width=3)
+
+
+def draw_fire_story_motifs(d,w,h,phase,scene):
+    """Draw a safe, unmistakable Great Fire of London motif in the background."""
+    p = scene_description(scene)
+    london_fire = (
+        contains_any(p, ("great fire of london", "pudding lane", "firelight", "fire bucket", "firebreak"))
+        or (contains_any(p, ("london", "1666")) and contains_any(p, ("smoke", "bakery", "oven")))
+    )
+    if not london_fire:
+        return
+
+    # Distant, restrained firelight behind the roofline; no people or buildings
+    # are shown collapsing, and the warm tones stay within the muted house palette.
+    for j in range(3):
+        x = w*(.59+j*.105)
+        y = h*(.585+(j%2)*.012)
+        flicker = math.sin(phase*2.2+j)*h*.008
+        d.polygon([(x,y+h*.045),(x-w*.018,y+h*.005+flicker),
+                   (x-w*.006,y-h*.035+flicker),(x+w*.006,y-h*.004+flicker),
+                   (x+w*.018,y-h*.045+flicker),(x+w*.024,y+h*.045)],
+                  fill=(166,92,63),outline=INK)
+    # Layered grey smoke plumes rise above the old rooftops.
+    for j in range(4):
+        x = w*(.60+j*.075)
+        y = h*(.34-(j%2)*.045)+math.sin(phase*1.1+j)*h*.006
+        radius = w*(.025+(j%2)*.004)
+        d.ellipse((x-radius,y-radius*.62,x+radius,y+radius*.62),
+                  fill=(158,157,145),outline=INK,width=max(2,int(w*.002)))
+        d.arc((x-radius*1.5,y-radius*1.5,x+radius*.8,y+radius*.2),
+              185,345,fill=(118,119,111),width=max(2,int(w*.002)))
+    if contains_any(p, ("firebreak",)):
+        # A clear empty strip separates two rooflines.
+        d.rectangle((w*.425,h*.43,w*.535,h*.69),fill=(184,176,151))
+        d.line((w*.425,h*.69,w*.535,h*.69),fill=INK,width=max(2,int(w*.002)))
+    if contains_any(p, ("bakery", "oven", "pudding lane")):
+        x,y=w*.72,h*.57
+        d.rounded_rectangle((x-w*.055,y-h*.075,x+w*.055,y+h*.035),
+                            radius=int(w*.008),fill=(157,126,98),outline=INK,width=4)
+        d.arc((x-w*.035,y-h*.075,x+w*.035,y+h*.025),180,360,fill=INK,width=4)
+        d.ellipse((x-w*.022,y-h*.018,x+w*.022,y+h*.025),fill=(166,92,63),outline=INK,width=3)
+    if contains_any(p, ("fire bucket", "water bucket")):
+        x,y=w*.78,h*.63
+        d.polygon([(x-w*.025,y-h*.045),(x+w*.025,y-h*.045),
+                   (x+w*.018,y+h*.035),(x-w*.018,y+h*.035)],
+                  fill=(151,137,112),outline=INK)
+        d.arc((x-w*.03,y-h*.10,x+w*.03,y+h*.005),180,360,fill=INK,width=3)
 
 
 def draw_story_details(im,d,index,phase,scene):
@@ -667,6 +746,7 @@ def draw_story_details(im,d,index,phase,scene):
     # This is the focal subject; the recurring figure remains a small observer.
     if "close-up" in (scene.get("camera","") or "").lower():
         draw_primary_story_prop(d,w,h,story_prop_kind(p),phase)
+    draw_fire_story_motifs(d,w,h,phase,scene)
     # Light foreground hatching adds imperfect hand-inked contours without clutter.
     rng=random.Random(index+909)
     for _ in range(18):
