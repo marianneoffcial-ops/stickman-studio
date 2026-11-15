@@ -933,11 +933,25 @@ def cloudflare_ai_configured():
 
 
 def cloudflare_background_prompt(scene, aspect_ratio):
-    """Request only a clean environment plate; recurring stick figures remain renderer-controlled."""
-    description = scene_description(scene)[:900]
+    """Request a scene-specific ink-wash plate without repeating the story title's generic setting."""
+    scene = scene or {}
+    # The title is identical across every beat and can overpower the unique location cue.
+    # Prefer the actual storyboard anchor so a river, street, interior and aftermath stay distinct.
+    description = str(scene.get("visual", "")).strip() or scene_description(scene)
+    description = description[:900]
+    scene_number = int(scene.get("scene_index", 0)) + 1
+    location_rule = (
+        "Follow the stated location literally. If this is a bakery/interior, show an enclosed room and oven; "
+        "if this is a river/Thames/boat scene, show open water, riverbank and boats; "
+        "if this is an exterior lane/street, show a street-level view of timber buildings; "
+        "if this is aftermath/rebuilding, show ruins, cleared foundations and masonry work. "
+        "Do not replace a river, street, or rebuilding scene with a bakery interior. "
+        "Do not reuse the previous scene's setting or camera composition."
+    )
     return (
-        "Create a hand-inked 2D illustrated animation background plate, "
-        "wide cinematic composition in aspect ratio " + str(aspect_ratio) + ". "
+        "Create a hand-inked 2D illustrated animation background plate for storyboard scene "
+        + str(scene_number) + " in aspect ratio " + str(aspect_ratio) + ". "
+        "This plate must depict the specific location and action in the storyboard anchor, not a generic image for the overall story. "
         "Thick, hand-drawn, slightly irregular black ink outlines with varied line weight; "
         "matte watercolor and gouache washes in desaturated earthy colours: parchment cream, "
         "dusty tan, muted sage, charcoal, soft brick red and restrained navy. Use visible hand-painted "
@@ -946,7 +960,8 @@ def cloudflare_background_prompt(scene, aspect_ratio):
         "accurate architecture and a few meaningful story details. Avoid flat vector polygons. Add visible paper grain, subtle "
         "print scanlines and a gentle dark vignette. Match a hand-inked documentary explainer frame, "
         "not a generic AI concept-art image. "
-        "Depict this exact story beat and setting only: " + (description[:1].upper() + description[1:]) + ". "
+        "Exact scene-specific setting and action: " + (description[:1].upper() + description[1:]) + ". "
+        + location_rule + " "
         "Keep the central action area visually clear for a separately animated stickman. "
         "Absolutely no people, no characters, no stick figures, no faces, no arrows, no floating "
         "circles, no icons, no symbols, no interface elements, no labels, no lettering, no text, "
