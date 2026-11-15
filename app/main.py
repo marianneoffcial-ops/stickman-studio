@@ -486,8 +486,9 @@ def thumbnail(project_id):
     return FileResponse(path, media_type="image/jpeg", filename="thumbnail.jpg")
 
 
-@app.get("/api/jobs/{job_id}/download")
-def download(job_id):
+@app.get("/api/jobs/{job_id}/preview", response_class=HTMLResponse)
+def preview(job_id):
+    """Provide an inline HTML video player for visual QA without forcing a download."""
     job_id = safe_uuid(job_id, "job")
     with JOBS_LOCK:
         job = JOBS.get(job_id)
@@ -502,5 +503,38 @@ def download(job_id):
     path = Path(project.get("video_path", "")).resolve()
     if path.parent != folder.resolve() or not path.is_file():
         raise HTTPException(404, "Output file missing")
+    source = f"/api/jobs/{job_id}/download?inline=true"
+    page = (
+        "<!doctype html><html lang='en'><meta charset='utf-8'>"
+        "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+        "<title>Video preview</title>"
+        "<style>body{margin:0;background:#171717;color:#eee;font:16px sans-serif;"
+        "display:grid;place-items:center;min-height:100vh}main{width:min(96vw,1280px)}"
+        "video{display:block;width:100%;height:auto;background:#000}</style>"
+        f"<main><video controls playsinline preload='metadata' src='{source}'></video></main>"
+        "</html>"
+    )
+    return HTMLResponse(page, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/jobs/{job_id}/download")
+def download(job_id, inline: bool = False):
+    job_id = safe_uuid(job_id, "job")
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+        job = public_job(job) if job else None
+    if not job or job.get("status") != "completed":
+        raise HTTPException(409, "MP4 not ready or not verified")
+    folder = project_folder(job["project_id"])
+    project_path = folder / "project.json"
+    if not project_path.is_file():
+        raise HTTPException(404, "Project metadata missing")
+    project = json.loads(project_path.read_text(encoding="utf-8"))
+    path = Path(project.get("video_path", "")).resolve()
+    if path.parent != folder.resolve() or not path.is_file():
+        raise HTTPException(404, "Output file missing")
+    if inline:
+        return FileResponse(path, media_type="video/mp4",
+                            headers={"Content-Disposition": "inline"})
     return FileResponse(path, media_type="video/mp4",
                         filename=f"stickman-{project['duration_seconds']}s.mp4")
