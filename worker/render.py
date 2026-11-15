@@ -1232,24 +1232,32 @@ def render_project(project,outdir:Path,progress_callback=None):
     thumb=outdir/"thumbnail.jpg"
     thumb_im=Image.new("RGB",(1280,720),PAPER); td=ImageDraw.Draw(thumb_im)
     first_scene=project.get("scenes",[{}])[0]
-    draw_background(thumb_im,td,0,0,first_scene)
-    # Reuse the same story-specific illustration language, but stage the main
-    # prop in the open centre-left area so the headline has its own clean panel.
-    thumbnail_scene=dict(first_scene)
-    thumbnail_scene["camera"]=""
-    draw_story_details(thumb_im,td,0,0,thumbnail_scene)
-    prop_prompt=scene_description(first_scene)
-    draw_primary_story_prop(td,1280,720,story_prop_kind(prop_prompt),0.0,center_x=.56,center_y=.49,size_factor=.72)
+    ai_background=first_scene.get("ai_background_path")
+    has_ai_plate=bool(ai_background and Path(ai_background).is_file())
+    if has_ai_plate:
+        # Match the thumbnail to the actual AI environment plate used by scene one.
+        with Image.open(ai_background) as plate:
+            plate=ImageOps.fit(plate.convert("RGB"),(1280,720),method=Image.Resampling.LANCZOS)
+            thumb_im.paste(plate)
+        td=ImageDraw.Draw(thumb_im)
+    else:
+        draw_background(thumb_im,td,0,0,first_scene)
+        thumbnail_scene=dict(first_scene)
+        thumbnail_scene["camera"]=""
+        draw_story_details(thumb_im,td,0,0,thumbnail_scene)
+        prop_prompt=scene_description(first_scene)
+        draw_primary_story_prop(td,1280,720,story_prop_kind(prop_prompt),0.0,center_x=.56,center_y=.49,size_factor=.72)
+        apply_house_texture(thumb_im,0)
     name=(first_scene.get("characters") or ["Narrator"])[0]
     color=project.get("characters",{}).get(name,{}).get("color","#34465a")
     rgb=tuple(int(color[k:k+2],16) for k in (1,3,5))
     draw_person(td,270,500,1.0,rgb,0,0,name,"observe")
-    apply_house_texture(thumb_im,0)
     words=re.findall(r"[A-Za-z0-9']+",project.get("thumbnail_headline",project.get("title","STICKMAN STORY")).upper())[:4]
     headline=" ".join(words) or "STICKMAN STORY"
-    td.rounded_rectangle((850,190,1225,555),radius=18,fill=(30,32,29),outline=(192,174,137),width=5)
+    # A quiet parchment caption matches the hand-inked world instead of a heavy UI card.
+    td.rounded_rectangle((850,190,1225,555),radius=12,fill=(238,229,207),outline=INK,width=4)
     lines=textwrap.wrap(headline,width=9)[:3]
-    td.multiline_text((875,260),"\n".join(lines),font=font(52,True),fill=(244,237,218),spacing=8,stroke_width=1,stroke_fill=INK)
+    td.multiline_text((875,260),"\n".join(lines),font=font(52,True),fill=INK,spacing=8,stroke_width=0)
     thumb_im.save(thumb,quality=92)
     project["thumbnail_path"]=str(thumb)
     # A completed project only needs its verified MP4, thumbnail and metadata.
