@@ -35,9 +35,9 @@ def _sentences(text):
     return [s.strip() for s in re.split(r"(?<=[.!?])\s+", text) if len(s.split()) >= 5]
 
 
-def _generic_scene(sentence, index):
-    """Turn each researched narration beat into a distinct, safe visual setup."""
-    value = (sentence or "").lower()
+def _generic_scene(sentence, index, topic=""):
+    """Turn each researched narration beat into a distinct, topic-aware visual setup."""
+    value = f"{topic} {sentence or ''}".lower()
     stages = [
         ("context", "establish the setting and the ordinary world before events changed"),
         ("preparation", "show careful preparation around a table of simple tools and papers"),
@@ -131,6 +131,13 @@ def _generic_scene(sentence, index):
           ("a quiet shelter with a small table", "a simple pocket watch"),
           ("a high viewpoint over an empty plain", "a signal lantern"),
           ("a records table holding expedition notes", "a leather-bound journal")]),
+        (("fire", "conflagration", "burn", "flame", "1666", "pudding lane", "bakery", "smoke"),
+         [("a narrow 17th-century London lane at night with distant orange firelight and smoke above timber rooftops", "a baker's wooden oven with a small loaf of bread"),
+          ("a crowded timber-framed London street with a distant roofline glow and drifting smoke", "a simple leather fire bucket"),
+          ("a riverside view of 1666 London with smoke on the horizon and boats along the Thames", "a wooden water bucket"),
+          ("a London street where a safe firebreak gap separates old buildings, with smoke distant beyond the rooftops", "a folded map of old London"),
+          ("a rebuilding site in London with brick stacks and timber frames in pale morning light", "a simple architectural plan"),
+          ("a calm rebuilt London street at dawn with stone façades and a distant spire", "a small model of a city building")]),
         (("city", "street", "town", "building", "house", "fire", "smog"),
          [("a muted historic city street with geometric buildings", "a folded newspaper"),
           ("a quiet civic office with tall windows", "a bound public record"),
@@ -344,10 +351,22 @@ def research_topic(topic, duration_seconds):
         beat_words = 9 if index < count - 1 else max(1, round(9 * last / 4))
         beat = script_words[cursor:cursor + beat_words]
         cursor += len(beat)
+        # Keep date phrases intact when a four-second boundary lands after a day number.
+        if beat and cursor < len(script_words):
+            day = re.fullmatch(r"\d{1,2}", beat[-1].strip(" ,;:"))
+            next_word = re.match(r"[A-Za-z]+", script_words[cursor])
+            if day and next_word and next_word.group(0).lower() in {
+                "january", "february", "march", "april", "may", "june",
+                "july", "august", "september", "october", "november", "december",
+            }:
+                beat.append(script_words[cursor])
+                cursor += 1
         if beat:
-            beats.append(" ".join(beat).rstrip(" ,;:") + ("" if beat[-1][-1:] in ".!?" else "."))
+            beats.append(" ".join(beat).rstrip(" ,;:"))
+    if beats and beats[-1] and beats[-1][-1] not in ".!?":
+        beats[-1] += "."
     script = " ".join(beats)
-    anchors = [_generic_scene(" ".join(beats[i].split()), i) for i in range(count)]
+    anchors = [_generic_scene(" ".join(beats[i].split()), i, topic=title) for i in range(count)]
     return {
         "topic": title,
         "duration_seconds": int(duration_seconds),

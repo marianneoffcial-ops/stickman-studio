@@ -45,6 +45,36 @@ class ResearchTests(unittest.TestCase):
         self.assertEqual(api.call_args_list[1].args[0]["pageid"], 202)
         self.assertEqual(result["sources"][0]["title"], "Great Fire of London")
 
+    def test_great_fire_storyboard_uses_london_fire_specific_scenes(self):
+        search = _search_response(_search_page("Great Fire of London", 303))
+        article = (
+            "The Great Fire of London occurred from Sunday 2 September to Wednesday "
+            "5 September 1666, gutting the medieval City of London inside the old "
+            "Roman city wall. The fire started in a bakery in Pudding Lane shortly "
+            "after midnight and spread rapidly through the crowded streets."
+        )
+        with patch("app.research._api", side_effect=[search, _article_response(article, "Great Fire of London")]):
+            result = research_topic("The Great Fire of London", 15)
+        scenes = result["storyboard"].lower().splitlines()
+        self.assertEqual(len(scenes), 4)
+        self.assertTrue(all("london" in scene for scene in scenes))
+        self.assertTrue(all(any(word in scene for word in ("firelight", "smoke", "fire bucket", "firebreak")) for scene in scenes))
+        self.assertNotIn("archive with shelves", result["storyboard"].lower())
+
+    def test_narration_keeps_day_and_month_together_without_fake_full_stops(self):
+        search = _search_response(_search_page("Great Fire of London", 304))
+        article = (
+            "The Great Fire of London occurred from Sunday 2 September to Wednesday "
+            "5 September 1666, gutting the medieval City of London inside the old "
+            "Roman city wall. The fire started in a bakery in Pudding Lane shortly "
+            "after midnight and spread rapidly through the crowded streets."
+        )
+        with patch("app.research._api", side_effect=[search, _article_response(article, "Great Fire of London")]):
+            result = research_topic("The Great Fire of London", 15)
+        self.assertIn("Sunday 2 September", result["narration_beats"][0])
+        self.assertNotIn("2.", result["narration_beats"][0])
+        self.assertTrue(result["narration_beats"][-1].endswith("."))
+
     def test_article_parser_ignores_navigation_figures_and_reference_numbers(self):
         from app.research import _extract_article_text
         markup = (
