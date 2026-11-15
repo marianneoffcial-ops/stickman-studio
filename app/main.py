@@ -301,6 +301,12 @@ def health():
         "status": "ok", "version": app.version,
         "renderer": "deterministic-hand-inked-2d-vector-motion-comic",
         "gpu_required": False, "free_research": "Wikipedia API",
+        # Expose configuration state only; never return account IDs, tokens, or secrets.
+        "cloudflare_ai_backgrounds_configured": bool(
+            os.getenv("CLOUDFLARE_ACCOUNT_ID", "").strip()
+            and os.getenv("CLOUDFLARE_API_TOKEN", "").strip()
+        ),
+        "cloudflare_ai_background_model": "@cf/black-forest-labs/flux-1-schnell",
         "active_jobs": queued, "completed_jobs": completed, "failed_jobs": failed,
         "max_active_jobs": MAX_ACTIVE_JOBS
     }
