@@ -35,6 +35,16 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertEqual(story_prop_kind("a simple leather fire bucket"), "bucket")
         self.assertEqual(story_prop_kind("a wooden water bucket"), "bucket")
 
+    def test_scene_description_uses_unique_visual_anchor_not_shared_story_title(self):
+        from worker.render import scene_description
+        scene = {
+            "title": "The Great Fire of London",
+            "visual": "Thames riverbank at dawn with boats and fleeing families."
+        }
+        meaning = scene_description(scene)
+        self.assertIn("thames riverbank", meaning)
+        self.assertNotIn("great fire of london", meaning)
+
     def test_background_prompt_explicitly_rejects_floating_symbols_and_characters(self):
         from worker.render import cloudflare_background_prompt
         prompt = cloudflare_background_prompt(
