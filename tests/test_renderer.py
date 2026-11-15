@@ -79,8 +79,8 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertNotIn("the great fire of london", river)
         self.assertIn("storyboard scene 4", aftermath)
         self.assertIn("ruined city foundations", aftermath)
-        self.assertIn("ruins, cleared foundations and masonry work", aftermath)
-        self.assertIn("do not reuse the previous scene", aftermath)
+        self.assertIn("aftermath/rebuilding means charred ruins", aftermath)
+        self.assertIn("reuse the previous scene's composition", aftermath)
 
     def test_london_fire_scene_uses_city_background_and_visible_fire_motifs(self):
         from worker.render import scene_background_mode, draw_story_details
@@ -366,7 +366,7 @@ class RenderSmokeTests(unittest.TestCase):
         prompt = cloudflare_background_prompt(
             {"visual": "A ship crosses a grey sea at dawn"}, "16:9"
         )
-        self.assertIn("hand-inked 2D illustrated animation", prompt)
+        self.assertIn("hand-inked 2D watercolor and gouache background plate", prompt)
         self.assertIn("no people", prompt)
         self.assertIn("A ship crosses a grey sea at dawn", prompt)
         self.assertIn("16:9", prompt)
