@@ -53,6 +53,11 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertIn("no floating circles", prompt)
         self.assertIn("no icons", prompt)
         self.assertIn("no symbols", prompt)
+        self.assertIn("no emojis", prompt)
+        self.assertIn("no emoticons", prompt)
+        self.assertIn("no speech bubbles", prompt)
+        self.assertIn("no street signs", prompt)
+        self.assertIn("no numerals", prompt)
         self.assertIn("no people", prompt)
 
     def test_ai_background_prompt_prioritizes_each_unique_storyboard_location(self):
