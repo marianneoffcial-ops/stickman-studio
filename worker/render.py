@@ -292,22 +292,24 @@ def draw_background(im,d,index,phase,scene=None,closeup=False):
                 if top < h*yy < horizon:
                     d.rectangle((x+building_w*.42,h*yy,x+building_w*.58,h*yy+h*.055),
                                 fill=(66,68,61),outline=INK,width=2)
-        # Distant flames remain behind rooftops; no people or injuries are shown.
+        # Warm firelight stays attached to the roofline rather than appearing as floating triangles.
         for j in range(5):
             x=w*(.30+j*.105)
-            y=horizon-h*(.20+(j%2)*.035)
-            d.polygon([(x,y),(x-w*.018,y-h*.075),(x-w*.006,y-h*.045),
-                       (x+w*.006,y-h*.12),(x+w*.020,y-h*.035),(x+w*.030,y)],
-                      fill=(153,91,67),outline=(88,66,56))
-        # Layered grey smoke drifts above the distant rooftops.
+            y=horizon-h*(.055+(j%2)*.012)
+            flicker=math.sin(phase*2+j)*h*.006
+            d.line([(x-w*.012,y+h*.018),(x-w*.006,y+flicker),
+                    (x,y-h*.028+flicker),(x+w*.008,y+flicker*.3),
+                    (x+w*.014,y+h*.018)],
+                   fill=(166,92,63),width=max(5,int(w*.010)),joint="curve")
+        # Connected smoke brushstrokes rise from the burning roofline.
         for j in range(4):
             x=w*(.34+j*.12)+math.sin(phase+j)*w*.008
-            y=h*(.18+(j%2)*.045)
-            for k in range(3):
-                radius=w*(.025+k*.009)
-                d.ellipse((x-radius+k*w*.012,y-radius*.40-k*h*.045,
-                           x+radius+k*w*.012,y+radius*.40-k*h*.045),
-                          fill=(157,154,140),outline=(120,116,103),width=2)
+            y=h*(.30+(j%2)*.025)
+            drift=math.sin(phase*.7+j)*w*.012
+            plume=[(x,y+h*.13),(x-drift*.35,y+h*.05),
+                   (x+drift,y-h*.025),(x-drift*.55,y-h*.10)]
+            d.line(plume,fill=(158,157,145),width=max(10,int(w*.024)),joint="curve")
+            d.line(plume,fill=(120,116,103),width=max(2,int(w*.002)),joint="curve")
         if contains_any(prompt, ('riverside','thames','river','boats')):
             d.rectangle((0,h*.58,w,h*.73),fill=(142,154,147))
             for j in range(7):
