@@ -967,9 +967,10 @@ def cloudflare_background_prompt(scene, aspect_ratio):
         "EMPTY ENVIRONMENT PLATE: no human beings at all, no people, no crowds, no human silhouettes, "
         "no statues, no portraits, no faces, no figures, no characters. The recurring stickman is "
         "composited separately; do not draw any person or character in this background. "
-        "No signs, signboards, posters, placards, banners, pictograms, icons, symbols, floating circles, "
-        "arrows, emojis, stickers, speech bubbles, writing, letters, numerals, captions, logos or watermark. "
-        "No photorealism, 3D, anime or glossy gradients."
+        "No signs, no signboards, no posters, no placards, no banners, no pictograms, no icons, "
+        "no symbols, no floating circles, no arrows, no emojis, no emoticons, no stickers, "
+        "no speech bubbles, no street signs, no writing, no letters, no numerals, no captions, "
+        "no logos and no watermark. No photorealism, 3D, anime or glossy gradients."
     )
     # Keep a generous margin below FLUX.1 schnell's 2,048-character hard limit.
     max_prompt_length = 1600
