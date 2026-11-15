@@ -7,6 +7,8 @@ on:
       - ".github/workflows/production-render-smoke.yml"
       - "app/research.py"
       - "tests/test_research.py"
+      - "worker/render.py"
+      - "tests/test_renderer.py"
   workflow_dispatch:
 
 permissions:
