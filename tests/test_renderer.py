@@ -27,6 +27,19 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertEqual(scene_background_mode("A palace beside a mountain", 0), 0)
         self.assertEqual(scene_background_mode("An unclassified quiet scene", 5), 5)
 
+    def test_london_fire_scene_uses_city_background_and_visible_fire_motifs(self):
+        from worker.render import scene_background_mode, draw_story_details
+        scene = {
+            "visual": "A narrow 17th-century London lane at night with distant orange firelight "
+                      "and smoke above timber rooftops; a baker's wooden oven is visible."
+        }
+        self.assertEqual(scene_background_mode(scene["visual"], 0), 1)
+        image = Image.new("RGB", (640, 360), (220, 211, 190))
+        draw_story_details(image, ImageDraw.Draw(image), 0, 0.7, scene)
+        pixels = list(image.getdata())
+        self.assertGreater(sum(pixel == (166, 92, 63) for pixel in pixels), 20)
+        self.assertGreater(sum(pixel == (158, 157, 145) for pixel in pixels), 20)
+
     def test_custom_aspect_ratio_is_preserved(self):
         width, height = dimensions("4:5")
         self.assertEqual(width / height, 4 / 5)
@@ -144,9 +157,11 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertEqual(story_prop_kind("a hanging lantern"), "lantern")
         self.assertEqual(story_prop_kind("a leather-bound journal"), "ledger")
         self.assertEqual(story_prop_kind("a weathered telescope"), "telescope")
+        self.assertEqual(story_prop_kind("a leather fire bucket"), "bucket")
+        self.assertEqual(story_prop_kind("a baker's wooden oven"), "oven")
 
     def test_story_props_have_smooth_frame_to_frame_motion(self):
-        for kind in ("compass", "lantern", "watch", "gear", "map", "letter", "key", "ledger", "satchel", "paper", "telescope", "scale"):
+        for kind in ("compass", "lantern", "watch", "gear", "map", "letter", "key", "ledger", "satchel", "paper", "telescope", "scale", "bucket", "oven"):
             first = Image.new("RGB", (640, 480), (220, 211, 190))
             later = Image.new("RGB", (640, 480), (220, 211, 190))
             draw_primary_story_prop(ImageDraw.Draw(first), 640, 480, kind, 0.0)
