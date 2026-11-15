@@ -811,7 +811,7 @@ def scene_composition(width,height,camera="",frame=0,total_frames=1):
         # Keep the recurring hero legible even in prop-focused shots.
         scale*=.82
         x_fraction=.16
-        y_fraction=.82
+        y_fraction=.70
     elif "wide silhouette" in camera:
         x_fraction=.76
         y_fraction=.73
