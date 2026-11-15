@@ -290,7 +290,7 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
             f"One readable character action: {action}; facial expression: {expression}. "
             f"Continuity from the prior beat: {continuity} "
             "Show a visible consequence of the action and leave the character and important props in a state the next shot can inherit. "
-            f"Diegetic sound only: {sound}; no voice, narration, dialogue or music. {HOUSE_STYLE} "
+            f"Diegetic sound only: {sound}; no voice, narration, dialogue or music. " + "Audio is diegetic ambient sound only — no voice, no narration, no dialogue, no music. Only the sounds present in the scene. " + f"{HOUSE_STYLE} "
             "Visual safety: use generic people and places only; no real named people, flags, insignia, logos, violence, injury, death, blood or weapons being fired; "
             "use restrained objects, empty spaces, distant silhouettes or aftermath. "
             "Keep the chosen camera movement consistent with this shot; do not combine a continuous take with instant angle changes. "
