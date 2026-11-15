@@ -934,41 +934,28 @@ def cloudflare_ai_configured():
 
 
 def cloudflare_background_prompt(scene, aspect_ratio):
-    """Request a scene-specific ink-wash plate without repeating the story title's generic setting."""
+    """Build a compact, scene-specific prompt within the FLUX request limits."""
     scene = scene or {}
-    # The title is identical across every beat and can overpower the unique location cue.
-    # Prefer the actual storyboard anchor so a river, street, interior and aftermath stay distinct.
     description = str(scene.get("visual", "")).strip() or scene_description(scene)
-    description = description[:900]
+    description = description[:500]
     scene_number = int(scene.get("scene_index", 0)) + 1
-    location_rule = (
-        "Follow the stated location literally. If this is a bakery/interior, show an enclosed room and oven; "
-        "if this is a river/Thames/boat scene, show open water, riverbank and boats; "
-        "if this is an exterior lane/street, show a street-level view of timber buildings; "
-        "if this is aftermath/rebuilding, show ruins, cleared foundations and masonry work. "
-        "Do not replace a river, street, or rebuilding scene with a bakery interior. "
-        "Do not reuse the previous scene's setting or camera composition."
-    )
     return (
-        "Create a hand-inked 2D illustrated animation background plate for storyboard scene "
-        + str(scene_number) + " in aspect ratio " + str(aspect_ratio) + ". "
-        "This plate must depict the specific location and action in the storyboard anchor, not a generic image for the overall story. "
-        "Thick, hand-drawn, slightly irregular black ink outlines with varied line weight; "
-        "matte watercolor and gouache washes in desaturated earthy colours: parchment cream, "
-        "dusty tan, muted sage, charcoal, soft brick red and restrained navy. Use visible hand-painted "
-        "brush texture beneath rough ink contours; build a carefully composed 2D storybook painting "
-        "with distinct foreground, middle distance and atmospheric background, expressive historically "
-        "accurate architecture and a few meaningful story details. Avoid flat vector polygons. Add visible paper grain, subtle "
-        "print scanlines and a gentle dark vignette. Match a hand-inked documentary explainer frame, "
-        "not a generic AI concept-art image. "
-        "Exact scene-specific setting and action: " + (description[:1].upper() + description[1:]) + ". "
-        + location_rule + " "
-        "Keep the central action area visually clear for a separately animated stickman. "
-        "Absolutely no people, no characters, no stick figures, no faces, no arrows, no floating "
-        "circles, no icons, no symbols, no emojis, no emoticons, no cartoon-face stickers, no badges, "
-        "no speech bubbles, no thought bubbles, no pictograms, no decorative marks, no street signs, "
-        "no letters, no numerals, no interface elements, no labels, no lettering, no text, no captions, "
-        "no logos, no watermark, no photorealism, no 3D, no anime, no glossy gradients."
+        "Create one hand-inked 2D watercolor and gouache background plate, aspect ratio "
+        + str(aspect_ratio) + ". Storyboard scene " + str(scene_number) + ". "
+        "Depict only this exact location and action: "
+        + (description[:1].upper() + description[1:]) + ". "
+        "The unique scene setting must override the shared story title. "
+        "Location rules: bakery means an enclosed oven room; Thames/river/boats means open water, "
+        "riverbank and boats; street/lane means an exterior timber-framed street; aftermath/rebuilding "
+        "means charred ruins, stone foundations and masons. Never substitute another location or "
+        "reuse the previous scene's composition. "
+        "Use historically accurate 17th-century London details, thick irregular black ink contours, "
+        "visible watercolor brush texture, muted parchment, tan, sage, brick-red and navy colours, "
+        "layered foreground and background, atmospheric depth, paper grain and a subtle vignette. "
+        "Leave the central action area clear for the animated stickman. "
+        "No people, characters, faces, figures, arrows, icons, symbols, emojis, emoticons, stickers, "
+        "badges, speech bubbles, thought bubbles, pictograms, signs, letters, numbers, text, captions, "
+        "logos, watermark, photorealism, 3D, anime or glossy gradients."
     )
 
 
