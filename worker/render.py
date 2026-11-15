@@ -33,26 +33,20 @@ def draw_person(d,x,y,scale,color,phase,pose=0,role='',action='idle',expression=
     q=scale
     # A small double-step body bounce gives the torso weight while the legs stay grounded.
     upper_y=float(y - (abs(math.sin(phase*2))*2.5*q if action=='walk' else 0.0))
-    outline=max(2,int(5*q)); limb=max(3,int(7*q))
+    outline=max(2,int(5*q)); limb=max(3,int(5*q))
     cx=float(x); head_y=float(upper_y-151*q); radius=34*q
     breath=math.sin(phase*2)*2.0*q
     head_tilt=math.sin(phase*1.4)*2.0*q
-    # Neck and compact jacket silhouette
-    d.line((cx,head_y+radius-1*q,cx,upper_y-119*q),fill=INK,width=max(3,int(6*q)))
-    torso=[(cx-22*q,upper_y-118*q),(cx+22*q,upper_y-118*q),(cx+30*q,upper_y-91*q),
-           (cx+26*q,upper_y+4*q),(cx-26*q,upper_y+4*q),(cx-30*q,upper_y-91*q)]
-    d.polygon(torso,fill=color,outline=INK)
-    d.line((cx-22*q,upper_y-118*q,cx+22*q,upper_y-118*q),fill=INK,width=max(2,int(3*q)))
-    # Subtle seams and folds keep the clothing from reading as a plain rectangle.
-    d.line((cx-14*q,upper_y-83*q,cx-9*q,upper_y-22*q),fill=tuple(max(0,int(c*.78)) for c in color),width=max(1,int(2*q)))
-    d.line((cx+15*q,upper_y-70*q,cx+11*q,upper_y-36*q),fill=tuple(min(255,int(c*1.12)) for c in color),width=max(1,int(2*q)))
-    if role.lower() in ('emperor','official'):
-        d.line((cx,upper_y-111*q,cx,upper_y-10*q),fill=(193,174,133),width=max(2,int(3*q)))
-    elif role.lower() in ('scholar','architect'):
-        d.line((cx-17*q,upper_y-84*q,cx+17*q,upper_y-84*q),fill=(211,198,166),width=max(2,int(3*q)))
+    # The recurring hero is a true stick figure: open, unfilled body silhouette,
+    # one ink stroke for the torso, and articulated line limbs. Scene roles are
+    # expressed through props and actions rather than turning the hero into a
+    # block-bodied cartoon person.
+    neck=(cx,head_y+radius-1*q)
+    waist=(cx,upper_y+4*q)
+    d.line((neck,waist),fill=INK,width=max(3,int(6*q)))
     sway=math.sin(phase)
-    shoulder_l=(cx-25*q,upper_y-100*q+breath); shoulder_r=(cx+25*q,upper_y-100*q+breath)
-    hip_l=(cx-12*q,upper_y+1*q); hip_r=(cx+12*q,upper_y+1*q)
+    shoulder_l=(cx-3*q,upper_y-100*q+breath); shoulder_r=(cx+3*q,upper_y-100*q+breath)
+    hip_l=(cx-2*q,upper_y+1*q); hip_r=(cx+2*q,upper_y+1*q)
     # Jointed arms: shoulder, elbow and hand positions change smoothly by action.
     if action=='walk':
         arm=26*q*sway; leg=25*q*sway
