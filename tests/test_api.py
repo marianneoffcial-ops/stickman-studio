@@ -10,7 +10,7 @@ os.environ.setdefault("DATA_DIR", tempfile.mkdtemp(prefix="stickman-api-tests-")
 
 from fastapi import HTTPException
 from app.main import (
-    JOBS, PROJECTS, _render_work, download, preview, project_folder, queue_projects, safe_uuid,
+    JOBS, PROJECTS, _render_work, download, preview, preview_frame, project_folder, queue_projects, safe_uuid,
     save_json, validate_aspect_ratio, validate_renderable_project, validate_sources,
     verify_mp4
 )
@@ -135,6 +135,35 @@ class ProductionApiTests(unittest.TestCase):
             inline_file = download(job_id, inline=True)
             self.assertEqual(inline_file.headers.get("content-disposition"), "inline")
             self.assertEqual(inline_file.media_type, "video/mp4")
+        finally:
+            JOBS.pop(job_id, None)
+            import shutil
+            shutil.rmtree(folder, ignore_errors=True)
+
+    def test_completed_job_can_extract_a_real_mp4_frame_for_visual_review(self):
+        project_id = "6c6c6c6c-3333-4444-8555-123456789abc"
+        job_id = "7d7d7d7d-4444-4555-8666-123456789abc"
+        folder = PROJECTS / project_id
+        folder.mkdir(parents=True, exist_ok=True)
+        video = folder / "final.mp4"
+        video.write_bytes(b"test mp4")
+        save_json(folder / "project.json", {
+            "project_id": project_id, "duration_seconds": 15,
+            "video_path": str(video)
+        })
+        JOBS[job_id] = {"job_id": job_id, "project_id": project_id, "status": "completed"}
+
+        def fake_ffmpeg(args, **kwargs):
+            Path(args[-1]).write_bytes(b"jpeg frame")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        try:
+            with patch("app.main.shutil.which", return_value="/usr/bin/ffmpeg"), \
+                 patch("app.main.subprocess.run", side_effect=fake_ffmpeg) as run_ffmpeg:
+                response = preview_frame(job_id, second=8.0)
+            self.assertEqual(response.media_type, "image/jpeg")
+            self.assertEqual(response.headers.get("cache-control"), "no-store")
+            self.assertIn("8.000", run_ffmpeg.call_args.args[0])
         finally:
             JOBS.pop(job_id, None)
             import shutil
