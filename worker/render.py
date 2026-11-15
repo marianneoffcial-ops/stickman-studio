@@ -494,7 +494,7 @@ def draw_primary_story_prop(d,w,h,kind,phase=0.0,center_x=.70,center_y=.49,size_
         d.arc((cx-unit*.12,cy-unit*.22,cx+unit*.12,cy+unit*.05),180,360,fill=ink,width=5)
         d.line((cx-unit*.11,cy+unit*.015,cx-unit*.08,cy+unit*.15),fill=(91,80,65),width=3)
         d.line((cx+unit*.11,cy+unit*.015,cx+unit*.08,cy+unit*.15),fill=(91,80,65),width=3)
-        water_y=cy+unit*(.035+.03*math.sin(phase*2.0))
+        water_y=cy+unit*(.035+.08*math.sin(phase*2.0))
         d.line((cx-unit*.09,water_y,cx+unit*.09,water_y),fill=(116,132,126),width=4)
     elif kind=="paper":
         d.rectangle((cx-unit*.18,cy-unit*.20,cx+unit*.18,cy+unit*.20),fill=(223,212,185),outline=ink,width=5)
