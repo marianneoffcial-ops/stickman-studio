@@ -26,6 +26,14 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertEqual(scene_background_mode("A market street in an old city", 0), 1)
         self.assertEqual(scene_background_mode("A palace beside a mountain", 0), 0)
         self.assertEqual(scene_background_mode("An unclassified quiet scene", 5), 5)
+        self.assertEqual(scene_background_mode("A 17th-century London lane with distant firelight and smoke", 0), 6)
+        self.assertEqual(scene_background_mode("A bakery beside a timbered street in 1666", 0), 6)
+
+    def test_fire_story_props_have_dedicated_illustrations(self):
+        from worker.render import story_prop_kind
+        self.assertEqual(story_prop_kind("a baker's wooden oven with a loaf of bread"), "oven")
+        self.assertEqual(story_prop_kind("a simple leather fire bucket"), "bucket")
+        self.assertEqual(story_prop_kind("a wooden water bucket"), "bucket")
 
     def test_custom_aspect_ratio_is_preserved(self):
         width, height = dimensions("4:5")
