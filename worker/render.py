@@ -956,7 +956,7 @@ def cloudflare_background_prompt(scene, aspect_ratio):
         "paper grain and subtle vignette. Never flat vector polygons. Leave central space for the "
         "separately animated stickman. no people, no characters, no faces, no figures, no arrows, no floating circles, "
         "no icons, no symbols, no emojis, no emoticons, no stickers, no badges, no speech bubbles, no pictograms, no street signs, "
-        "letters, numerals, text, captions, logos, watermark, photorealism, 3D, anime or glossy gradients."
+        "no letters, no numerals, no text, no captions, no logos, no watermark, no photorealism, no 3D, no anime or glossy gradients."
     )
     # Keep a generous margin below the model's 2,048-character hard limit.
     max_prompt_length = 1600
