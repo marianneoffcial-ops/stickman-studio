@@ -1,4 +1,4 @@
-import subprocess, shutil, math, textwrap, random, os, wave, re, gc, json, base64, urllib.request
+import subprocess, shutil, math, textwrap, random, os, wave, re, gc, json, base64, urllib.request, urllib.error
 from io import BytesIO
 from pathlib import Path
 from array import array
@@ -552,25 +552,24 @@ def draw_fire_story_motifs(d,w,h,phase,scene):
     if not london_fire:
         return
 
-    # Distant, restrained firelight behind the roofline; no people or buildings
-    # are shown collapsing, and the warm tones stay within the muted house palette.
+    # Firelight clings to the roofline as a continuous painted glow, not floating flame icons.
     for j in range(3):
         x = w*(.59+j*.105)
-        y = h*(.585+(j%2)*.012)
-        flicker = math.sin(phase*2.2+j)*h*.008
-        d.polygon([(x,y+h*.045),(x-w*.018,y+h*.005+flicker),
-                   (x-w*.006,y-h*.035+flicker),(x+w*.006,y-h*.004+flicker),
-                   (x+w*.018,y-h*.045+flicker),(x+w*.024,y+h*.045)],
-                  fill=(166,92,63),outline=INK)
-    # Layered grey smoke plumes rise above the old rooftops.
+        y = h*(.625+(j%2)*.012)
+        flicker = math.sin(phase*2.2+j)*h*.006
+        d.line([(x-w*.014,y+h*.025),(x-w*.007,y+flicker),
+                (x,y-h*.018+flicker),(x+w*.008,y+flicker*.35),
+                (x+w*.016,y+h*.025)],
+               fill=(166,92,63),width=max(5,int(w*.012)),joint="curve")
+    # Smoke rises from the fire as irregular, connected brush-like strokes.
     for j in range(4):
         x = w*(.60+j*.075)
-        y = h*(.34-(j%2)*.045)+math.sin(phase*1.1+j)*h*.006
-        radius = w*(.025+(j%2)*.004)
-        d.ellipse((x-radius,y-radius*.62,x+radius,y+radius*.62),
-                  fill=(158,157,145),outline=INK,width=max(2,int(w*.002)))
-        d.arc((x-radius*1.5,y-radius*1.5,x+radius*.8,y+radius*.2),
-              185,345,fill=(118,119,111),width=max(2,int(w*.002)))
+        y = h*(.39-(j%2)*.035)+math.sin(phase*1.1+j)*h*.006
+        drift = math.sin(phase*.7+j)*w*.012
+        plume = [(x,y+h*.18),(x-drift*.35,y+h*.10),
+                 (x+drift,y+h*.015),(x-drift*.55,y-h*.075)]
+        d.line(plume,fill=(158,157,145),width=max(10,int(w*.026)),joint="curve")
+        d.line(plume,fill=(118,119,111),width=max(2,int(w*.002)),joint="curve")
     if contains_any(p, ("firebreak",)):
         # A clear empty strip separates two rooflines.
         d.rectangle((w*.425,h*.43,w*.535,h*.69),fill=(184,176,151))
@@ -934,31 +933,37 @@ def cloudflare_ai_configured():
 
 
 def cloudflare_background_prompt(scene, aspect_ratio):
-    """Build a compact, scene-specific prompt within the FLUX request limits."""
+    """Build a compact, scene-specific prompt below FLUX's documented input limit."""
     scene = scene or {}
     description = str(scene.get("visual", "")).strip() or scene_description(scene)
-    description = description[:500]
     scene_number = int(scene.get("scene_index", 0)) + 1
-    return (
+    prefix = (
         "Create one hand-inked 2D watercolor and gouache background plate, aspect ratio "
         + str(aspect_ratio) + ". Storyboard scene " + str(scene_number) + ". "
         "Depict only this exact location and action: "
-        + (description[:1].upper() + description[1:]) + ". "
-        "The unique scene setting must override the shared story title. "
+    )
+    suffix = (
+        ". The unique scene setting overrides the shared story title. "
         "Location rules: bakery means an enclosed oven room; Thames/river/boats means open water, "
         "riverbank and boats; street/lane means an exterior timber-framed street; aftermath/rebuilding "
         "means charred ruins, stone foundations and masons. Never substitute another location or "
         "reuse the previous scene's composition. "
-        "Use historically accurate 17th-century London details, thick irregular black ink contours, "
-        "visible watercolor brush texture, muted parchment, tan, sage, brick-red and navy colours, "
-        "layered foreground and background, atmospheric depth, paper grain and a subtle vignette. "
-        "Leave the central action area clear for the animated stickman. "
-        "no people, characters, faces, figures, arrows, no floating circles, no icons, no symbols, no emojis, "
-        "emoticons, stickers, badges, speech bubbles, thought bubbles, pictograms, street signs, "
-        "letters, numerals, text, captions, "
-        "logos, watermark, photorealism, 3D, anime or glossy gradients."
+        "Painterly watercolor and gouache washes, visible brush texture, rough irregular black ink "
+        "contours, historically accurate 17th-century London architecture, layered foreground and "
+        "background, atmospheric depth, muted parchment, tan, sage, brick-red and navy colours, "
+        "paper grain and subtle vignette. Never flat vector polygons. Leave central space for the "
+        "separately animated stickman. No people, characters, faces, figures, arrows, floating circles, "
+        "icons, symbols, emojis, emoticons, stickers, badges, speech bubbles, pictograms, street signs, "
+        "letters, numerals, text, captions, logos, watermark, photorealism, 3D, anime or glossy gradients."
     )
-
+    # Keep a generous margin below the model's 2,048-character hard limit.
+    max_prompt_length = 1600
+    available = max(0, max_prompt_length - len(prefix) - len(suffix))
+    original_description = description
+    description = description[:available].rstrip()
+    if len(description) < len(original_description) and " " in description:
+        description = description.rsplit(" ", 1)[0]
+    return prefix + description + suffix
 
 def generate_cloudflare_background(scene, project, destination):
     """Generate an optional FLUX.1 schnell environment plate through Cloudflare's free Workers AI quota.
@@ -981,8 +986,15 @@ def generate_cloudflare_background(scene, project, destination):
         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         method="POST",
     )
-    with urllib.request.urlopen(request, timeout=90) as response:
-        result = json.loads(response.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(request, timeout=90) as response:
+            result = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace").strip()
+        raise RuntimeError(
+            f"Cloudflare AI rejected the background request (HTTP {exc.code}): "
+            + (detail[:600] or str(exc.reason))
+        ) from exc
     encoded = (result.get("result") or {}).get("image") or result.get("image")
     if not encoded:
         raise RuntimeError("Cloudflare AI returned no image payload")
