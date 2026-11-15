@@ -202,6 +202,7 @@ def scene_transport_kind(prompt):
 
 def scene_background_mode(prompt,index=0):
     """Return one dominant environment for a scene's background illustration."""
+    if contains_any(prompt, ('fire','flame','smoke','conflagration','burn','1666','pudding lane','bakery','firebreak')): return 6
     if contains_any(prompt, ('ship','vessel','boat','ocean','sea','sail')): return 2
     if contains_any(prompt, ('library','archive','book','scholar','manuscript','document','ledger','letter','paper')): return 3
     if contains_any(prompt, ('map','atlas','chart','route')): return 5
@@ -262,10 +263,47 @@ def draw_background(im,d,index,phase,scene=None,closeup=False):
             for k in range(4): d.rectangle((x+8,h*(.29+k*.09),x+w*.10,h*(.32+k*.09)),fill=(207,194,165))
     elif mode==4: # mountain / wilderness
         d.polygon([(0,h*.72),(w*.2,h*.22),(w*.42,h*.72),(w*.64,h*.16),(w*.92,h*.72)],fill=(128,137,123),outline=INK,width=4)
-    else: # monumental doorway
+    elif mode==5: # monumental doorway / map stage
         d.rectangle((w*.61,h*.22,w*.88,h*.74),fill=(147,140,120),outline=INK,width=5)
         d.arc((w*.61,h*.15,w*.88,h*.48),180,360,fill=INK,width=5)
         d.rectangle((w*.70,h*.40,w*.79,h*.74),fill=(65,68,62),outline=INK,width=3)
+    elif mode==6: # 1666 London fire: timbered roofs, distant smoke and restrained firelight
+        for j in range(6):
+            x=w*(.025+j*.165)
+            building_w=w*.145
+            building_h=h*(.19+(j%3)*.055)
+            top=horizon-building_h
+            d.rectangle((x,top,x+building_w,horizon),fill=(153,143,122),outline=INK,width=5)
+            d.polygon([(x-w*.012,top),(x+building_w*.50,top-h*.075),(x+building_w+w*.012,top)],
+                      fill=(119,111,95),outline=INK)
+            d.line((x+building_w*.25,top,x+building_w*.25,horizon),fill=(82,77,67),width=3)
+            d.line((x+building_w*.72,top,x+building_w*.72,horizon),fill=(82,77,67),width=3)
+            for yy in (.28,.43,.57):
+                if top < h*yy < horizon:
+                    d.rectangle((x+building_w*.42,h*yy,x+building_w*.58,h*yy+h*.055),
+                                fill=(66,68,61),outline=INK,width=2)
+        # Distant flames remain behind rooftops; no people or injuries are shown.
+        for j in range(5):
+            x=w*(.30+j*.105)
+            y=horizon-h*(.20+(j%2)*.035)
+            d.polygon([(x,y),(x-w*.018,y-h*.075),(x-w*.006,y-h*.045),
+                       (x+w*.006,y-h*.12),(x+w*.020,y-h*.035),(x+w*.030,y)],
+                      fill=(153,91,67),outline=(88,66,56))
+        # Layered grey smoke drifts above the distant rooftops.
+        for j in range(4):
+            x=w*(.34+j*.12)+math.sin(phase+j)*w*.008
+            y=h*(.18+(j%2)*.045)
+            for k in range(3):
+                radius=w*(.025+k*.009)
+                d.ellipse((x-radius+k*w*.012,y-radius*.40-k*h*.045,
+                           x+radius+k*w*.012,y+radius*.40-k*h*.045),
+                          fill=(157,154,140),outline=(120,116,103),width=2)
+        if contains_any(prompt, ('riverside','thames','river','boats')):
+            d.rectangle((0,h*.58,w,h*.73),fill=(142,154,147))
+            for j in range(7):
+                x=w*(.02+j*.15)+math.sin(phase+j)*w*.002
+                y=h*(.63+(j%2)*.035)
+                d.arc((x,y,x+w*.11,y+h*.04),185,345,fill=(83,105,101),width=3)
     # Distinct foreground props keyed to the actual storyboard description
     if mode==4 and contains_any(prompt, ('camel','caravan','desert','sahara','dune')):
         for j in range(3):
@@ -320,6 +358,8 @@ def story_prop_kind(prompt):
         (("satchel","travel bag","travel chest","suitcase"),"satchel"),
         (("gear","mechanism","machine","engine"),"gear"),
         (("newspaper","timetable"),"paper"),
+        (("oven","bakery","loaf","bread"),"oven"),
+        (("fire bucket","water bucket","bucket"),"bucket"),
         (("telescope","spyglass"),"telescope"),
         (("scale","brass weight"),"scale"),
     ]
@@ -426,6 +466,23 @@ def draw_primary_story_prop(d,w,h,kind,phase=0.0,center_x=.70,center_y=.49,size_
             x1=cx+math.cos(angle)*r*.72; y1=cy+math.sin(angle)*r*.72
             x2=cx+math.cos(angle)*r*1.22; y2=cy+math.sin(angle)*r*1.22
             d.line((x1,y1,x2,y2),fill=ink,width=max(4,int(unit*.025)))
+    elif kind=="oven":
+        d.rounded_rectangle((cx-unit*.20,cy-unit*.17,cx+unit*.20,cy+unit*.19),
+                            radius=int(unit*.025),fill=(151,126,96),outline=ink,width=6)
+        d.arc((cx-unit*.12,cy-unit*.10,cx+unit*.12,cy+unit*.16),180,360,fill=ink,width=5)
+        d.rectangle((cx-unit*.10,cy+unit*.015,cx+unit*.10,cy+unit*.15),
+                    fill=(66,61,54),outline=ink,width=4)
+        d.ellipse((cx-unit*.045,cy+unit*.065,cx+unit*.045,cy+unit*.12),
+                  fill=(171,119,76),outline=(96,72,55),width=3)
+    elif kind=="bucket":
+        d.polygon([(cx-unit*.15,cy-unit*.06),(cx+unit*.15,cy-unit*.06),
+                   (cx+unit*.12,cy+unit*.19),(cx-unit*.12,cy+unit*.19)],
+                  fill=(151,124,88),outline=ink)
+        d.ellipse((cx-unit*.15,cy-unit*.09,cx+unit*.15,cy-unit*.01),
+                  fill=(187,174,145),outline=ink,width=4)
+        d.arc((cx-unit*.12,cy-unit*.22,cx+unit*.12,cy+unit*.05),180,360,fill=ink,width=5)
+        d.line((cx-unit*.11,cy+unit*.015,cx-unit*.08,cy+unit*.15),fill=(91,80,65),width=3)
+        d.line((cx+unit*.11,cy+unit*.015,cx+unit*.08,cy+unit*.15),fill=(91,80,65),width=3)
     elif kind=="paper":
         d.rectangle((cx-unit*.18,cy-unit*.20,cx+unit*.18,cy+unit*.20),fill=(223,212,185),outline=ink,width=5)
         for j in range(7):
@@ -615,6 +672,28 @@ def draw_story_details(im,d,index,phase,scene):
     for _ in range(18):
         x=rng.uniform(.03,.97)*w; y=rng.uniform(.73,.94)*h
         d.line((x,y,x+rng.uniform(.008,.025)*w,y-rng.uniform(.001,.009)*h),fill=(113,111,96),width=1)
+    if contains_any(p, ("fire","flame","smoke","conflagration","burn","1666","pudding lane","bakery","firebreak")):
+        if contains_any(p, ("oven","bakery","loaf","bread")):
+            cx,cy=w*.76,h*.59
+            d.rounded_rectangle((cx-w*.075,cy-h*.12,cx+w*.075,cy+h*.12),radius=10,
+                                fill=(151,126,96),outline=ink,width=5)
+            d.arc((cx-w*.045,cy-h*.09,cx+w*.045,cy+h*.08),180,360,fill=ink,width=4)
+            d.rectangle((cx-w*.04,cy-h*.005,cx+w*.04,cy+h*.075),fill=(65,59,52),outline=ink,width=3)
+            d.ellipse((cx-w*.016,cy+h*.025,cx+w*.016,cy+h*.065),fill=(171,119,76),outline=ink,width=2)
+        elif contains_any(p, ("bucket",)):
+            cx,cy=w*.76,h*.61
+            d.polygon([(cx-w*.06,cy-h*.06),(cx+w*.06,cy-h*.06),
+                       (cx+w*.045,cy+h*.12),(cx-w*.045,cy+h*.12)],
+                      fill=(151,124,88),outline=ink)
+            d.ellipse((cx-w*.06,cy-h*.075,cx+w*.06,cy-h*.025),fill=(187,174,145),outline=ink,width=3)
+            d.arc((cx-w*.06,cy-h*.17,cx+w*.06,cy+h*.01),180,360,fill=ink,width=4)
+        elif contains_any(p, ("map","firebreak")):
+            cx,cy=w*.76,h*.53
+            d.polygon([(cx-w*.13,cy-h*.10),(cx-w*.04,cy-h*.13),(cx+w*.13,cy-h*.09),
+                       (cx+w*.12,cy+h*.12),(cx,cy+h*.09),(cx-w*.13,cy+h*.13)],
+                      fill=(221,208,177),outline=ink)
+            d.line((cx-w*.10,cy+h*.06,cx-w*.035,cy-h*.035,cx+w*.02,cy+h*.035,
+                    cx+w*.09,cy-h*.055),fill=(143,75,59),width=4)
     if contains_any(p, ("street","city","market","crowd","harbour","port")):
         for j in range(4):
             x=w*(.03+j*.13); y=h*.69
