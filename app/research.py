@@ -353,7 +353,7 @@ def research_topic(topic, duration_seconds):
         cursor += len(beat)
         # Keep date phrases intact when a four-second boundary lands after a day number.
         if beat and cursor < len(script_words):
-            day = re.fullmatch(r"\\d{1,2}", beat[-1].strip(" ,;:"))
+            day = re.fullmatch(r"\d{1,2}", beat[-1].strip(" ,;:"))
             next_word = re.match(r"[A-Za-z]+", script_words[cursor])
             if day and next_word and next_word.group(0).lower() in {
                 "january", "february", "march", "april", "may", "june",
