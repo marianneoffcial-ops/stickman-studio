@@ -295,7 +295,8 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
             "use restrained objects, empty spaces, distant silhouettes or aftermath. "
             "Keep the chosen camera movement consistent with this shot; do not combine a continuous take with instant angle changes. "
             "Character identity, clothing, proportions, palette, lighting and texture remain consistent; no glitching, warping, morphing, flickering, extra limbs, duplicate characters, "
-            "unintended characters, on-screen text, subtitles or watermark. "no unintended characters, no on-screen text, no subtitles and no watermark."
+            "unintended characters, on-screen text, subtitles or watermark. "
+            "no unintended characters, no on-screen text, no subtitles and no watermark."
         )
         scenes.append({
             "scene_id": f"scene_{i+1:03d}", "title": title, "duration": duration_this,
