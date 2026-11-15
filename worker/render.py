@@ -1251,13 +1251,18 @@ def render_project(project,outdir:Path,progress_callback=None):
     name=(first_scene.get("characters") or ["Narrator"])[0]
     color=project.get("characters",{}).get(name,{}).get("color","#34465a")
     rgb=tuple(int(color[k:k+2],16) for k in (1,3,5))
-    draw_person(td,270,500,1.0,rgb,0,0,name,"observe")
+    # Keep the thumbnail hero close to the scale used in the actual scenes.
+    draw_person(td,300,660,1.8,rgb,0,0,name,"observe")
     words=re.findall(r"[A-Za-z0-9']+",project.get("thumbnail_headline",project.get("title","STICKMAN STORY")).upper())[:4]
     headline=" ".join(words) or "STICKMAN STORY"
-    # A quiet parchment caption matches the hand-inked world instead of a heavy UI card.
-    td.rounded_rectangle((850,190,1225,555),radius=12,fill=(238,229,207),outline=INK,width=4)
-    lines=textwrap.wrap(headline,width=9)[:3]
-    td.multiline_text((875,260),"\n".join(lines),font=font(52,True),fill=INK,spacing=8,stroke_width=0)
+    # Slightly irregular parchment panel and serif lettering feel like part of the ink illustration.
+    panel=[(852,206),(1218,198),(1227,548),(846,556)]
+    td.polygon(panel,fill=(238,229,207))
+    td.line(panel+[panel[0]],fill=INK,width=5,joint="curve")
+    title_font_path="/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"
+    title_font=ImageFont.truetype(title_font_path,48) if Path(title_font_path).is_file() else font(48,True)
+    lines=textwrap.wrap(headline,width=10)[:3]
+    td.multiline_text((876,265),"\n".join(lines),font=title_font,fill=INK,spacing=10,stroke_width=0)
     thumb_im.save(thumb,quality=92)
     project["thumbnail_path"]=str(thumb)
     # A completed project only needs its verified MP4, thumbnail and metadata.
