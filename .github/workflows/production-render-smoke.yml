@@ -9,8 +9,6 @@ on:
       - "tests/test_research.py"
       - "worker/render.py"
       - "tests/test_renderer.py"
-      - "worker/render.py"
-      - "tests/test_renderer.py"
   workflow_dispatch:
 
 permissions:
