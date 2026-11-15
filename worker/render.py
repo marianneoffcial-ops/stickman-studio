@@ -599,11 +599,12 @@ def draw_story_details(im,d,index,phase,scene):
         d.ellipse((w*.78,h*.08,w*.88,h*.22),fill=(225,218,195),outline=ink,width=4)
     elif contains_any(p, ("sunrise","sunset","sunlit","sunlight")):
         d.ellipse((w*.08,h*.10,w*.17,h*.24),fill=(211,197,164),outline=ink,width=4)
-    transport = scene_transport_kind(p)
-    if transport in ("sea", "air") or contains_any(p, ("mountain",)):
-        for j in range(3):
-            bx=w*(.61+j*.045)+math.sin(phase+j)*w*.002; by=h*(.25+j*.025)
-            d.arc((bx,by,bx+w*.018,by+h*.012),190,345,fill=ink,width=2)
+    # Cloud contours are drawn only when the storyboard explicitly names clouds.
+    if contains_any(p, ("cloud","clouds","overcast")):
+        for j in range(2):
+            bx=w*(.61+j*.055)+math.sin(phase+j)*w*.001
+            by=h*(.25+j*.025)
+            d.arc((bx,by,bx+w*.022,by+h*.014),190,345,fill=ink,width=2)
     if transport == "rail":
         y=h*.66; x=w*.60
         d.rectangle((x,y-h*.16,w*.94,y),fill=(105,108,100),outline=ink,width=4)
