@@ -36,7 +36,7 @@ class ResearchTests(unittest.TestCase):
             "after midnight and spread rapidly through the crowded streets."
         )
         with patch("app.research._api", side_effect=[search, _article_response(article, "Great Fire of London")]) as api:
-            result = research_topic("The Great Fire of London", 30)
+            result = research_topic("The Great Fire of London", 20)
         self.assertEqual(result["topic"], "Great Fire of London")
         self.assertIn("1666", result["narration_script"])
         self.assertIn("Pudding Lane", result["narration_script"])
