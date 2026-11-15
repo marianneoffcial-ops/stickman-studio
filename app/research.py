@@ -31,8 +31,44 @@ def _api(params):
 
 def _sentences(text):
     text = re.sub(r"\[[0-9]+\]", "", html.unescape(text or ""))
+    # Wikipedia dates can appear as "Sunday 2. September". The ordinal's
+    # full stop is not a sentence boundary.
+    months = "January|February|March|April|May|June|July|August|September|October|November|December"
+    text = re.sub(r"\b(\d{1,2})\.\s+(?=(" + months + r")\b)", r"\1 ", text, flags=re.I)
     text = re.sub(r"\s+", " ", text).strip()
     return [s.strip() for s in re.split(r"(?<=[.!?])\s+", text) if len(s.split()) >= 5]
+
+
+def _narration_segments(sentences, count):
+    """Make one narration beat per scene without truncating source sentences."""
+    segments = []
+    clause_boundary = r"(?<=[,;:])\s+|\s+(?=(?:and|but|while|because|which|although|however|yet)\b)"
+    for sentence in sentences:
+        segments.extend(part.strip() for part in re.split(clause_boundary, sentence, flags=re.I) if part.strip())
+
+    # Prefer natural clause boundaries; only split a phrase when the article
+    # has fewer clauses than the required number of four-second scenes.
+    while len(segments) < count:
+        index = max(range(len(segments)), key=lambda i: len(segments[i].split()))
+        words = segments.pop(index).split()
+        if len(words) < 2:
+            segments.insert(index, " ".join(words))
+            break
+        midpoint = max(1, len(words) // 2)
+        segments[index:index] = [" ".join(words[:midpoint]), " ".join(words[midpoint:])]
+
+    # If the source has many short clauses, merge the closest adjacent clauses
+    # while preserving their original order and punctuation.
+    while len(segments) > count:
+        index = min(
+            range(len(segments) - 1),
+            key=lambda i: len(segments[i].split()) + len(segments[i + 1].split())
+        )
+        segments[index:index + 2] = [segments[index].rstrip() + " " + segments[index + 1].lstrip()]
+
+    if len(segments) != count or any(not part.strip() for part in segments):
+        raise ValueError("The selected article could not be divided into complete narration beats. Try another topic or duration.")
+    return segments
 
 
 def _generic_scene(sentence, index, topic=""):
@@ -339,34 +375,18 @@ def research_topic(topic, duration_seconds):
         if page is primary or (page_coverage >= 0.60 and page_precision >= 0.50):
             if page.get("title") and page.get("fullurl"):
                 sources.append({"title": page["title"], "url": page["fullurl"]})
-    selected = words[:target_words]
-    script = " ".join(selected)
-    if script and script[-1] not in ".!?":
-        script = script.rstrip(" ,;:") + "."
-    # Re-segment the researched narration into one beat per animation scene.
-    script_words = script.split()
-    beats = []
-    cursor = 0
-    for index in range(count):
-        beat_words = 9 if index < count - 1 else max(1, round(9 * last / 4))
-        beat = script_words[cursor:cursor + beat_words]
-        cursor += len(beat)
-        # Keep date phrases intact when a four-second boundary lands after a day number.
-        if beat and cursor < len(script_words):
-            day = re.fullmatch(r"\d{1,2}", beat[-1].strip(" ,;:"))
-            next_word = re.match(r"[A-Za-z]+", script_words[cursor])
-            if day and next_word and next_word.group(0).lower() in {
-                "january", "february", "march", "april", "may", "june",
-                "july", "august", "september", "october", "november", "december",
-            }:
-                beat.append(script_words[cursor])
-                cursor += 1
-        if beat:
-            beats.append(" ".join(beat).rstrip(" ,;:"))
-    if beats and beats[-1] and beats[-1][-1] not in ".!?":
-        beats[-1] += "."
-    script = " ".join(beats)
-    anchors = [_generic_scene(" ".join(beats[i].split()), i, topic=title) for i in range(count)]
+    # Keep whole source sentences. The old word-slice cut off the narration
+    # mid-thought (for example, "while also extending past the wall to").
+    selected_sentences = []
+    selected_word_count = 0
+    for sentence in sentences:
+        selected_sentences.append(sentence)
+        selected_word_count += len(sentence.split())
+        if selected_word_count >= target_words:
+            break
+    script = " ".join(selected_sentences)
+    beats = _narration_segments(selected_sentences, count)
+    anchors = [_generic_scene(beat, index, topic=title) for index, beat in enumerate(beats)]
     return {
         "topic": title,
         "duration_seconds": int(duration_seconds),
