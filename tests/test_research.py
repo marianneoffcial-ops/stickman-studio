@@ -40,6 +40,11 @@ class ResearchTests(unittest.TestCase):
         self.assertEqual(result["topic"], "Great Fire of London")
         self.assertIn("1666", result["narration_script"])
         self.assertIn("Pudding Lane", result["narration_script"])
+        self.assertIn("crowded streets.", result["narration_script"])
+        self.assertTrue(result["narration_script"].endswith((".", "!", "?")))
+        self.assertNotIn("2. September", result["narration_script"])
+        self.assertGreaterEqual(result["script_word_count"], result["target_word_count"])
+        self.assertEqual(" ".join(result["narration_beats"]), result["narration_script"])
         self.assertNotIn("Boudica", result["narration_script"])
         self.assertEqual(api.call_args_list[1].args[0]["action"], "parse")
         self.assertEqual(api.call_args_list[1].args[0]["pageid"], 202)
@@ -94,6 +99,19 @@ class ResearchTests(unittest.TestCase):
         self.assertEqual(result["topic"], "Great Fire of London")
         self.assertEqual(result["sources"][0]["title"], "Great Fire of London")
         self.assertIn("Fire detail", result["narration_script"])
+
+
+    def test_great_fire_topic_drives_distinct_london_fire_visuals(self):
+        from app.research import _generic_scene
+        scenes = [
+            _generic_scene("The event spread through the city.", index, "Great Fire of London")
+            for index in range(6)
+        ]
+        self.assertEqual(len(set(scenes)), 6)
+        self.assertTrue(any("medieval London lane" in scene for scene in scenes))
+        self.assertTrue(any("brick bakery oven" in scene for scene in scenes))
+        self.assertTrue(any("distant smoke" in scene for scene in scenes))
+        self.assertTrue(all("no people in danger" in scene or "No named people" in scene for scene in scenes))
 
     def test_research_rejects_results_that_do_not_match_the_requested_subject(self):
         search = _search_response(_search_page("Great Plague of London", 1))
