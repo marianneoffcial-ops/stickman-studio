@@ -970,7 +970,6 @@ def generate_cloudflare_background(scene, project, destination):
     payload = {
         "prompt": cloudflare_background_prompt(scene, project.get("aspect_ratio", "16:9")),
         "steps": 4,
-        "seed": int(scene.get("scene_index", 0)) + 1729,
     }
     request = urllib.request.Request(
         url,
