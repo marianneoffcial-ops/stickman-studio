@@ -59,6 +59,7 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertIn("no street signs", prompt)
         self.assertIn("no numerals", prompt)
         self.assertIn("no people", prompt)
+        self.assertLess(len(prompt), 1600)
 
     def test_ai_background_prompt_prioritizes_each_unique_storyboard_location(self):
         from worker.render import cloudflare_background_prompt
