@@ -1,0 +1,142 @@
+name: Production render smoke test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/production-render-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render-sample:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Wait for production health
+        run: |
+          python - <<'PY'
+          import json, time, urllib.request
+          base = "https://stickman-studio-v2-production.up.railway.app"
+          deadline = time.time() + 180
+          while time.time() < deadline:
+              try:
+                  with urllib.request.urlopen(base + "/health", timeout=15) as response:
+                      health = json.load(response)
+                  with urllib.request.urlopen(base + "/ready", timeout=15) as response:
+                      ready = json.load(response)
+                  if health.get("status") == "ok" and ready.get("ready") is True:
+                      print(json.dumps({"health": health, "ready": ready}, indent=2))
+                      break
+              except Exception as exc:
+                  print("Waiting for service:", str(exc))
+              time.sleep(10)
+          else:
+              raise SystemExit("Production service did not become healthy within 3 minutes.")
+          PY
+
+      - name: Research and render a real 15-second production sample
+        run: |
+          python - <<'PY'
+          import json, time, urllib.request
+          from pathlib import Path
+
+          base = "https://stickman-studio-v2-production.up.railway.app"
+
+          def call(path, payload=None, timeout=60):
+              data = None if payload is None else json.dumps(payload).encode("utf-8")
+              request = urllib.request.Request(
+                  base + path, data=data,
+                  headers={"Content-Type": "application/json"} if data is not None else {},
+                  method="POST" if data is not None else "GET",
+              )
+              with urllib.request.urlopen(request, timeout=timeout) as response:
+                  return json.loads(response.read().decode("utf-8"))
+
+          researched = call("/api/research", {
+              "topic": "The Great Fire of London",
+              "duration_seconds": 15,
+          })
+          assert researched.get("scene_count") == 4, researched
+          assert len(researched.get("sources", [])) > 0, "Research returned no citations."
+          assert len(researched.get("narration_script", "").split()) >= 30, "Narration is too short."
+
+          created = call("/api/projects", {
+              "topic": researched["topic"],
+              "duration_seconds": 15,
+              "aspect_ratio": "16:9",
+              "narration_script": researched["narration_script"],
+              "storyboard": researched["storyboard"],
+              "research_sources": researched["sources"],
+          })
+          job_id = created["job"]["job_id"]
+          print("Render job:", job_id)
+          deadline = time.time() + 600
+          while time.time() < deadline:
+              job = call("/api/jobs/" + job_id)
+              print("Render status:", job.get("status"), job.get("progress"), job.get("error"))
+              if job.get("status") == "completed":
+                  break
+              if job.get("status") == "failed":
+                  raise SystemExit("Production render failed: " + str(job.get("error")))
+              time.sleep(5)
+          else:
+              raise SystemExit("Production render timed out after 10 minutes.")
+
+          assert abs(float(job["duration_seconds"]) - 15.0) <= 0.20, job
+          assert job.get("fps") == 24.0, job
+          assert job.get("width") == 1280 and job.get("height") == 720, job
+          assert job.get("has_audio") is True, job
+          request = urllib.request.Request(base + job["output"])
+          with urllib.request.urlopen(request, timeout=120) as response:
+              video = response.read()
+          assert len(video) > 2048, "Downloaded MP4 is empty or incomplete."
+          Path("production-sample.mp4").write_bytes(video)
+
+          project_id = job["project_id"]
+          request = urllib.request.Request(base + "/api/projects/" + project_id + "/thumbnail")
+          with urllib.request.urlopen(request, timeout=60) as response:
+              thumbnail = response.read()
+          assert thumbnail.startswith(bytes([255, 216])), "Thumbnail is not a JPEG."
+          Path("production-thumbnail.jpg").write_bytes(thumbnail)
+
+          metadata = {
+              "topic": researched["topic"],
+              "sources": researched["sources"],
+              "narration_script": researched["narration_script"],
+              "scene_count": researched["scene_count"],
+              "job": job,
+              "video_bytes": len(video),
+              "thumbnail_bytes": len(thumbnail),
+          }
+          Path("production-sample.json").write_text(
+              json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8"
+          )
+          print(json.dumps({
+              "status": job["status"],
+              "duration_seconds": job["duration_seconds"],
+              "resolution": f'{job["width"]}x{job["height"]}',
+              "fps": job["fps"],
+              "has_audio": job["has_audio"],
+              "video_bytes": len(video),
+              "thumbnail_bytes": len(thumbnail),
+          }, indent=2))
+          PY
+
+      - name: Build a four-frame contact sheet
+        run: |
+          ffmpeg -hide_banner -loglevel error -y -i production-sample.mp4 \
+            -vf "fps=1/4,scale=480:-1,tile=2x2" -frames:v 1 production-contact-sheet.jpg
+
+      - name: Upload verified production sample
+        uses: actions/upload-artifact@v4
+        with:
+          name: stickman-production-smoke-sample
+          path: |
+            production-sample.mp4
+            production-thumbnail.jpg
+            production-contact-sheet.jpg
+            production-sample.json
+          retention-days: 7
