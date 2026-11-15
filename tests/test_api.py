@@ -10,7 +10,7 @@ os.environ.setdefault("DATA_DIR", tempfile.mkdtemp(prefix="stickman-api-tests-")
 
 from fastapi import HTTPException
 from app.main import (
-    JOBS, PROJECTS, _render_work, project_folder, queue_projects, safe_uuid,
+    JOBS, PROJECTS, _render_work, download, preview, project_folder, queue_projects, safe_uuid,
     save_json, validate_aspect_ratio, validate_renderable_project, validate_sources,
     verify_mp4
 )
@@ -115,6 +115,30 @@ class ProductionApiTests(unittest.TestCase):
              )):
             with self.assertRaisesRegex(RuntimeError, "duration verification"):
                 verify_mp4(Path("final.mp4"), project)
+
+    def test_completed_job_has_inline_video_preview_page(self):
+        project_id = "4a5a4a5a-1111-4222-8333-123456789abc"
+        job_id = "5b5b5b5b-2222-4333-8444-123456789abc"
+        folder = PROJECTS / project_id
+        folder.mkdir(parents=True, exist_ok=True)
+        video = folder / "final.mp4"
+        video.write_bytes(b"test mp4")
+        save_json(folder / "project.json", {
+            "project_id": project_id, "duration_seconds": 15,
+            "video_path": str(video)
+        })
+        JOBS[job_id] = {"job_id": job_id, "project_id": project_id, "status": "completed"}
+        try:
+            response = preview(job_id)
+            self.assertIn("text/html", response.media_type)
+            self.assertIn(f"/api/jobs/{job_id}/download?inline=true", response.body.decode())
+            inline_file = download(job_id, inline=True)
+            self.assertEqual(inline_file.headers.get("content-disposition"), "inline")
+            self.assertEqual(inline_file.media_type, "video/mp4")
+        finally:
+            JOBS.pop(job_id, None)
+            import shutil
+            shutil.rmtree(folder, ignore_errors=True)
 
     def test_queue_persists_job_and_returns_progress_fields(self):
         project = make_project(
