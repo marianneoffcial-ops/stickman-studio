@@ -336,5 +336,32 @@ class RenderSmokeTests(unittest.TestCase):
             self.assertIn("@cf/black-forest-labs/flux-1-schnell", request.call_args.args[0].full_url)
             self.assertEqual(request.call_args.kwargs["timeout"], 90)
 
+    def test_background_generation_summary_reports_real_per_scene_fallbacks(self):
+        from worker.render import background_generation_summary
+        summary = background_generation_summary([
+            {"background_generation": {"status": "generated"}},
+            {"background_generation": {"status": "fallback", "error": "rate limited"}},
+            {"background_generation": {"status": "fallback", "error": "invalid image"}},
+        ], configured=True)
+        self.assertTrue(summary["configured"])
+        self.assertEqual(summary["provider"], "Cloudflare Workers AI FLUX.1 schnell")
+        self.assertEqual(summary["generated_scenes"], 1)
+        self.assertEqual(summary["fallback_scenes"], 2)
+        self.assertEqual(summary["total_scenes"], 3)
+        self.assertEqual([item["status"] for item in summary["scenes"]],
+                         ["generated", "fallback", "fallback"])
+        self.assertEqual(summary["scenes"][1]["error"], "rate limited")
+
+    def test_background_generation_summary_marks_unconfigured_fallback(self):
+        from worker.render import background_generation_summary
+        summary = background_generation_summary([
+            {"background_generation": {"status": "fallback",
+                                       "error": "Cloudflare credentials are not configured."}}
+        ], configured=False)
+        self.assertFalse(summary["configured"])
+        self.assertEqual(summary["generated_scenes"], 0)
+        self.assertEqual(summary["fallback_scenes"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()

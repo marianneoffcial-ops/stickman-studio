@@ -236,7 +236,8 @@ def _render_work(job_id, project):
             duration_seconds=verification["duration_seconds"], aspect_ratio=project["aspect_ratio"],
             width=verification["width"], height=verification["height"], fps=verification["fps"],
             has_audio=verification["has_audio"],
-            voice_engine=project.get("voice_engine"), completed_at=finished,
+            voice_engine=project.get("voice_engine"), background_engine=project.get("background_engine"),
+            background_generation=project.get("background_generation"), completed_at=finished,
             elapsed_seconds=round(finished - started, 2), error=None
         )
     except Exception as exc:
