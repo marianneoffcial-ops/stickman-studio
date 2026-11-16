@@ -39,37 +39,60 @@ def _sentences(text):
     return [s.strip() for s in re.split(r"(?<=[.!?])\s+", text) if len(s.split()) >= 5]
 
 
-def _narration_segments(sentences, count):
-    """Make one narration beat per scene without truncating source sentences."""
+def _narration_segments(sentences, count, duration_seconds=None):
+    """Distribute source prose into scene-aligned beats at about 9–10 words per four seconds."""
+    source = " ".join(part.strip() for part in sentences if part.strip())
+    tokens = source.split()
+    if not tokens:
+        return []
+    duration_seconds = int(duration_seconds or count * 4)
+    final_duration = duration_seconds - 4 * (count - 1)
+    if count < 1 or final_duration < 1 or final_duration > 4:
+        raise ValueError("Narration beats require a valid four-second scene schedule.")
+
+    durations = [4] * (count - 1) + [final_duration]
+    minimum_words = 9 * (count - 1) + max(1, round(9 * final_duration / 4))
+    maximum_words = 10 * (count - 1) + max(1, round(10 * final_duration / 4))
+    if len(tokens) < minimum_words:
+        raise ValueError("The selected source text is too short for the requested narration beats.")
+
+    # Whole source sentences can overshoot the requested runtime. Keep the
+    # longest complete passage that still fits the 9–10-word scene budget.
+    if len(tokens) > maximum_words:
+        natural_boundaries = [
+            index + 1 for index, token in enumerate(tokens[:maximum_words])
+            if index + 1 >= minimum_words and re.search(r"[.!?]$", token)
+        ]
+        if not natural_boundaries:
+            raise ValueError(
+                "The next complete source sentence does not fit the requested 9–10-word beats. "
+                "Choose a shorter duration or another topic rather than cutting a sentence mid-thought."
+            )
+        tokens = tokens[:natural_boundaries[-1]]
+
+    total_words = len(tokens)
+    proportional = [total_words * seconds / duration_seconds for seconds in durations]
+    counts = [math.floor(value) for value in proportional]
+    remaining = total_words - sum(counts)
+    order = sorted(
+        range(count),
+        key=lambda index: proportional[index] - counts[index],
+        reverse=True,
+    )
+    for index in order[:remaining]:
+        counts[index] += 1
+
     segments = []
-    clause_boundary = r"(?<=[,;:])\s+|\s+(?=(?:and|but|while|because|which|although|however|yet)\b)"
-    for sentence in sentences:
-        segments.extend(part.strip() for part in re.split(clause_boundary, sentence, flags=re.I) if part.strip())
-
-    # Prefer natural clause boundaries; only split a phrase when the article
-    # has fewer clauses than the required number of four-second scenes.
-    while len(segments) < count:
-        index = max(range(len(segments)), key=lambda i: len(segments[i].split()))
-        words = segments.pop(index).split()
-        if len(words) < 2:
-            segments.insert(index, " ".join(words))
-            break
-        midpoint = max(1, len(words) // 2)
-        segments[index:index] = [" ".join(words[:midpoint]), " ".join(words[midpoint:])]
-
-    # If the source has many short clauses, merge the closest adjacent clauses
-    # while preserving their original order and punctuation.
-    while len(segments) > count:
-        index = min(
-            range(len(segments) - 1),
-            key=lambda i: len(segments[i].split()) + len(segments[i + 1].split())
-        )
-        segments[index:index + 2] = [segments[index].rstrip() + " " + segments[index + 1].lstrip()]
-
-    if len(segments) != count or any(not part.strip() for part in segments):
-        raise ValueError("The selected article could not be divided into complete narration beats. Try another topic or duration.")
+    cursor = 0
+    for word_count in counts:
+        segment = " ".join(tokens[cursor:cursor + word_count]).strip()
+        if not segment:
+            raise ValueError("The selected article could not be divided into complete narration beats.")
+        segments.append(segment)
+        cursor += word_count
+    if cursor != total_words:
+        raise ValueError("Narration beat allocation did not consume the selected source text.")
     return segments
-
 
 def _generic_scene(sentence, index, topic=""):
     """Turn each researched narration beat into a distinct, topic-aware visual setup."""
@@ -392,8 +415,8 @@ def research_topic(topic, duration_seconds):
         selected_word_count += len(sentence.split())
         if selected_word_count >= target_words:
             break
-    script = " ".join(selected_sentences)
-    beats = _narration_segments(selected_sentences, count)
+    beats = _narration_segments(selected_sentences, count, int(duration_seconds))
+    script = " ".join(beats)
     anchors = [_generic_scene(beat, index, topic=title) for index, beat in enumerate(beats)]
     return {
         "topic": title,

@@ -50,7 +50,7 @@ class RenderSmokeTests(unittest.TestCase):
         prompt = cloudflare_background_prompt(
             {"scene_index": 2, "visual": "A detailed historical scene. " * 400}, "16:9"
         )
-        self.assertLessEqual(len(prompt), 1600)
+        self.assertLessEqual(len(prompt), 1900)
         self.assertIn("painterly watercolor and gouache", prompt.lower())
         self.assertIn("no floating circles", prompt.lower())
         self.assertIn("no people", prompt.lower())
@@ -63,12 +63,31 @@ class RenderSmokeTests(unittest.TestCase):
             "scene_index": 2,
             "visual": "A riverfront view of the Thames in 1666."
         }, "16:9").lower()
-        self.assertIn("no big ben", prompt)
-        self.assertIn("no elizabeth tower", prompt)
-        self.assertIn("no victorian", prompt)
+        self.assertIn("anonymous 17th-century english cityscape in 1666", prompt)
+        self.assertIn("no recognizable landmark towers", prompt)
+        self.assertNotIn("big ben", prompt)
+        self.assertNotIn("elizabeth tower", prompt)
+        self.assertNotIn("victorian", prompt)
         self.assertIn("no human silhouettes", prompt)
         self.assertIn("composited separately", prompt)
-        self.assertLessEqual(len(prompt), 1600)
+        self.assertLessEqual(len(prompt), 1900)
+
+    def test_background_prompt_removes_people_and_stickman_instructions(self):
+        from worker.render import cloudflare_background_prompt
+        prompt = cloudflare_background_prompt({
+            "title": "The Great Fire of London",
+            "visual": (
+                "A crowded timber-framed London street with smoke above the rooftops; "
+                "one generic stick figure placed on the left third in muted clothing; "
+                "the figure slowly turns toward the object. No named people, no violence."
+            )
+        }, "16:9").lower()
+        self.assertIn("quiet empty", prompt)
+        self.assertNotIn("stick figure", prompt)
+        self.assertNotIn("generic figure", prompt)
+        self.assertNotIn("the figure slowly turns", prompt)
+        self.assertNotIn("no named people", prompt)
+        self.assertIn("no people", prompt)
 
     def test_generic_background_prompt_does_not_force_london_architecture(self):
         from worker.render import cloudflare_background_prompt
@@ -78,7 +97,7 @@ class RenderSmokeTests(unittest.TestCase):
         }, "16:9").lower()
         self.assertIn("architecture and objects accurate to the stated place", prompt)
         self.assertNotIn("big ben", prompt)
-        self.assertLessEqual(len(prompt), 1600)
+        self.assertLessEqual(len(prompt), 1900)
 
     def test_background_prompt_explicitly_rejects_floating_symbols_and_characters(self):
         from worker.render import cloudflare_background_prompt
@@ -94,7 +113,7 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertIn("no street signs", prompt)
         self.assertIn("no numerals", prompt)
         self.assertIn("no people", prompt)
-        self.assertLess(len(prompt), 1600)
+        self.assertLess(len(prompt), 1900)
 
     def test_ai_background_prompt_prioritizes_each_unique_storyboard_location(self):
         from worker.render import cloudflare_background_prompt
@@ -109,8 +128,10 @@ class RenderSmokeTests(unittest.TestCase):
             "visual": "Ruined city foundations with masons rebuilding in stone."
         }, "16:9").lower()
         self.assertIn("storyboard scene 3", river)
-        self.assertIn("thames riverbank", river)
+        self.assertIn("historic riverbank", river)
         self.assertIn("open water, riverbank and boats", river)
+        self.assertNotIn("fleeing families", river)
+        self.assertNotIn("stick figure", river)
         self.assertNotIn("the great fire of london", river)
         self.assertIn("storyboard scene 4", aftermath)
         self.assertIn("ruined city foundations", aftermath)
