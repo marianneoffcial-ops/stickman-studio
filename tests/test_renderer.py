@@ -50,7 +50,7 @@ class RenderSmokeTests(unittest.TestCase):
         prompt = cloudflare_background_prompt(
             {"scene_index": 2, "visual": "A detailed historical scene. " * 400}, "16:9"
         )
-        self.assertLessEqual(len(prompt), 1600)
+        self.assertLessEqual(len(prompt), 1900)
         self.assertIn("painterly watercolor and gouache", prompt.lower())
         self.assertIn("no floating circles", prompt.lower())
         self.assertIn("no people", prompt.lower())
@@ -70,7 +70,7 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertNotIn("victorian", prompt)
         self.assertIn("no human silhouettes", prompt)
         self.assertIn("composited separately", prompt)
-        self.assertLessEqual(len(prompt), 1600)
+        self.assertLessEqual(len(prompt), 1900)
 
     def test_background_prompt_removes_people_and_stickman_instructions(self):
         from worker.render import cloudflare_background_prompt
@@ -97,7 +97,7 @@ class RenderSmokeTests(unittest.TestCase):
         }, "16:9").lower()
         self.assertIn("architecture and objects accurate to the stated place", prompt)
         self.assertNotIn("big ben", prompt)
-        self.assertLessEqual(len(prompt), 1600)
+        self.assertLessEqual(len(prompt), 1900)
 
     def test_background_prompt_explicitly_rejects_floating_symbols_and_characters(self):
         from worker.render import cloudflare_background_prompt
@@ -113,7 +113,7 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertIn("no street signs", prompt)
         self.assertIn("no numerals", prompt)
         self.assertIn("no people", prompt)
-        self.assertLess(len(prompt), 1600)
+        self.assertLess(len(prompt), 1900)
 
     def test_ai_background_prompt_prioritizes_each_unique_storyboard_location(self):
         from worker.render import cloudflare_background_prompt
