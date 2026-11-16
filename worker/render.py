@@ -971,6 +971,7 @@ def _background_environment_text(value):
     text = re.sub(r"\b(?:crowded|busy|bustling|populated)\b", "quiet empty", text, flags=re.I)
     text = re.sub(r"\s*,\s*,", ",", text)
     text = re.sub(r"\s*;\s*;", ";", text)
+    text = re.sub(r"\s+(?:and|with)\s*$", "", text, flags=re.I)
     text = re.sub(r"\s+", " ", text).strip(" ,;.")
     return text or "an empty story-specific environment"
 
@@ -1029,7 +1030,7 @@ def cloudflare_background_prompt(scene, aspect_ratio):
         "no speech bubbles, no street signs, no writing, no letters, no numerals, no captions, "
         "no logos and no watermark. No photorealism, 3D, anime or glossy gradients."
     )
-    max_prompt_length = 1600
+    max_prompt_length = 1900
     available = max(0, max_prompt_length - len(prefix) - len(suffix))
     original_description = description
     description = description[:available].rstrip()
