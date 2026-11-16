@@ -81,6 +81,20 @@ class ResearchTests(unittest.TestCase):
         self.assertTrue(all(any(word in scene for word in ("firelight", "smoke", "fire bucket", "firebreak")) for scene in scenes))
         self.assertNotIn("archive with shelves", result["storyboard"].lower())
 
+    def test_fifteen_second_narration_has_nine_word_full_beats_and_scaled_final_beat(self):
+        search = _search_response(_search_page("Great Fire of London", 306))
+        article = (
+            "The Great Fire of London occurred from Sunday 2 September to Wednesday "
+            "5 September 1666, gutting the medieval City of London inside the old "
+            "Roman city wall. The fire started in a bakery in Pudding Lane shortly "
+            "after midnight and spread rapidly through the crowded streets."
+        )
+        with patch("app.research._api", side_effect=[search, _article_response(article, "Great Fire of London")]):
+            result = research_topic("The Great Fire of London", 15)
+        self.assertEqual([len(beat.split()) for beat in result["narration_beats"]], [9, 9, 9, 7])
+        self.assertEqual(" ".join(result["narration_beats"]), result["narration_script"])
+        self.assertIn("Sunday 2 September", result["narration_beats"][0])
+
     def test_narration_keeps_day_and_month_together_without_fake_full_stops(self):
         search = _search_response(_search_page("Great Fire of London", 304))
         article = (
