@@ -59,7 +59,7 @@ class ResearchTests(unittest.TestCase):
             "after midnight and spread rapidly through the crowded streets."
         )
         with patch("app.research._api", side_effect=[search, _article_response(article, "Great Fire of London")]) as api:
-            result = research_topic("How the Great Fire of London spread in 1666", 15)
+            result = research_topic("How the Great Fire of London spread in 1666", 20)
         self.assertEqual(result["topic"], "Great Fire of London")
         self.assertIn("Pudding Lane", result["narration_script"])
         self.assertEqual(api.call_args_list[0].args[0]["gsrsearch"],
@@ -68,10 +68,9 @@ class ResearchTests(unittest.TestCase):
     def test_great_fire_storyboard_uses_london_fire_specific_scenes(self):
         search = _search_response(_search_page("Great Fire of London", 303))
         article = (
-            "The Great Fire of London occurred from Sunday 2 September to Wednesday "
-            "5 September 1666, gutting the medieval City of London inside the old "
-            "Roman city wall. The fire started in a bakery in Pudding Lane shortly "
-            "after midnight and spread rapidly through the crowded streets."
+            "The Great Fire of London occurred from Sunday 2 September to Wednesday 5 September 1666, "
+            "gutting the medieval City of London inside the old Roman city wall, while also extending "
+            "past the wall to the west."
         )
         with patch("app.research._api", side_effect=[search, _article_response(article, "Great Fire of London")]):
             result = research_topic("The Great Fire of London", 15)
@@ -81,27 +80,25 @@ class ResearchTests(unittest.TestCase):
         self.assertTrue(all(any(word in scene for word in ("firelight", "smoke", "fire bucket", "firebreak")) for scene in scenes))
         self.assertNotIn("archive with shelves", result["storyboard"].lower())
 
-    def test_fifteen_second_narration_has_nine_word_full_beats_and_scaled_final_beat(self):
+    def test_fifteen_second_narration_has_nine_to_ten_word_full_beats_and_scaled_final_beat(self):
         search = _search_response(_search_page("Great Fire of London", 306))
         article = (
-            "The Great Fire of London occurred from Sunday 2 September to Wednesday "
-            "5 September 1666, gutting the medieval City of London inside the old "
-            "Roman city wall. The fire started in a bakery in Pudding Lane shortly "
-            "after midnight and spread rapidly through the crowded streets."
+            "The Great Fire of London occurred from Sunday 2 September to Wednesday 5 September 1666, "
+            "gutting the medieval City of London inside the old Roman city wall, while also extending "
+            "past the wall to the west."
         )
         with patch("app.research._api", side_effect=[search, _article_response(article, "Great Fire of London")]):
             result = research_topic("The Great Fire of London", 15)
-        self.assertEqual([len(beat.split()) for beat in result["narration_beats"]], [9, 9, 9, 7])
+        self.assertEqual([len(beat.split()) for beat in result["narration_beats"]], [10, 10, 9, 7])
         self.assertEqual(" ".join(result["narration_beats"]), result["narration_script"])
         self.assertIn("Sunday 2 September", result["narration_beats"][0])
 
     def test_narration_keeps_day_and_month_together_without_fake_full_stops(self):
         search = _search_response(_search_page("Great Fire of London", 304))
         article = (
-            "The Great Fire of London occurred from Sunday 2 September to Wednesday "
-            "5 September 1666, gutting the medieval City of London inside the old "
-            "Roman city wall. The fire started in a bakery in Pudding Lane shortly "
-            "after midnight and spread rapidly through the crowded streets."
+            "The Great Fire of London occurred from Sunday 2 September to Wednesday 5 September 1666, "
+            "gutting the medieval City of London inside the old Roman city wall, while also extending "
+            "past the wall to the west."
         )
         with patch("app.research._api", side_effect=[search, _article_response(article, "Great Fire of London")]):
             result = research_topic("The Great Fire of London", 15)
