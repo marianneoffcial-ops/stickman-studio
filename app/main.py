@@ -35,6 +35,7 @@ class Request(BaseModel):
     aspect_ratio: str = Field(default="16:9", pattern=r"^\d{1,2}:\d{1,2}$")
     narration_script: str = Field(default="", max_length=30000)
     storyboard: str = Field(default="", max_length=16000)
+    narration_beats: list[str] = Field(default_factory=list, max_length=150)
     research_sources: list[dict] = Field(default_factory=list, max_length=12)
 
 
@@ -365,7 +366,7 @@ def build_request_project(req):
         raise HTTPException(422, "Topic must contain at least three non-space characters.")
     ratio = validate_aspect_ratio(req.aspect_ratio)
     sources = validate_sources(req.research_sources)
-    project = make_project(topic, req.duration_seconds, ratio, req.narration_script, req.storyboard)
+    project = make_project(topic, req.duration_seconds, ratio, req.narration_script, req.storyboard, req.narration_beats)
     project["research_sources"] = sources
     return project
 
@@ -395,8 +396,8 @@ def create_dual_production(req: DualProductionRequest):
     except Exception:
         raise HTTPException(503, "Free research is temporarily unavailable. Please retry later.")
     topic = short_research["topic"]
-    short = make_project(topic, 60, "9:16", short_research["narration_script"], short_research["storyboard"])
-    long = make_project(topic, 600, "16:9", long_research["narration_script"], long_research["storyboard"])
+    short = make_project(topic, 60, "9:16", short_research["narration_script"], short_research["storyboard"], short_research.get("narration_beats"))
+    long = make_project(topic, 600, "16:9", long_research["narration_script"], long_research["storyboard"], long_research.get("narration_beats"))
     short["research_sources"] = validate_sources(short_research.get("sources", []))
     long["research_sources"] = validate_sources(long_research.get("sources", []))
     validate_renderable_project(short)
