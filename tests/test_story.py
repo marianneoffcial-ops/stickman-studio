@@ -45,7 +45,7 @@ class StoryTimingTests(unittest.TestCase):
         beats = ["The first nine words make one clear beat.", "The next nine words complete the second beat."]
         script = " ".join(beats)
         project = make_project("A test story", 8, "16:9", script,
-                               "First visual anchor.\\nSecond visual anchor.", beats)
+                               "First visual anchor.\nSecond visual anchor.", beats)
         self.assertEqual([scene["narration"] for scene in project["scenes"]], beats)
         self.assertEqual(project["narration_beats"], beats)
 
