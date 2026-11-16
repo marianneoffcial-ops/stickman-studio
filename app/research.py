@@ -63,10 +63,12 @@ def _narration_segments(sentences, count, duration_seconds=None):
             index + 1 for index, token in enumerate(tokens[:maximum_words])
             if index + 1 >= minimum_words and re.search(r"[.!?]$", token)
         ]
-        cutoff = natural_boundaries[-1] if natural_boundaries else maximum_words
-        tokens = tokens[:cutoff]
-        if tokens and not re.search(r"[.!?]$", tokens[-1]):
-            tokens[-1] = tokens[-1].rstrip(",;:") + "."
+        if not natural_boundaries:
+            raise ValueError(
+                "The next complete source sentence does not fit the requested 9–10-word beats. "
+                "Choose a shorter duration or another topic rather than cutting a sentence mid-thought."
+            )
+        tokens = tokens[:natural_boundaries[-1]]
 
     total_words = len(tokens)
     proportional = [total_words * seconds / duration_seconds for seconds in durations]
