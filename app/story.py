@@ -256,13 +256,14 @@ def _continuity_state(visual, index):
             "Do not introduce a new location or prop without a visible story transition."))
 
 
-def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=None, storyboard=None):
+def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=None, storyboard=None, narration_beats=None):
     topic = re.sub(r"\s+", " ", (topic or "Untitled story")).strip()[:500]
     duration = int(duration_seconds)
     count = max(1, math.ceil(duration / 4))
     script = (narration_script or "").strip()
     anchors = [x.strip() for x in (storyboard or "").splitlines() if x.strip()]
-    chunks = _chunk_script(script, count)
+    provided_beats = [re.sub(r"\s+", " ", str(beat)).strip() for beat in (narration_beats or []) if str(beat).strip()]
+    chunks = provided_beats if len(provided_beats) == count and " ".join(provided_beats).split() == script.split() else _chunk_script(script, count)
     lead = _lead_for_topic(topic)
     locked = _locked_character_block(lead)
     scenes = []
@@ -325,6 +326,28 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
         (("south pole", "antarctic"), "RACE TO THE POLE"),
         (("eiffel tower",), "THE IMPOSSIBLE SALE"),
         (("tunguska",), "THE SKY EXPLOSION"),
+        (("great fire of london",), "THE GREAT FIRE"),
+        (("great stink",), "THE GREAT STINK"),
+        (("transatlantic", "telegraph cable"), "ACROSS THE OCEAN"),
+        (("panama canal",), "CONNECTING TWO OCEANS"),
+        (("great emu war",), "THE EMU CAMPAIGN"),
+        (("franklin expedition",), "LOST IN THE ARCTIC"),
+        (("apollo 13",), "THE IMPOSSIBLE RESCUE"),
+        (("olympic marathon",), "THE STRANGEST RACE"),
+        (("great train robbery",), "THE TRAIN HEIST"),
+        (("gardner museum",), "THE MISSING ART"),
+        (("operation mincemeat",), "THE DECEPTION PLAN"),
+        (("great smog",), "THE DEADLY FOG"),
+        (("chilean miners",), "THE DEEP RESCUE"),
+        (("moon landing",), "FIRST STEPS ON THE MOON"),
+        (("maple syrup",), "THE SYRUP HEIST"),
+        (("han van meegeren",), "THE MASTER FORGER"),
+        (("great library of alexandria",), "LOST KNOWLEDGE"),
+        (("san francisco earthquake",), "THE CITY SHOOK"),
+        (("andes flight",), "THE ANDES SURVIVORS"),
+        (("rosetta stone",), "DECODING ANCIENT EGYPT"),
+        (("cuban missile crisis",), "ONE CRITICAL DECISION"),
+        (("transatlantic",), "ACROSS THE OCEAN"),
     ]
     thumbnail_headline = next((headline for keys,headline in headline_rules if any(k in topic_key for k in keys)), "THE UNTOLD STORY")
     thumbnail_prompt = (
@@ -352,7 +375,7 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
       "locked_character_block": locked, "character_sheet_prompt": character_sheet_prompt,
       "animation_agent_instruction": agent_instruction, "thumbnail_prompt": thumbnail_prompt,
       "thumbnail_headline": thumbnail_headline,
-      "scenes": scenes, "animation_prompts": [scene["visual_prompt"] for scene in scenes],
+      "scenes": scenes, "animation_prompts": [scene["visual_prompt"] for scene in scenes], "narration_beats": chunks,
       "status": "queued", "scene_count": count, "thumbnail_path": None,
       "script_word_count": len(script.split()), "script_supplied": bool(script),
       "storyboard_anchor_count": len(anchors),
