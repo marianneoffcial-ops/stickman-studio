@@ -41,6 +41,20 @@ class StoryTimingTests(unittest.TestCase):
         self.assertIn("exactly 2 seconds", project["animation_agent_instruction"])
 
 
+    def test_researched_narration_beats_are_preserved_in_rendered_scenes(self):
+        beats = ["The first nine words make one clear beat.", "The next nine words complete the second beat."]
+        script = " ".join(beats)
+        project = make_project("A test story", 8, "16:9", script,
+                               "First visual anchor.\\nSecond visual anchor.", beats)
+        self.assertEqual([scene["narration"] for scene in project["scenes"]], beats)
+        self.assertEqual(project["narration_beats"], beats)
+
+    def test_great_fire_thumbnail_uses_a_story_specific_headline(self):
+        project = make_project("The Great Fire of London", 15, "16:9",
+                               "A documented event in 1666.", "A quiet English city street.")
+        self.assertEqual(project["thumbnail_headline"], "THE GREAT FIRE")
+        self.assertIn("'THE GREAT FIRE'", project["thumbnail_prompt"])
+
     def test_story_beats_select_distinct_reveal_and_ponder_gestures(self):
         from app.story import _scene_action
         self.assertEqual(_scene_action("The team discovers an unexpected clue.", 0), "reveal")
