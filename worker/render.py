@@ -934,32 +934,89 @@ def cloudflare_ai_configured():
                 os.getenv("CLOUDFLARE_API_TOKEN", "").strip())
 
 
+def _background_environment_text(value):
+    """Keep AI background plates empty by removing character/action clauses."""
+    text = re.sub(r"\s+", " ", str(value or "")).strip()
+    text = re.split(r"\b(?:No named people|Visual safety:)\b", text, maxsplit=1, flags=re.I)[0]
+    text = re.sub(
+        r";\s*(?:one|two|three|several|many)\s+(?:generic\s+)?(?:stick\s+)?(?:figures?|people|characters?)[^.;]*",
+        "",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(
+        r",?\s*(?:one|two|three|several|many)\s+(?:generic\s+)?(?:stick\s+)?(?:figures?|people|characters?)[^.;]*",
+        "",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(
+        r";?\s*(?:the\s+)?figure\s+(?:slowly|carefully|quietly|takes|leans|stands|looks|turns|studies|moves|walks)[^.;]*",
+        "",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(
+        r"\bwith\s+(?:fleeing\s+|gathered\s+|watching\s+|running\s+|walking\s+)?(?:families|people|crowds|men|women|children|soldiers|workers|visitors)\b",
+        "",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(
+        r"\b(?:families|people|crowds|men|women|children|soldiers|workers|visitors|inhabitants|figures|characters)\b",
+        "",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(r"\b(?:crowded|busy|bustling|populated)\b", "quiet empty", text, flags=re.I)
+    text = re.sub(r"\s*,\s*,", ",", text)
+    text = re.sub(r"\s*;\s*;", ";", text)
+    text = re.sub(r"\s+", " ", text).strip(" ,;.")
+    return text or "an empty story-specific environment"
+
+
 def cloudflare_background_prompt(scene, aspect_ratio):
-    """Build a compact, scene-specific, unpopulated ink-wash plate prompt."""
+    """Build a compact, story-specific, unpopulated painterly environment prompt."""
     scene = scene or {}
-    description = str(scene.get("visual", "")).strip() or scene_description(scene)
+    raw_description = str(scene.get("visual", "")).strip() or scene_description(scene)
     scene_number = int(scene.get("scene_index", 0)) + 1
-    context = (str(scene.get("title", "")) + " " + description).lower()
+    context = (str(scene.get("title", "")) + " " + raw_description).lower()
     london_fire = contains_any(context, (
         "great fire of london", "london", "1666", "pudding lane", "thames"
     ))
+    description = _background_environment_text(raw_description)
+    if london_fire:
+        description = re.sub(
+            r"\bLondon\s+(lane|street|rooftops|riverbank)\b",
+            r"English \1",
+            description,
+            flags=re.I,
+        )
+        description = re.sub(r"\bLondon\b", "English city", description, flags=re.I)
+        description = re.sub(r"\b1666 English city\b", "English city in 1666", description, flags=re.I)
+        description = re.sub(r"\ba English city\b", "an English city", description, flags=re.I)
+        description = re.sub(r"\bin English city\b", "in an English city", description, flags=re.I)
+        description = re.sub(r"\bThames riverbank\b", "historic riverbank", description, flags=re.I)
+        description = re.sub(r"\bThames\b", "river", description, flags=re.I)
+
     prefix = (
         "Create one hand-inked 2D watercolor and gouache background plate, aspect ratio "
         + str(aspect_ratio) + ". Storyboard scene " + str(scene_number) + ". "
-        "Show only this exact location and action: "
+        "Show only this exact empty location and its environmental details: "
     )
     historical_rule = (
-        "For 1666 London, show pre-Victorian timber-framed houses and period streets only; "
-        "no Big Ben, no Elizabeth Tower, no Houses of Parliament, no Victorian or modern buildings. "
+        "Use an anonymous 17th-century English cityscape in 1666: low timber-framed houses, "
+        "narrow lanes, brick chimneys and modest period church spires; no recognizable landmark "
+        "towers, modern transport, road markings or signage. "
         if london_fire else
         "Use architecture and objects accurate to the stated place and historical period. "
     )
     suffix = (
         ". The unique scene setting overrides the shared story title. "
-        "Follow the location literally: bakery means an enclosed oven room; Thames/river/boats "
-        "means open water, riverbank and boats; street/lane means an exterior timber-framed street; "
-        "aftermath/rebuilding means charred ruins, stone foundations and masons. Never substitute "
-        "another location or reuse the previous scene's composition. "
+        "Follow the location literally: bakery means an enclosed oven room; river/boats means open water, "
+        "riverbank and boats; street/lane means an exterior timber-framed street; aftermath/rebuilding "
+        "means charred ruins, stone foundations and masons. Never substitute another location or "
+        "reuse the previous scene's composition. "
         + historical_rule +
         "Painterly watercolor and gouache washes, visible brush texture, rough irregular black ink "
         "contours, layered foreground and background, atmospheric depth, muted parchment, tan, sage, "
@@ -972,7 +1029,6 @@ def cloudflare_background_prompt(scene, aspect_ratio):
         "no speech bubbles, no street signs, no writing, no letters, no numerals, no captions, "
         "no logos and no watermark. No photorealism, 3D, anime or glossy gradients."
     )
-    # Keep a generous margin below FLUX.1 schnell's 2,048-character hard limit.
     max_prompt_length = 1600
     available = max(0, max_prompt_length - len(prefix) - len(suffix))
     original_description = description
@@ -1297,6 +1353,12 @@ def render_project(project,outdir:Path,progress_callback=None):
     title_font=ImageFont.truetype(title_font_path,48) if Path(title_font_path).is_file() else font(48,True)
     lines=textwrap.wrap(headline,width=10)[:3]
     td.multiline_text((876,265),"\n".join(lines),font=title_font,fill=INK,spacing=10,stroke_width=0)
+    apply_house_texture(thumb_im,0)
+    thumb_vignette=Image.new("L",(1280,720),0); thumb_vd=ImageDraw.Draw(thumb_vignette)
+    thumb_vd.ellipse((-154,-86,1434,806),fill=230)
+    thumb_vignette=thumb_vignette.filter(ImageFilter.GaussianBlur(90))
+    thumb_dark=Image.new("RGB",(1280,720),(15,16,15))
+    thumb_im=Image.composite(thumb_im,thumb_dark,thumb_vignette)
     thumb_im.save(thumb,quality=92)
     project["thumbnail_path"]=str(thumb)
     # A completed project only needs its verified MP4, thumbnail and metadata.
