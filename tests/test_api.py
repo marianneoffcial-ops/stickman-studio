@@ -10,7 +10,7 @@ os.environ.setdefault("DATA_DIR", tempfile.mkdtemp(prefix="stickman-api-tests-")
 
 from fastapi import HTTPException
 from app.main import (
-    JOBS, PROJECTS, _render_work, download, preview, preview_frame, project_folder, queue_projects, safe_uuid,
+    JOBS, PROJECTS, Request, _render_work, download, health, preview, preview_frame, project_folder, queue_projects, safe_uuid,
     save_json, validate_aspect_ratio, validate_renderable_project, validate_sources,
     verify_mp4
 )
@@ -18,6 +18,37 @@ from app.story import make_project
 
 
 class ProductionApiTests(unittest.TestCase):
+    def test_request_accepts_full_150_scene_storyboard_for_ten_minute_video(self):
+        storyboard = "\\n".join(
+            f"Scene {index + 1}: a distinct historical setting, a clear action, a story-specific prop, "
+            "a motivated camera composition and a restrained painterly environment. "
+            for index in range(150)
+        )
+        self.assertGreater(len(storyboard), 16000)
+        request = Request(
+            topic="A documented historical event",
+            duration_seconds=600,
+            aspect_ratio="16:9",
+            narration_script="A documented fact. " * 150,
+            storyboard=storyboard,
+            narration_beats=[f"Beat {index + 1} contains a concise researched narration line." for index in range(150)],
+        )
+        self.assertEqual(request.duration_seconds, 600)
+        self.assertEqual(len(request.storyboard.splitlines()), 150)
+        self.assertEqual(len(request.narration_beats), 150)
+
+    def test_health_reports_the_configured_flux_two_background_model(self):
+        with patch.dict(os.environ, {
+            "CLOUDFLARE_ACCOUNT_ID": "test-account",
+            "CLOUDFLARE_API_TOKEN": "test-token",
+        }):
+            payload = health()
+        self.assertTrue(payload["cloudflare_ai_backgrounds_configured"])
+        self.assertEqual(
+            payload["cloudflare_ai_background_model"],
+            "@cf/black-forest-labs/flux-2-klein-4b",
+        )
+
     def test_aspect_ratio_accepts_supported_custom_ratio(self):
         self.assertEqual(validate_aspect_ratio("4:5"), "4:5")
         self.assertEqual(validate_aspect_ratio("16:9"), "16:9")
