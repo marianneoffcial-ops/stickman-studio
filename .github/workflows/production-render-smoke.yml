@@ -1,32 +1,29 @@
-name: Production render smoke test
+name: Full-duration production prompt QA
 
 on:
   push:
     branches: [main]
     paths:
       - ".github/workflows/production-render-smoke.yml"
-      - "app/research.py"
-      - "tests/test_research.py"
-      - "worker/render.py"
-      - "tests/test_renderer.py"
   workflow_dispatch:
 
 permissions:
   contents: read
-  statuses: read
 
 jobs:
-  render-sample:
+  full-duration:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 240
     steps:
-      - name: Wait for the Railway deployment for this commit
+      - name: Wait for Railway to deploy this exact commit
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
         run: |
           python - <<'PY'
           import json, os, time, urllib.request
-          url = f"https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/statuses"
+          url = f"https://api.github.com/repos/{os.environ['REPO']}/commits/{os.environ['SHA']}/statuses"
           request = urllib.request.Request(url, headers={
               "Accept": "application/vnd.github+json",
               "Authorization": "Bearer " + os.environ["GH_TOKEN"],
@@ -36,8 +33,7 @@ jobs:
           while time.time() < deadline:
               with urllib.request.urlopen(request, timeout=20) as response:
                   statuses = json.load(response)
-              matches = [item for item in statuses
-                         if item.get("context") == "Stickman Studio - stickman-studio-v2"]
+              matches = [item for item in statuses if item.get("context") == "Stickman Studio - stickman-studio-v2"]
               if matches:
                   state = matches[0].get("state")
                   print("Railway deployment status:", state)
@@ -50,156 +46,242 @@ jobs:
               raise SystemExit("Timed out waiting for Railway to deploy this commit.")
           PY
 
-      - name: Wait for production health
-        run: |
-          python - <<'PY'
-          import json, time, urllib.request
-          base = "https://stickman-studio-v2-production.up.railway.app"
-          deadline = time.time() + 180
-          while time.time() < deadline:
-              try:
-                  with urllib.request.urlopen(base + "/health", timeout=15) as response:
-                      health = json.load(response)
-                  with urllib.request.urlopen(base + "/ready", timeout=15) as response:
-                      ready = json.load(response)
-                  if health.get("status") == "ok" and ready.get("ready") is True:
-                      print(json.dumps({"health": health, "ready": ready}, indent=2))
-                      break
-              except Exception as exc:
-                  print("Waiting for service:", str(exc))
-              time.sleep(10)
-          else:
-              raise SystemExit("Production service did not become healthy within 3 minutes.")
-          PY
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
-      - name: Research and render a real 15-second production sample
+      - name: Research, inspect prompts and render the real 60-second and 10-minute productions
         run: |
           python - <<'PY'
-          import json, time, urllib.request
+          import json, math, os, subprocess, time, urllib.request
+          from fractions import Fraction
           from pathlib import Path
 
           base = "https://stickman-studio-v2-production.up.railway.app"
+          out = Path("artifacts/full-qa")
+          out.mkdir(parents=True, exist_ok=True)
 
-          def call(path, payload=None, timeout=60):
+          def call(path, payload=None, timeout=120):
               data = None if payload is None else json.dumps(payload).encode("utf-8")
               request = urllib.request.Request(
-                  base + path, data=data,
+                  base + path,
+                  data=data,
                   headers={"Content-Type": "application/json"} if data is not None else {},
                   method="POST" if data is not None else "GET",
               )
               with urllib.request.urlopen(request, timeout=timeout) as response:
                   return json.loads(response.read().decode("utf-8"))
 
-          researched = call("/api/research", {
+          health = call("/health")
+          ready = call("/ready")
+          assert health.get("status") == "ok", health
+          assert health.get("cloudflare_ai_backgrounds_configured") is True, health
+          assert health.get("cloudflare_ai_background_model") == "@cf/black-forest-labs/flux-2-klein-4b", health
+          assert ready.get("ready") is True, ready
+
+          ideas = call("/api/ideas").get("ideas", [])
+          quotas = {"history": 3, "documentary": 2, "true crime": 2, "remarkable true events": 3}
+          category_counts = {category: sum(1 for item in ideas if item.get("category") == category) for category in quotas}
+          assert all(category_counts[key] >= count for key, count in quotas.items()), category_counts
+          ui = Path("app/static.html").read_text(encoding="utf-8")
+          assert 'const quotas={"history":3,"documentary":2,"true crime":2,"remarkable true events":3}' in ui
+          assert 'const labels=["Ideas","Aspect ratio","Length","Voiceover","Character sheet","Animation","Thumbnail","Reset"]' in ui
+          assert all(f'id="step{i}"' in ui for i in range(1, 9))
+          print("Idea categories and all eight staged UI steps verified:", category_counts)
+
+          def inspect_prompts(research, duration, ratio):
+              count = math.ceil(duration / 4)
+              beats = research.get("narration_beats", [])
+              assert research.get("scene_count") == count, research.get("scene_count")
+              assert len(beats) == count, (len(beats), count)
+              assert all(9 <= len(beat.split()) <= 10 for beat in beats), [
+                  (i + 1, len(beat.split()), beat) for i, beat in enumerate(beats)
+                  if not 9 <= len(beat.split()) <= 10
+              ][:10]
+              assert research.get("narration_script") == " ".join(beats)
+              assert len(research.get("sources", [])) >= 1
+              assert "wikipedia.org" in research["sources"][0]["url"]
+              anchors = [line for line in research.get("storyboard", "").splitlines() if line.strip()]
+              assert len(anchors) == count, (len(anchors), count)
+              payload = {
+                  "topic": research["topic"],
+                  "duration_seconds": duration,
+                  "aspect_ratio": ratio,
+                  "narration_script": research["narration_script"],
+                  "storyboard": research["storyboard"],
+                  "narration_beats": beats,
+                  "research_sources": research.get("sources", []),
+              }
+              prepared = call("/api/prepare", payload)
+              project = prepared["project"]
+              assert project["scene_count"] == count
+              assert project["duration_seconds"] == duration
+              assert project["aspect_ratio"] == ratio
+              prompts = project.get("animation_prompts", [])
+              assert len(prompts) == count
+              assert len(set(prompts)) == count, "Animation prompts are not all distinct."
+              assert len(project.get("scenes", [])) == count
+              assert all(scene["duration"] == 4 for scene in project["scenes"])
+              assert project["scenes"][-1]["duration"] == duration - 4 * (count - 1)
+              style = project["style"]
+              locked = project["locked_character_block"]
+              sheet = project["character_sheet_prompt"]
+              for phrase in (
+                  "front, three-quarter, side and back full-body views",
+                  "NEUTRAL", "CONCERNED", "SURPRISED", "WEARY", "RESOLVED",
+                  "STANDING", "WALKING", "SITTING", "LOOKING UP", "TURNING AWAY",
+              ):
+                  assert phrase in sheet, phrase
+              assert locked and style
+              assert f"Create one character sheet in {ratio}" in sheet
+              for i, prompt in enumerate(prompts):
+                  for required in (
+                      locked, style, f"in {ratio}", "One readable character action:",
+                      "Diegetic sound only:", "no voice, narration, dialogue or music",
+                      "no real named people", "no flags", "no insignia", "no logos",
+                      "no violence", "no injury", "no death", "no blood",
+                      "no on-screen text", "no subtitles", "no watermark",
+                      "no glitching", "no warping", "no flickering",
+                  ):
+                      assert required.lower() in prompt.lower(), (i + 1, required)
+              cameras = {scene["camera"] for scene in project["scenes"]}
+              assert len(cameras) >= 4, f"Only {len(cameras)} camera compositions were used."
+              headline = project["thumbnail_headline"]
+              assert len(headline.split()) <= 4, headline
+              assert "16:9" in project["thumbnail_prompt"]
+              assert style in project["thumbnail_prompt"]
+              assert len(project.get("quality_checks", [])) >= 8
+              return payload, project, {
+                  "scene_count": count,
+                  "script_word_count": len(research["narration_script"].split()),
+                  "beat_word_min": min(len(x.split()) for x in beats),
+                  "beat_word_max": max(len(x.split()) for x in beats),
+                  "storyboard_chars": len(research["storyboard"]),
+                  "distinct_animation_prompts": len(set(prompts)),
+                  "camera_compositions": len(cameras),
+                  "character_sheet_prompt": sheet,
+                  "locked_character_block": locked,
+                  "thumbnail_headline": headline,
+                  "source_urls": [item["url"] for item in research.get("sources", [])],
+              }
+
+          def ffprobe(path):
+              raw = subprocess.check_output([
+                  "ffprobe", "-v", "error", "-show_entries",
+                  "format=duration:stream=codec_type,codec_name,width,height,avg_frame_rate,sample_rate,channels",
+                  "-of", "json", str(path)
+              ], text=True)
+              return json.loads(raw)
+
+          def finish_sample(name, job, duration, ratio, expected_width, expected_height, prompt_report):
+              job_id = job["job_id"]
+              deadline = time.time() + 3 * 60 * 60
+              while time.time() < deadline:
+                  current = call("/api/jobs/" + job_id, timeout=60)
+                  print(name, "status:", current.get("status"), current.get("completed_scenes"), "/", current.get("total_scenes"), current.get("progress"), current.get("error"))
+                  if current.get("status") == "completed":
+                      break
+                  if current.get("status") == "failed":
+                      raise SystemExit(name + " render failed: " + str(current.get("error")))
+                  time.sleep(15)
+              else:
+                  raise SystemExit(name + " render exceeded the three-hour QA deadline.")
+
+              assert current.get("total_scenes") == math.ceil(duration / 4), current
+              assert current.get("completed_scenes") == math.ceil(duration / 4), current
+              assert abs(float(current.get("duration_seconds", 0)) - duration) <= 0.20, current
+              assert current.get("width") == expected_width and current.get("height") == expected_height, current
+              assert current.get("fps") == 24.0, current
+              assert current.get("has_audio") is True, current
+              assert "neural" in str(current.get("voice_engine", "")).lower(), current.get("voice_engine")
+              assert "FLUX.2 Klein 4B" in str(current.get("background_engine", "")), current.get("background_engine")
+              generation = current.get("background_generation") or {}
+              assert generation.get("generated_scenes") == math.ceil(duration / 4), generation
+              assert generation.get("fallback_scenes") == 0, generation
+              assert generation.get("total_scenes") == math.ceil(duration / 4), generation
+
+              video_path = out / (name + ".mp4")
+              with urllib.request.urlopen(base + current["output"], timeout=900) as response:
+                  video_path.write_bytes(response.read())
+              video_meta = ffprobe(video_path)
+              video_stream = next(stream for stream in video_meta["streams"] if stream["codec_type"] == "video")
+              audio_stream = next(stream for stream in video_meta["streams"] if stream["codec_type"] == "audio")
+              assert abs(float(video_meta["format"]["duration"]) - duration) <= 0.20, video_meta
+              assert int(video_stream["width"]) == expected_width
+              assert int(video_stream["height"]) == expected_height
+              assert Fraction(video_stream["avg_frame_rate"]) == Fraction(24, 1), video_stream
+              assert audio_stream.get("codec_name") == "aac", audio_stream
+
+              thumbnail_path = out / (name + "-thumbnail.jpg")
+              with urllib.request.urlopen(base + "/api/projects/" + current["project_id"] + "/thumbnail", timeout=120) as response:
+                  thumbnail_path.write_bytes(response.read())
+              thumb_meta = ffprobe(thumbnail_path)
+              thumb_stream = thumb_meta["streams"][0]
+              assert thumb_stream["width"] == 1280 and thumb_stream["height"] == 720, thumb_meta
+              assert thumbnail_path.read_bytes().startswith(bytes([255, 216]))
+
+              if duration == 60:
+                  scene_filter = "fps=1/4,scale=180:-1,tile=5x3"
+                  motion_filter = "fps=1,scale=160:-1,tile=10x6"
+              else:
+                  scene_filter = "fps=1/4,scale=160:-1,tile=10x15"
+                  motion_filter = "fps=1,scale=160:-1,tile=20x30"
+              scene_sheet = out / (name + "-scene-contact-sheet.jpg")
+              motion_sheet = out / (name + "-motion-contact-sheet.jpg")
+              subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(video_path),
+                              "-vf", scene_filter, "-frames:v", "1", str(scene_sheet)], check=True)
+              subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(video_path),
+                              "-vf", motion_filter, "-frames:v", "1", str(motion_sheet)], check=True)
+
+              return {
+                  "duration_seconds": duration,
+                  "aspect_ratio": ratio,
+                  "resolution": f"{expected_width}x{expected_height}",
+                  "fps": current["fps"],
+                  "scene_count": current["total_scenes"],
+                  "has_audio": current["has_audio"],
+                  "voice_engine": current["voice_engine"],
+                  "background_engine": current["background_engine"],
+                  "background_generation": generation,
+                  "video_bytes": video_path.stat().st_size,
+                  "thumbnail_bytes": thumbnail_path.stat().st_size,
+                  "video_probe": video_meta,
+                  "thumbnail_probe": thumb_meta,
+                  "prompt_report": prompt_report,
+              }
+
+          samples = [
+              ("short-60s", 60, "9:16", 720, 1280),
+              ("long-600s", 600, "16:9", 1280, 720),
+          ]
+          prepared_samples = []
+          for name, duration, ratio, width, height in samples:
+              researched = call("/api/research", {"topic": "The Great Fire of London", "duration_seconds": duration})
+              payload, project, prompt_report = inspect_prompts(researched, duration, ratio)
+              created = call("/api/projects", payload)
+              assert created["project"]["scene_count"] == math.ceil(duration / 4)
+              assert created["job"]["total_scenes"] == math.ceil(duration / 4)
+              prepared_samples.append((name, duration, ratio, width, height, created["job"], prompt_report))
+
+          results = {}
+          for name, duration, ratio, width, height, job, prompt_report in prepared_samples:
+              results[name] = finish_sample(name, job, duration, ratio, width, height, prompt_report)
+
+          report = {
               "topic": "The Great Fire of London",
-              "duration_seconds": 15,
-          })
-          assert researched.get("scene_count") == 4, researched
-          import re
-          stopwords = {"the", "a", "an", "of", "in", "on", "at", "to", "from", "and", "great"}
-          def subject_terms(value):
-              return {word for word in re.findall(r"[a-z]+", value.lower()) if word not in stopwords}
-          expected_terms = subject_terms("The Great Fire of London")
-          actual_terms = subject_terms(researched.get("topic", ""))
-          assert actual_terms == expected_terms, (
-              "Research selected a related but non-primary article: "
-              + researched.get("topic", "")
-          )
-          assert len(researched.get("sources", [])) > 0, "Research returned no citations."
-          narration = researched.get("narration_script", "")
-          assert len(narration.split()) >= 30, "Narration is too short."
-          assert "1666" in narration and "great fire" in narration.lower(), (
-              "Narration does not describe the 1666 Great Fire: " + narration
-          )
-          assert "boudica" not in narration.lower() and "60 ad" not in narration.lower(), (
-              "Narration was taken from the unrelated Early fires of London article: " + narration
-          )
-          storyboard = researched.get("storyboard", "").lower()
-          for visual_anchor in ("firelight", "smoke", "fire bucket", "water bucket", "folded map"):
-              assert visual_anchor in storyboard, (
-                  "The Great Fire storyboard is missing its event-specific visual anchor: "
-                  + visual_anchor
-              )
-
-          created = call("/api/projects", {
-              "topic": researched["topic"],
-              "duration_seconds": 15,
-              "aspect_ratio": "16:9",
-              "narration_script": researched["narration_script"],
-              "storyboard": researched["storyboard"],
-              "research_sources": researched["sources"],
-          })
-          job_id = created["job"]["job_id"]
-          print("Render job:", job_id)
-          deadline = time.time() + 600
-          while time.time() < deadline:
-              job = call("/api/jobs/" + job_id)
-              print("Render status:", job.get("status"), job.get("progress"), job.get("error"))
-              if job.get("status") == "completed":
-                  break
-              if job.get("status") == "failed":
-                  raise SystemExit("Production render failed: " + str(job.get("error")))
-              time.sleep(5)
-          else:
-              raise SystemExit("Production render timed out after 10 minutes.")
-
-          assert abs(float(job["duration_seconds"]) - 15.0) <= 0.20, job
-          assert job.get("fps") == 24.0, job
-          assert job.get("width") == 1280 and job.get("height") == 720, job
-          assert job.get("has_audio") is True, job
-          request = urllib.request.Request(base + job["output"])
-          with urllib.request.urlopen(request, timeout=120) as response:
-              video = response.read()
-          assert len(video) > 2048, "Downloaded MP4 is empty or incomplete."
-          Path("production-sample.mp4").write_bytes(video)
-
-          project_id = job["project_id"]
-          request = urllib.request.Request(base + "/api/projects/" + project_id + "/thumbnail")
-          with urllib.request.urlopen(request, timeout=60) as response:
-              thumbnail = response.read()
-          assert thumbnail.startswith(bytes([255, 216])), "Thumbnail is not a JPEG."
-          Path("production-thumbnail.jpg").write_bytes(thumbnail)
-
-          metadata = {
-              "topic": researched["topic"],
-              "sources": researched["sources"],
-              "narration_script": researched["narration_script"],
-              "narration_beats": researched.get("narration_beats", []),
-              "storyboard": researched.get("storyboard", ""),
-              "scene_count": researched["scene_count"],
-              "job": job,
-              "video_bytes": len(video),
-              "thumbnail_bytes": len(thumbnail),
+              "commit": os.environ.get("GITHUB_SHA"),
+              "health": health,
+              "ready": ready,
+              "idea_category_counts": category_counts,
+              "samples": results,
           }
-          Path("production-sample.json").write_text(
-              json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8"
-          )
-          print(json.dumps({
-              "status": job["status"],
-              "duration_seconds": job["duration_seconds"],
-              "resolution": f'{job["width"]}x{job["height"]}',
-              "fps": job["fps"],
-              "has_audio": job["has_audio"],
-              "video_bytes": len(video),
-              "thumbnail_bytes": len(thumbnail),
-          }, indent=2))
+          (out / "production-qa.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+          print(json.dumps({key: {field: value for field, value in item.items() if field not in ("video_probe", "thumbnail_probe", "prompt_report")}
+                            for key, item in results.items()}, ensure_ascii=False, indent=2))
           PY
 
-      - name: Install FFmpeg for contact sheet
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
-
-      - name: Build a four-frame contact sheet
-        run: |
-          ffmpeg -hide_banner -loglevel error -y -i production-sample.mp4 \
-            -vf "fps=1/4,scale=480:-1,tile=2x2" -frames:v 1 production-contact-sheet.jpg
-
-      - name: Upload verified production sample
+      - name: Upload real full-duration production samples and visual contact sheets
         uses: actions/upload-artifact@v4
         with:
-          name: stickman-production-smoke-sample
-          path: |
-            production-sample.mp4
-            production-thumbnail.jpg
-            production-contact-sheet.jpg
-            production-sample.json
+          name: stickman-full-duration-production-qa
+          path: artifacts/full-qa/
           retention-days: 7
