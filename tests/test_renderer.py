@@ -465,8 +465,8 @@ class RenderSmokeTests(unittest.TestCase):
             self.assertNotIn('name="steps"', body)
             width, height = cloudflare_background_dimensions("16:9")
             self.assertEqual((width, height), (768, 432))
-            self.assertIn(f"\\r\\n\\r\\n{width}\\r\\n", body)
-            self.assertIn(f"\\r\\n\\r\\n{height}\\r\\n", body)
+            self.assertIn(f"\r\n\r\n{width}\r\n", body)
+            self.assertIn(f"\r\n\r\n{height}\r\n", body)
             self.assertEqual(request.call_args.kwargs["timeout"], 90)
 
     def test_cloudflare_background_dimensions_fit_within_two_billing_tiles(self):
