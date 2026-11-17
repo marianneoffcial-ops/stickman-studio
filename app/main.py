@@ -34,7 +34,7 @@ class Request(BaseModel):
     duration_seconds: int = Field(default=60, ge=15, le=int(os.getenv("MAX_VIDEO_SECONDS", "600")))
     aspect_ratio: str = Field(default="16:9", pattern=r"^\d{1,2}:\d{1,2}$")
     narration_script: str = Field(default="", max_length=30000)
-    storyboard: str = Field(default="", max_length=16000)
+    storyboard: str = Field(default="", max_length=100000)
     narration_beats: list[str] = Field(default_factory=list, max_length=150)
     research_sources: list[dict] = Field(default_factory=list, max_length=12)
 
@@ -308,7 +308,7 @@ def health():
             os.getenv("CLOUDFLARE_ACCOUNT_ID", "").strip()
             and os.getenv("CLOUDFLARE_API_TOKEN", "").strip()
         ),
-        "cloudflare_ai_background_model": "@cf/black-forest-labs/flux-1-schnell",
+        "cloudflare_ai_background_model": "@cf/black-forest-labs/flux-2-klein-4b",
         "active_jobs": queued, "completed_jobs": completed, "failed_jobs": failed,
         "max_active_jobs": MAX_ACTIVE_JOBS
     }
