@@ -142,7 +142,7 @@ jobs:
                       "no real named people", "no flags", "no insignia", "no logos",
                       "no violence", "no injury", "no weapons", "death, blood or weapons being fired",
                       "no on-screen text", "no subtitles", "no watermark",
-                      "no glitching", "no warping", "no flickering",
+                      "no glitching, warping, morphing, flickering", "extra limbs, duplicate characters",
                   ):
                       assert required.lower() in prompt.lower(), (i + 1, required)
               cameras = {scene["camera"] for scene in project["scenes"]}
