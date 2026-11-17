@@ -22,6 +22,20 @@ def dimensions(ratio):
         return (max(2,int(round(1280*a/b/2)*2)),1280)
     except Exception:
         return (1280,720)
+
+def cloudflare_background_dimensions(aspect_ratio):
+    """Choose a low-cost FLUX.2 canvas that needs at most two 512px tiles."""
+    width, height = dimensions(aspect_ratio)
+    ratio = width / float(height)
+    long_side = 768 if ratio >= 1.5 or ratio <= (1.0 / 1.5) else 512
+    if ratio >= 1:
+        out_width = long_side
+        out_height = max(256, int(round((long_side / ratio) / 8.0) * 8))
+    else:
+        out_height = long_side
+        out_width = max(256, int(round((long_side * ratio) / 8.0) * 8))
+    return out_width, out_height
+
 def font(size,bold=False):
     paths=["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
            "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"]
@@ -1038,25 +1052,54 @@ def cloudflare_background_prompt(scene, aspect_ratio):
         description = description.rsplit(" ", 1)[0]
     return prefix + description + suffix
 
-def generate_cloudflare_background(scene, project, destination):
-    """Generate an optional FLUX.1 schnell environment plate through Cloudflare's free Workers AI quota.
+def cloudflare_quota_exhausted(error):
+    """Detect a hard daily/free-tier quota response so later scenes do not repeat doomed calls."""
+    message = str(error or "").lower()
+    return "http 429" in message and any(
+        marker in message for marker in ("daily free allocation", "neurons", "quota exhausted")
+    )
 
-    This never runs unless the owner explicitly configures a Cloudflare account ID and API token.
-    API failures are handled by the caller, which retains the deterministic local renderer.
+
+def _multipart_form_data(fields):
+    """Encode small text fields for Cloudflare FLUX.2's multipart REST endpoint."""
+    boundary = "----StickmanStudio" + format(random.getrandbits(64), "016x")
+    chunks = []
+    for name, value in fields.items():
+        chunks.append(
+            (f"--{boundary}\\r\\n"
+             f'Content-Disposition: form-data; name="{name}"\\r\\n\\r\\n'
+             f"{value}\\r\\n").encode("utf-8")
+        )
+    chunks.append(f"--{boundary}--\\r\\n".encode("ascii"))
+    return b"".join(chunks), boundary
+
+
+def generate_cloudflare_background(scene, project, destination):
+    """Generate a story-specific FLUX.2 Klein 4B environment plate within the free quota.
+
+    FLUX.2 accepts explicit dimensions. The selected canvas uses at most two 512px
+    billing tiles, leaving enough of the 10,000-neuron daily free allocation for
+    the 150 long-form scenes plus the 15-scene Short. No paid fallback is enabled.
     """
     if not cloudflare_ai_configured():
         return None
     account = os.environ["CLOUDFLARE_ACCOUNT_ID"].strip()
     token = os.environ["CLOUDFLARE_API_TOKEN"].strip()
-    url = f"https://api.cloudflare.com/client/v4/accounts/{account}/ai/run/@cf/black-forest-labs/flux-1-schnell"
-    payload = {
+    url = f"https://api.cloudflare.com/client/v4/accounts/{account}/ai/run/@cf/black-forest-labs/flux-2-klein-4b"
+    width, height = cloudflare_background_dimensions(project.get("aspect_ratio", "16:9"))
+    fields = {
         "prompt": cloudflare_background_prompt(scene, project.get("aspect_ratio", "16:9")),
-        "steps": 4,
+        "width": width,
+        "height": height,
     }
+    body, boundary = _multipart_form_data(fields)
     request = urllib.request.Request(
         url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        data=body,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+        },
         method="POST",
     )
     try:
@@ -1072,128 +1115,18 @@ def generate_cloudflare_background(scene, project, destination):
     if not encoded:
         raise RuntimeError("Cloudflare AI returned no image payload")
     raw = base64.b64decode(encoded, validate=True)
-    width, height = dimensions(project.get("aspect_ratio", "16:9"))
+    output_width, output_height = dimensions(project.get("aspect_ratio", "16:9"))
     with Image.open(BytesIO(raw)) as source:
-        plate = ImageOps.fit(source.convert("RGB"), (width, height), method=Image.Resampling.LANCZOS)
+        plate = ImageOps.fit(
+            source.convert("RGB"),
+            (output_width, output_height),
+            method=Image.Resampling.LANCZOS,
+        )
         Path(destination).parent.mkdir(parents=True, exist_ok=True)
         plate.save(destination, format="JPEG", quality=92, optimize=True)
     return str(destination)
 
 
-def draw_frame(scene,project,frame,total_frames,out):
-    # Draw above delivery resolution, then downsample once with Lanczos. This
-    # smooths the hand-inked linework and small facial details without changing
-    # the exported frame size or asking the free CPU worker for a GPU.
-    output_w,output_h=dimensions(project.get("aspect_ratio","16:9"))
-    render_scale=1.5
-    w,h=int(round(output_w*render_scale)),int(round(output_h*render_scale))
-    im=Image.new("RGB",(w,h),PAPER); d=ImageDraw.Draw(im)
-    phase=2*math.pi*frame/max(1,total_frames)
-    camera=(scene.get("camera","") or "").lower()
-    closeup="close-up" in camera
-    ai_background = scene.get("ai_background_path")
-    if ai_background and Path(ai_background).is_file():
-        try:
-            with Image.open(ai_background) as plate:
-                plate = ImageOps.fit(plate.convert("RGB"), (w, h), method=Image.Resampling.LANCZOS)
-                im.paste(plate)
-            d = ImageDraw.Draw(im)
-        except (OSError, ValueError):
-            scene.pop("ai_background_path", None)
-            draw_background(im,d,int(scene.get("scene_index",0)),phase,scene,closeup=closeup)
-    else:
-        draw_background(im,d,int(scene.get("scene_index",0)),phase,scene,closeup=closeup)
-    # AI environment plates already contain the scene's architecture and props.
-    # Do not paint a second layer of symbolic objects over the generated artwork.
-    if not (ai_background and Path(ai_background).is_file()):
-        if closeup:
-            draw_primary_story_prop(d,w,h,story_prop_kind(scene_description(scene)),phase)
-        else:
-            draw_story_details(im,d,int(scene.get("scene_index",0)),phase,scene)
-    prompt=scene_description(scene)
-    draw_atmosphere(d,scene,frame,total_frames,w,h)
-    # Framing follows the output orientation and the semantic shot selected
-    # by the storyboard engine; portrait figures stay readable without clipping.
-    scale,x_fraction,y_fraction=scene_composition(w,h,camera,frame,total_frames)
-    names=scene.get("characters",["Narrator"])
-    positions=[x_fraction] if len(names)==1 else ([.30,.52,.74] if w/h>1 else [.36,.66,.50])
-    action=scene.get("action","idle")
-    # A natural walking cadence is several steps per four-second shot;
-    # the background and camera retain their slower independent phase.
-    character_phase=2*math.pi*frame/FPS*1.45
-    for j,name in enumerate(names[:3]):
-        drift=math.sin(phase*2+j)*w*.004
-        if action=="walk" and len(names)==1:
-            positions[j]=.20+.60*(frame/max(1,total_frames-1))
-        x=int(w*positions[j]+drift); y=int(h*y_fraction)
-        color=project.get("characters",{}).get(name,{}).get("color","#34465a")
-        rgb=tuple(int(color[k:k+2],16) for k in (1,3,5))
-        # A soft, restrained ground shadow anchors the figure to the illustrated set.
-        foot_y=y+174*scale
-        shadow_w=46*scale
-        d.ellipse((x-shadow_w,foot_y-5*scale,x+shadow_w,foot_y+7*scale),
-                  fill=(126,119,102))
-        draw_person(d,x,y,scale,rgb,character_phase+j,int(scene.get("scene_index",0))%3,name,action,scene.get("expression","neutral"))
-    apply_house_texture(im,int(scene.get("scene_index",0)))
-    # The brief prohibits burned-in titles, captions and subtitles.
-    vign=Image.new("L",(w,h),0); vd=ImageDraw.Draw(vign)
-    vd.ellipse((-w*.12,-h*.12,w*1.12,h*1.12),fill=230)
-    vign=vign.filter(ImageFilter.GaussianBlur(max(10,int(w*.07))))
-    dark=Image.new("RGB",(w,h),(15,16,15)); im=Image.composite(im,dark,vign)
-    # A restrained crop animation gives each semantic shot camera movement
-    # without changing the requested output dimensions or requiring 3D/GPU tools.
-    crop=camera_crop_box(w,h,camera,frame,total_frames)
-    im=im.crop(crop).resize((w,h),Image.Resampling.LANCZOS)
-    # Keep the public video dimensions unchanged; only the drawing pass is larger.
-    im=im.resize((output_w,output_h),Image.Resampling.LANCZOS)
-    im.save(out,quality=94)
-def ambience_profile(scene):
-    """Choose a restrained sound-bed profile from the illustrated environment."""
-    prompt=(str(scene.get("visual",""))+" "+str(scene.get("title",""))+" "+str(scene.get("visual_prompt",""))).lower()
-    if contains_any(prompt, ("rain","storm","wet")): return (640,92,.62)
-    if contains_any(prompt, ("sea","ocean","ship","harbour","port")): return (430,54,.72)
-    if contains_any(prompt, ("wind","desert","snow","mountain","antarctic")): return (360,66,.58)
-    if contains_any(prompt, ("machine","factory","engine","train","clock","workshop")): return (250,78,.42)
-    if contains_any(prompt, ("library","archive","room","office","court","interior")): return (105,38,.25)
-    if contains_any(prompt, ("market","street","crowd","city")): return (185,120,.30)
-    return (125,46,.30)
-
-
-def synthesize_ambience(scene,destination,duration):
-    """Create a softly shaped, non-musical ambient bed using only Python's standard library."""
-    amp,freq,noise_mix=ambience_profile(scene)
-    rate=24000; count=max(1,int(rate*duration)); rng=random.Random(scene.get("scene_index",0)+701)
-    samples=array("h")
-    fade=min(.32,max(.04,duration*.12))
-    for i in range(count):
-        t=i/rate
-        # Slow amplitude movement avoids a flat synthetic drone.
-        swell=.78+.22*math.sin(2*math.pi*.11*t+0.4)
-        low=math.sin(2*math.pi*freq*t)*amp*.34
-        undertone=math.sin(2*math.pi*(freq*.47)*t+0.7)*amp*.12
-        noise=rng.uniform(-1,1)*amp*noise_mix
-        fade_in=min(1.0,t/fade)
-        fade_out=min(1.0,max(0.0,(duration-t)/fade))
-        envelope=min(fade_in,fade_out)*swell
-        sample=(low+undertone+noise)*envelope
-        samples.append(int(max(-32767,min(32767,sample))))
-    with wave.open(str(destination),"wb") as wf:
-        wf.setnchannels(1); wf.setsampwidth(2); wf.setframerate(rate); wf.writeframes(samples.tobytes())
-
-def synthesize_voice(text,destination,ffmpeg):
-    edge=shutil.which("edge-tts")
-    if edge:
-        mp3=destination.with_suffix(".mp3")
-        try:
-            run([edge,"--voice","en-US-GuyNeural","--rate","+0%","--text",text,"--write-media",str(mp3)])
-            run([ffmpeg,"-y","-loglevel","error","-i",str(mp3),"-ar","24000","-ac","1",str(destination)])
-            return "Microsoft neural en-US-GuyNeural"
-        except Exception:
-            pass
-    tts=shutil.which("espeak-ng") or shutil.which("espeak")
-    if not tts: raise RuntimeError("No TTS engine available. Check cloud network access for Edge TTS.")
-    run([tts,"-s","150","-v","en-us","-w",str(destination),text])
-    return "eSpeak fallback (robotic; neural voice unavailable)"
 def background_generation_summary(scenes, configured):
     """Return truthful, non-secret per-scene status for optional AI background generation."""
     results = []
@@ -1206,7 +1139,7 @@ def background_generation_summary(scenes, configured):
         results.append(item)
     generated = sum(1 for item in results if item["status"] == "generated")
     return {
-        "provider": "Cloudflare Workers AI FLUX.1 schnell",
+        "provider": "Cloudflare Workers AI FLUX.2 Klein 4B",
         "configured": bool(configured),
         "generated_scenes": generated,
         "fallback_scenes": len(results) - generated,
@@ -1222,17 +1155,23 @@ def render_project(project,outdir:Path,progress_callback=None):
     voice_engine=None
     previous_scene_frame=None
     background_engine = "procedural illustrated backgrounds"
+    quota_exhausted = False
     for i,scene in enumerate(project["scenes"]):
         scene["scene_index"]=i
-        scene["background_generation"] = {"provider": "Cloudflare Workers AI FLUX.1 schnell", "status": "fallback"}
-        if cloudflare_ai_configured():
+        scene["background_generation"] = {"provider": "Cloudflare Workers AI FLUX.2 Klein 4B", "status": "fallback"}
+        if quota_exhausted:
+            scene["background_generation"]["error"] = (
+                "Cloudflare's daily free AI quota was exhausted earlier in this render; "
+                "procedural fallback used."
+            )
+        elif cloudflare_ai_configured():
             ai_plate = sd/f"ai_background_{i:03d}.jpg"
             try:
                 generated = generate_cloudflare_background(scene, project, ai_plate)
                 if generated:
                     scene["ai_background_path"] = generated
-                    scene["background_generation"] = {"provider": "Cloudflare Workers AI FLUX.1 schnell", "status": "generated"}
-                    background_engine = "Cloudflare Workers AI FLUX.1 schnell backgrounds with procedural stickman animation"
+                    scene["background_generation"] = {"provider": "Cloudflare Workers AI FLUX.2 Klein 4B", "status": "generated"}
+                    background_engine = "Cloudflare Workers AI FLUX.2 Klein 4B backgrounds with procedural stickman animation"
                 else:
                     scene["background_generation"]["error"] = "No background image was returned; procedural fallback used."
             except Exception as exc:
@@ -1240,6 +1179,8 @@ def render_project(project,outdir:Path,progress_callback=None):
                 # prevent a complete video; keep the local scene renderer as a fallback.
                 scene["ai_background_error"] = str(exc)[:240]
                 scene["background_generation"]["error"] = str(exc)[:240]
+                if cloudflare_quota_exhausted(exc):
+                    quota_exhausted = True
         else:
             scene["background_generation"]["error"] = "Cloudflare credentials are not configured."
         wav=sd/f"voice_{i:03d}.wav"
