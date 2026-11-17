@@ -132,6 +132,7 @@ jobs:
               ):
                   assert phrase in sheet, phrase
               assert locked and style
+              assert f"Create one character sheet in {ratio}" in sheet
               for i, prompt in enumerate(prompts):
                   for required in (
                       locked, style, f"in {ratio}", "One readable character action:",
