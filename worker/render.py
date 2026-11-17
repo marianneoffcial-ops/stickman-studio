@@ -1066,11 +1066,11 @@ def _multipart_form_data(fields):
     chunks = []
     for name, value in fields.items():
         chunks.append(
-            (f"--{boundary}\\r\\n"
-             f'Content-Disposition: form-data; name="{name}"\\r\\n\\r\\n'
-             f"{value}\\r\\n").encode("utf-8")
+            (f"--{boundary}\r\n"
+             f'Content-Disposition: form-data; name="{name}"\r\n\r\n'
+             f"{value}\r\n").encode("utf-8")
         )
-    chunks.append(f"--{boundary}--\\r\\n".encode("ascii"))
+    chunks.append(f"--{boundary}--\r\n".encode("ascii"))
     return b"".join(chunks), boundary
 
 
