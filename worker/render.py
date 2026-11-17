@@ -22,6 +22,20 @@ def dimensions(ratio):
         return (max(2,int(round(1280*a/b/2)*2)),1280)
     except Exception:
         return (1280,720)
+
+def cloudflare_background_dimensions(aspect_ratio):
+    """Choose a low-cost FLUX.2 canvas that needs at most two 512px tiles."""
+    width, height = dimensions(aspect_ratio)
+    ratio = width / float(height)
+    long_side = 768 if ratio >= 1.5 or ratio <= (1.0 / 1.5) else 512
+    if ratio >= 1:
+        out_width = long_side
+        out_height = max(256, int(round((long_side / ratio) / 8.0) * 8))
+    else:
+        out_height = long_side
+        out_width = max(256, int(round((long_side * ratio) / 8.0) * 8))
+    return out_width, out_height
+
 def font(size,bold=False):
     paths=["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
            "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"]
@@ -1038,25 +1052,54 @@ def cloudflare_background_prompt(scene, aspect_ratio):
         description = description.rsplit(" ", 1)[0]
     return prefix + description + suffix
 
-def generate_cloudflare_background(scene, project, destination):
-    """Generate an optional FLUX.1 schnell environment plate through Cloudflare's free Workers AI quota.
+def cloudflare_quota_exhausted(error):
+    """Detect a hard daily/free-tier quota response so later scenes do not repeat doomed calls."""
+    message = str(error or "").lower()
+    return "http 429" in message and any(
+        marker in message for marker in ("daily free allocation", "neurons", "quota exhausted")
+    )
 
-    This never runs unless the owner explicitly configures a Cloudflare account ID and API token.
-    API failures are handled by the caller, which retains the deterministic local renderer.
+
+def _multipart_form_data(fields):
+    """Encode small text fields for Cloudflare FLUX.2's multipart REST endpoint."""
+    boundary = "----StickmanStudio" + format(random.getrandbits(64), "016x")
+    chunks = []
+    for name, value in fields.items():
+        chunks.append(
+            (f"--{boundary}\r\n"
+             f'Content-Disposition: form-data; name="{name}"\r\n\r\n'
+             f"{value}\r\n").encode("utf-8")
+        )
+    chunks.append(f"--{boundary}--\r\n".encode("ascii"))
+    return b"".join(chunks), boundary
+
+
+def generate_cloudflare_background(scene, project, destination):
+    """Generate a story-specific FLUX.2 Klein 4B environment plate within the free quota.
+
+    FLUX.2 accepts explicit dimensions. The selected canvas uses at most two 512px
+    billing tiles, leaving enough of the 10,000-neuron daily free allocation for
+    the 150 long-form scenes plus the 15-scene Short. No paid fallback is enabled.
     """
     if not cloudflare_ai_configured():
         return None
     account = os.environ["CLOUDFLARE_ACCOUNT_ID"].strip()
     token = os.environ["CLOUDFLARE_API_TOKEN"].strip()
-    url = f"https://api.cloudflare.com/client/v4/accounts/{account}/ai/run/@cf/black-forest-labs/flux-1-schnell"
-    payload = {
+    url = f"https://api.cloudflare.com/client/v4/accounts/{account}/ai/run/@cf/black-forest-labs/flux-2-klein-4b"
+    width, height = cloudflare_background_dimensions(project.get("aspect_ratio", "16:9"))
+    fields = {
         "prompt": cloudflare_background_prompt(scene, project.get("aspect_ratio", "16:9")),
-        "steps": 4,
+        "width": width,
+        "height": height,
     }
+    body, boundary = _multipart_form_data(fields)
     request = urllib.request.Request(
         url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        data=body,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+        },
         method="POST",
     )
     try:
@@ -1072,9 +1115,13 @@ def generate_cloudflare_background(scene, project, destination):
     if not encoded:
         raise RuntimeError("Cloudflare AI returned no image payload")
     raw = base64.b64decode(encoded, validate=True)
-    width, height = dimensions(project.get("aspect_ratio", "16:9"))
+    output_width, output_height = dimensions(project.get("aspect_ratio", "16:9"))
     with Image.open(BytesIO(raw)) as source:
-        plate = ImageOps.fit(source.convert("RGB"), (width, height), method=Image.Resampling.LANCZOS)
+        plate = ImageOps.fit(
+            source.convert("RGB"),
+            (output_width, output_height),
+            method=Image.Resampling.LANCZOS,
+        )
         Path(destination).parent.mkdir(parents=True, exist_ok=True)
         plate.save(destination, format="JPEG", quality=92, optimize=True)
     return str(destination)
@@ -1206,7 +1253,7 @@ def background_generation_summary(scenes, configured):
         results.append(item)
     generated = sum(1 for item in results if item["status"] == "generated")
     return {
-        "provider": "Cloudflare Workers AI FLUX.1 schnell",
+        "provider": "Cloudflare Workers AI FLUX.2 Klein 4B",
         "configured": bool(configured),
         "generated_scenes": generated,
         "fallback_scenes": len(results) - generated,
@@ -1222,17 +1269,23 @@ def render_project(project,outdir:Path,progress_callback=None):
     voice_engine=None
     previous_scene_frame=None
     background_engine = "procedural illustrated backgrounds"
+    quota_exhausted = False
     for i,scene in enumerate(project["scenes"]):
         scene["scene_index"]=i
-        scene["background_generation"] = {"provider": "Cloudflare Workers AI FLUX.1 schnell", "status": "fallback"}
-        if cloudflare_ai_configured():
+        scene["background_generation"] = {"provider": "Cloudflare Workers AI FLUX.2 Klein 4B", "status": "fallback"}
+        if quota_exhausted:
+            scene["background_generation"]["error"] = (
+                "Cloudflare's daily free AI quota was exhausted earlier in this render; "
+                "procedural fallback used."
+            )
+        elif cloudflare_ai_configured():
             ai_plate = sd/f"ai_background_{i:03d}.jpg"
             try:
                 generated = generate_cloudflare_background(scene, project, ai_plate)
                 if generated:
                     scene["ai_background_path"] = generated
-                    scene["background_generation"] = {"provider": "Cloudflare Workers AI FLUX.1 schnell", "status": "generated"}
-                    background_engine = "Cloudflare Workers AI FLUX.1 schnell backgrounds with procedural stickman animation"
+                    scene["background_generation"] = {"provider": "Cloudflare Workers AI FLUX.2 Klein 4B", "status": "generated"}
+                    background_engine = "Cloudflare Workers AI FLUX.2 Klein 4B backgrounds with procedural stickman animation"
                 else:
                     scene["background_generation"]["error"] = "No background image was returned; procedural fallback used."
             except Exception as exc:
@@ -1240,6 +1293,8 @@ def render_project(project,outdir:Path,progress_callback=None):
                 # prevent a complete video; keep the local scene renderer as a fallback.
                 scene["ai_background_error"] = str(exc)[:240]
                 scene["background_generation"]["error"] = str(exc)[:240]
+                if cloudflare_quota_exhausted(exc):
+                    quota_exhausted = True
         else:
             scene["background_generation"]["error"] = "Cloudflare credentials are not configured."
         wav=sd/f"voice_{i:03d}.wav"

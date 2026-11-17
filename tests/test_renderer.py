@@ -427,13 +427,14 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertIn("A ship crosses a grey sea at dawn", prompt)
         self.assertIn("16:9", prompt)
 
-    def test_cloudflare_background_decodes_and_fits_image(self):
+    def test_cloudflare_background_decodes_and_fits_image_with_low_cost_flux2_request(self):
         import base64
         import os
         import tempfile
+        import re
         from io import BytesIO
         from unittest.mock import patch, MagicMock
-        from worker.render import generate_cloudflare_background
+        from worker.render import generate_cloudflare_background, cloudflare_background_dimensions
         buffer = BytesIO()
         Image.new("RGB", (32, 24), (120, 130, 140)).save(buffer, format="PNG")
         payload = json.dumps({"result": {"image": base64.b64encode(buffer.getvalue()).decode("ascii")}})
@@ -451,14 +452,41 @@ class RenderSmokeTests(unittest.TestCase):
             self.assertTrue(target.is_file())
             with Image.open(target) as generated:
                 self.assertEqual(generated.size, dimensions("16:9"))
-            self.assertIn("@cf/black-forest-labs/flux-1-schnell", request.call_args.args[0].full_url)
-            sent_payload = json.loads(request.call_args.args[0].data.decode("utf-8"))
-            self.assertEqual(set(sent_payload), {"prompt", "steps"})
-            self.assertGreater(len(sent_payload["prompt"]), 0)
-            self.assertLessEqual(len(sent_payload["prompt"]), 2048)
-            self.assertGreaterEqual(sent_payload["steps"], 1)
-            self.assertLessEqual(sent_payload["steps"], 8)
+            sent_request = request.call_args.args[0]
+            self.assertIn("@cf/black-forest-labs/flux-2-klein-4b", sent_request.full_url)
+            content_type = sent_request.get_header("Content-type")
+            self.assertTrue(content_type.startswith("multipart/form-data; boundary="))
+            boundary = content_type.split("boundary=", 1)[1]
+            body = sent_request.data.decode("utf-8")
+            self.assertIn(f"--{boundary}", body)
+            self.assertIn('name="prompt"', body)
+            self.assertIn('name="width"', body)
+            self.assertIn('name="height"', body)
+            self.assertNotIn('name="steps"', body)
+            width, height = cloudflare_background_dimensions("16:9")
+            self.assertEqual((width, height), (768, 432))
+            self.assertIn(f"\r\n\r\n{width}\r\n", body)
+            self.assertIn(f"\r\n\r\n{height}\r\n", body)
             self.assertEqual(request.call_args.kwargs["timeout"], 90)
+
+    def test_cloudflare_background_dimensions_fit_within_two_billing_tiles(self):
+        from worker.render import cloudflare_background_dimensions
+        for ratio in ("16:9", "9:16", "1:1", "4:5", "5:4", "3:2", "3:1", "1:3"):
+            width, height = cloudflare_background_dimensions(ratio)
+            self.assertGreaterEqual(width, 256)
+            self.assertGreaterEqual(height, 256)
+            self.assertLessEqual(width, 768)
+            self.assertLessEqual(height, 768)
+            tiles = ((width + 511) // 512) * ((height + 511) // 512)
+            self.assertLessEqual(tiles, 2, ratio)
+
+    def test_cloudflare_daily_quota_error_is_detected(self):
+        from worker.render import cloudflare_quota_exhausted
+        self.assertTrue(cloudflare_quota_exhausted(
+            'Cloudflare AI rejected the background request (HTTP 429): '
+            'you have used up your daily free allocation of 10,000 neurons'
+        ))
+        self.assertFalse(cloudflare_quota_exhausted("HTTP 500 internal server error"))
 
     def test_background_generation_summary_reports_real_per_scene_fallbacks(self):
         from worker.render import background_generation_summary
@@ -468,7 +496,7 @@ class RenderSmokeTests(unittest.TestCase):
             {"background_generation": {"status": "fallback", "error": "invalid image"}},
         ], configured=True)
         self.assertTrue(summary["configured"])
-        self.assertEqual(summary["provider"], "Cloudflare Workers AI FLUX.1 schnell")
+        self.assertEqual(summary["provider"], "Cloudflare Workers AI FLUX.2 Klein 4B")
         self.assertEqual(summary["generated_scenes"], 1)
         self.assertEqual(summary["fallback_scenes"], 2)
         self.assertEqual(summary["total_scenes"], 3)
