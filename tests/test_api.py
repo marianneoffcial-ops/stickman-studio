@@ -19,7 +19,7 @@ from app.story import make_project
 
 class ProductionApiTests(unittest.TestCase):
     def test_request_accepts_full_150_scene_storyboard_for_ten_minute_video(self):
-        storyboard = "\\n".join(
+        storyboard = "\n".join(
             f"Scene {index + 1}: a distinct historical setting, a clear action, a story-specific prop, "
             "a motivated camera composition and a restrained painterly environment. "
             for index in range(150)
