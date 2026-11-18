@@ -139,10 +139,10 @@ jobs:
                   for required in (
                       locked, style, f"in {ratio}", "One readable character action:",
                       "Diegetic sound only:", "no voice, narration, dialogue or music",
-                      "no real named people", "no flags", "no insignia", "no logos",
-                      "no violence", "no injury", "no weapons", "death, blood or weapons being fired",
+                      "no real named people, flags, insignia, logos, violence, injury, death, blood or weapons being fired",
+                      
                       "no on-screen text", "no subtitles", "no watermark",
-                      "no glitching", "no warping", "no flickering",
+                      "no glitching, warping, morphing, flickering",
                   ):
                       assert required.lower() in prompt.lower(), (i + 1, required)
               cameras = {scene["camera"] for scene in project["scenes"]}
