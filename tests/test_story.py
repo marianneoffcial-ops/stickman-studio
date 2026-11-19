@@ -20,6 +20,38 @@ class StoryTimingTests(unittest.TestCase):
         self.assertEqual(project["scene_count"], 150)
         self.assertEqual(sum(s["duration"] for s in project["scenes"]), 600)
 
+    def test_repeated_storyboard_anchors_still_create_unique_scene_prompts(self):
+        beats = [
+            f"During scene {i+1}, the team carefully studies the evidence."
+            for i in range(15)
+        ]
+        anchors = [
+            "A narrow historic lane with timber rooftops.",
+            "A broad river beside the old city.",
+            "A quiet bakery room with a brick oven.",
+            "A timber-framed street seen from above.",
+            "A rebuilding site with stacked bricks.",
+            "A calm stone street at dawn.",
+        ]
+        project = make_project(
+            "The Great Fire of London", 60, "9:16", " ".join(beats),
+            "\n".join(anchors), beats
+        )
+        prompts = project["animation_prompts"]
+        self.assertEqual(len(prompts), 15)
+        self.assertEqual(len(set(prompts)), 15)
+        self.assertTrue(all(
+            f"Scene-specific beat {i+1} of 15" in prompt and beats[i] in prompt
+            for i, prompt in enumerate(prompts)
+        ))
+        self.assertEqual(
+            [scene["visual"] for scene in project["scenes"]],
+            [anchors[i % len(anchors)] for i in range(15)]
+        )
+        self.assertGreaterEqual(
+            len({scene["camera"] for scene in project["scenes"]}), 4
+        )
+
     def test_character_is_consistent_across_scenes(self):
         project = make_project("The Disappearance of the Mary Celeste", 60, "16:9", " ".join(["A fact."] * 150), "\n".join([f"Scene {i}" for i in range(15)]))
         self.assertEqual(len({tuple(s["characters"]) for s in project["scenes"]}), 1)
