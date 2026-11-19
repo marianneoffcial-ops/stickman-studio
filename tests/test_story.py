@@ -35,7 +35,7 @@ class StoryTimingTests(unittest.TestCase):
         ]
         project = make_project(
             "The Great Fire of London", 60, "9:16", " ".join(beats),
-            "\\n".join(anchors), beats
+            "\n".join(anchors), beats
         )
         prompts = project["animation_prompts"]
         self.assertEqual(len(prompts), 15)
