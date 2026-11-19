@@ -198,10 +198,23 @@ def _scene_camera(visual, index):
     ]
     for terms,camera in rules:
         if any(term in v for term in terms):
-            # A repeated shot is less useful than a fresh angle on consecutive beats.
-            if index and index % 4 == 0 and camera.startswith("close-up"):
+            # Rotate through a small, motivated framing pattern when several adjacent
+            # narration beats share one location or prop. Preserve strong semantic matches
+            # for maps, object close-ups, architecture and travel in their natural slots.
+            slot = index % 4
+            if slot == 0:
+                return camera
+            if slot == 1:
+                if camera.startswith("close-up"):
+                    return camera
                 return "medium character composition with gentle lateral pan"
-            return camera
+            if slot == 2:
+                if camera.startswith("low-angle"):
+                    return camera
+                return "high-angle environmental wide with a slow descending drift"
+            if camera.startswith("side-on tracking"):
+                return camera
+            return "wide silhouette composition with slow pull-back"
     return CAMERAS[index % len(CAMERAS)]
 
 def _lead_for_topic(topic):
@@ -268,7 +281,9 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
     locked = _locked_character_block(lead)
     scenes = []
     for i in range(count):
-        anchor = anchors[min(len(anchors)-1, int(i * len(anchors) / count))] if anchors else ""
+        # Cycle through researched visual anchors so a short source storyboard is
+        # distributed across the whole film instead of being held for several shots.
+        anchor = anchors[i % len(anchors)] if anchors else ""
         narration = chunks[i] if i < len(chunks) else ""
         if not narration:
             narration = f"[SCRIPT REQUIRED] Write researched narration for this moment in {topic}. This is not publish-ready."
@@ -286,6 +301,7 @@ def make_project(topic, duration_seconds, aspect_ratio="16:9", narration_script=
         duration_this = min(4, duration-i*4)
         visual_prompt = (
             f"This is a {duration_this}-second hand-inked 2D animated clip in {aspect_ratio}. "
+            f"Scene-specific beat {i+1} of {count}; narration context only, never render words: {narration}. "
             f"Narrative job: {phase}. {locked} Background and story action: {visual}. "
             f"Shot composition and motivated camera movement: {camera}. "
             f"One readable character action: {action}; facial expression: {expression}. "
