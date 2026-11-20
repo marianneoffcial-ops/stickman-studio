@@ -319,7 +319,7 @@ class RenderSmokeTests(unittest.TestCase):
                 audio.setnchannels(1)
                 audio.setsampwidth(2)
                 audio.setframerate(24000)
-                audio.writeframes(b"\\x00\\x00" * int(24000 * seconds))
+                audio.writeframes(bytes(2 * int(24000 * seconds)))
             return f"Microsoft neural test voice ({rate})"
 
         with tempfile.TemporaryDirectory() as folder:
@@ -341,8 +341,7 @@ class RenderSmokeTests(unittest.TestCase):
 
     def test_neural_voice_rate_is_configurable(self):
         from worker.render import synthesize_voice
-        with patch("worker.render.shutil.which", side_effect=lambda name: "/usr/bin/edge-tts" if name == "edge-tts" else None), \\
-             patch("worker.render.run") as mocked_run:
+        with patch("worker.render.shutil.which", side_effect=lambda name: "/usr/bin/edge-tts" if name == "edge-tts" else None), patch("worker.render.run") as mocked_run:
             engine = synthesize_voice("A short narration beat.", Path("voice.wav"), "/usr/bin/ffmpeg", rate="+35%")
         command = mocked_run.call_args_list[0].args[0]
         self.assertIn("--rate", command)
