@@ -288,8 +288,10 @@ jobs:
           PY
 
       - name: Upload real full-duration production samples and visual contact sheets
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: stickman-full-duration-production-qa
           path: artifacts/full-qa/
+          if-no-files-found: warn
           retention-days: 7

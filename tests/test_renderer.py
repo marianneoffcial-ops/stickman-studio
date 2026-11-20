@@ -1,6 +1,7 @@
 import json
 import subprocess
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 from PIL import Image, ImageDraw
 
@@ -303,6 +304,49 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertNotEqual(first, later)
         self.assertEqual(len(first), 58)
         self.assertTrue(all(kind == "rain" for kind, _, _ in first))
+
+    def test_long_neural_voice_beats_retry_with_faster_rate_before_time_stretching(self):
+        import tempfile
+        import wave
+        from worker.render import _prepare_scene_voice
+
+        rates = []
+        def fake_synthesis(text, destination, ffmpeg, rate="+15%"):
+            rates.append(rate)
+            seconds = 6.4 if rate == "+15%" else 3.6
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            with wave.open(str(destination), "wb") as audio:
+                audio.setnchannels(1)
+                audio.setsampwidth(2)
+                audio.setframerate(24000)
+                audio.writeframes(bytes(2 * int(24000 * seconds)))
+            return f"Microsoft neural test voice ({rate})"
+
+        with tempfile.TemporaryDirectory() as folder:
+            from worker import render as renderer
+            with patch.object(renderer, "synthesize_voice", side_effect=fake_synthesis):
+                path, seconds, engine = _prepare_scene_voice(
+                    "A ten word narration beat with several long historical terms.",
+                    Path(folder) / "voice.wav",
+                    Path(folder),
+                    "ffmpeg",
+                    4.0,
+                    23,
+                )
+
+        self.assertEqual(rates, ["+15%", "+35%"])
+        self.assertTrue(path.name.startswith("voice_fast_"))
+        self.assertAlmostEqual(seconds, 3.6, delta=0.01)
+        self.assertIn("neural", engine.lower())
+
+    def test_neural_voice_rate_is_configurable(self):
+        from worker.render import synthesize_voice
+        with patch("worker.render.shutil.which", side_effect=lambda name: "/usr/bin/edge-tts" if name == "edge-tts" else None), patch("worker.render.run") as mocked_run:
+            engine = synthesize_voice("A short narration beat.", Path("voice.wav"), "/usr/bin/ffmpeg", rate="+35%")
+        command = mocked_run.call_args_list[0].args[0]
+        self.assertIn("--rate", command)
+        self.assertIn("+35%", command)
+        self.assertIn("neural", engine.lower())
 
     def test_ambience_is_scene_aware_and_fades_at_both_ends(self):
         import tempfile

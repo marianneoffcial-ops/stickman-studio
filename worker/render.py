@@ -1227,20 +1227,56 @@ def synthesize_ambience(scene,destination,duration):
     with wave.open(str(destination),"wb") as wf:
         wf.setnchannels(1); wf.setsampwidth(2); wf.setframerate(rate); wf.writeframes(samples.tobytes())
 
-def synthesize_voice(text,destination,ffmpeg):
+def synthesize_voice(text,destination,ffmpeg,rate="+15%"):
     edge=shutil.which("edge-tts")
     if edge:
         mp3=destination.with_suffix(".mp3")
         try:
-            run([edge,"--voice","en-US-GuyNeural","--rate","+0%","--text",text,"--write-media",str(mp3)])
+            run([edge,"--voice","en-US-GuyNeural","--rate",rate,"--text",text,"--write-media",str(mp3)])
             run([ffmpeg,"-y","-loglevel","error","-i",str(mp3),"-ar","24000","-ac","1",str(destination)])
-            return "Microsoft neural en-US-GuyNeural"
+            return f"Microsoft neural en-US-GuyNeural ({rate})"
         except Exception:
             pass
     tts=shutil.which("espeak-ng") or shutil.which("espeak")
     if not tts: raise RuntimeError("No TTS engine available. Check cloud network access for Edge TTS.")
     run([tts,"-s","150","-v","en-us","-w",str(destination),text])
     return "eSpeak fallback (robotic; neural voice unavailable)"
+
+
+def _audio_seconds(path):
+    with wave.open(str(path),"rb") as audio:
+        return audio.getnframes()/float(audio.getframerate())
+
+
+def _prepare_scene_voice(text,destination,scene_dir,ffmpeg,clip_duration,scene_index):
+    """Fit one neural narration beat to its exact clip without letting an outlier abort a long film."""
+    engine=synthesize_voice(text,destination,ffmpeg,rate="+15%")
+    speech_seconds=_audio_seconds(destination)
+    target=max(0.25,clip_duration-0.08)
+    if speech_seconds > target:
+        tempo=speech_seconds/target
+        if tempo > 1.55:
+            # Long, multisyllabic source beats can outlast four seconds even when
+            # they contain the required 9–10 words. Retry only those outliers with
+            # a faster neural delivery before using time-stretching.
+            faster=scene_dir/f"voice_fast_{scene_index:03d}.wav"
+            engine=synthesize_voice(text,faster,ffmpeg,rate="+35%")
+            destination=faster
+            speech_seconds=_audio_seconds(destination)
+            tempo=speech_seconds/target
+        if speech_seconds > target:
+            if tempo > 1.55:
+                raise RuntimeError(
+                    f"Scene {scene_index+1} narration remains too long after adaptive neural pacing; "
+                    "shorten the source beat while preserving its researched meaning."
+                )
+            fitted=scene_dir/f"voice_fitted_{scene_index:03d}.wav"
+            run([ffmpeg,"-y","-loglevel","error","-i",str(destination),
+                 "-af",f"atempo={tempo:.4f}","-t",f"{clip_duration-0.04:.3f}",
+                 "-ar","24000","-ac","1",str(fitted)])
+            destination=fitted
+            speech_seconds=_audio_seconds(destination)
+    return destination,speech_seconds,engine
 def background_generation_summary(scenes, configured):
     """Return truthful, non-secret per-scene status for optional AI background generation."""
     results = []
@@ -1298,22 +1334,14 @@ def render_project(project,outdir:Path,progress_callback=None):
         else:
             scene["background_generation"]["error"] = "Cloudflare credentials are not configured."
         wav=sd/f"voice_{i:03d}.wav"
-        engine=synthesize_voice(scene["narration"],wav,ffmpeg); voice_engine=engine
-        with wave.open(str(wav),"rb") as wf:
-            speech_seconds=wf.getnframes()/float(wf.getframerate())
         # Keep clip duration locked to the requested four-second beat (or final remainder).
         duration=float(scene["duration"])
         frames=max(1,int(round(duration*FPS)))
         clip_duration=frames/FPS
-        if speech_seconds > clip_duration-0.08:
-            tempo=speech_seconds/max(0.25,clip_duration-0.08)
-            if tempo > 1.55:
-                raise RuntimeError(f"Scene {i+1} narration is too long for its {duration:g}-second beat; shorten the script to about 9–10 words per 4 seconds.")
-            fitted=sd/f"voice_fitted_{i:03d}.wav"
-            run([ffmpeg,"-y","-loglevel","error","-i",str(wav),"-af",f"atempo={tempo:.4f}","-t",f"{clip_duration-0.04:.3f}","-ar","24000","-ac","1",str(fitted)])
-            wav=fitted
-            with wave.open(str(wav),"rb") as wf:
-                speech_seconds=wf.getnframes()/float(wf.getframerate())
+        wav,speech_seconds,engine=_prepare_scene_voice(
+            scene["narration"],wav,sd,ffmpeg,clip_duration,i
+        )
+        voice_engine=engine
         frames_dir=sd/f"frames_{i:03d}"; frames_dir.mkdir(exist_ok=True)
         for f in range(frames):
             frame_path=frames_dir/f"frame_{f:05d}.png"
