@@ -1368,6 +1368,10 @@ def background_generation_summary(scenes, configured):
         generation = scene.get("background_generation") or {}
         status = generation.get("status", "fallback")
         item = {"scene_index": index, "status": status}
+        if generation.get("reused"):
+            item["reused"] = True
+        if generation.get("source_scene_index") is not None:
+            item["source_scene_index"] = generation["source_scene_index"]
         if generation.get("error"):
             item["error"] = str(generation["error"])[:240]
         results.append(item)
