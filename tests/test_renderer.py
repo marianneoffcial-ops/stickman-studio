@@ -277,6 +277,19 @@ class RenderSmokeTests(unittest.TestCase):
             self.assertLessEqual(last[3], height)
             self.assertGreater(first[2] - first[0], width * .90)
 
+    def test_reused_background_plates_get_deterministic_distinct_scene_framing(self):
+        from worker.render import camera_crop_box
+        width, height = 1920, 1080
+        first = camera_crop_box(width, height, "wide establishing shot", 12, 48, 0)
+        second = camera_crop_box(width, height, "wide establishing shot", 12, 48, 1)
+        repeated = camera_crop_box(width, height, "wide establishing shot", 12, 48, 1)
+        self.assertNotEqual(first, second)
+        self.assertEqual(second, repeated)
+        self.assertGreaterEqual(second[0], 0)
+        self.assertGreaterEqual(second[1], 0)
+        self.assertLessEqual(second[2], width)
+        self.assertLessEqual(second[3], height)
+
     def test_scene_transition_cross_dissolves_without_changing_frame_size(self):
         from worker.render import blend_scene_transition
         previous = Image.new("RGB", (32, 24), (0, 0, 0))
