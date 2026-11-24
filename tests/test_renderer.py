@@ -74,6 +74,41 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertEqual(summary["unique_generated_plates"], 1)
         self.assertEqual(summary["reused_scenes"], 2)
 
+    def test_150_scene_story_fits_under_the_50_plate_free_quota_cap(self):
+        import tempfile
+        from worker.render import assign_scene_background, background_generation_summary
+
+        settings = [f"researched location {index}" for index in range(6)]
+        stages = ["context", "preparation", "journey", "discovery",
+                  "decision", "turning point", "aftermath", "legacy"]
+        scenes = []
+        for index in range(150):
+            setting = settings[index % len(settings)]
+            stage = stages[(index // len(settings)) % len(stages)]
+            scenes.append({
+                "scene_index": index,
+                "visual": f"{setting}, {stage} in the story, one clear coverage beat"
+            })
+
+        cache = {}
+        state = {"quota_exhausted": False, "unique_generated_plates": 0, "failed_keys": {}}
+        with tempfile.TemporaryDirectory() as folder:
+            def fake_generate(scene, project, destination):
+                Path(destination).write_bytes(b"mock-painterly-background")
+                return str(destination)
+
+            with patch("worker.render.cloudflare_ai_configured", return_value=True):
+                with patch("worker.render.generate_cloudflare_background", side_effect=fake_generate) as generate:
+                    for scene in scenes:
+                        assign_scene_background(scene, {"aspect_ratio": "16:9"}, Path(folder), cache, state)
+
+        summary = background_generation_summary(scenes, True)
+        self.assertEqual(generate.call_count, 48)
+        self.assertEqual(summary["generated_scenes"], 150)
+        self.assertEqual(summary["fallback_scenes"], 0)
+        self.assertEqual(summary["unique_generated_plates"], 48)
+        self.assertEqual(summary["reused_scenes"], 102)
+
     def test_background_setting_is_dominant_and_does_not_mix_locations(self):
         from worker.render import scene_background_mode
         self.assertEqual(scene_background_mode("A ship carries a map through the sea", 0), 2)
