@@ -17,6 +17,63 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertEqual(scene_transport_kind("An aircraft flies over the coast"), "sea")
         self.assertEqual(scene_transport_kind("A quiet archive interior"), "none")
 
+    def test_background_cache_key_reuses_only_matching_setting_and_story_phase(self):
+        from worker.render import background_cache_key
+
+        first = {
+            "scene_index": 0,
+            "visual": "a quiet 17th-century London lane at night, context in the story, "
+                      "establish the ordinary world; a baker's oven is clearly visible"
+        }
+        matching_coverage = {
+            "scene_index": 24,
+            "visual": "a quiet 17th-century London lane at night, context in the story, "
+                      "show the street from a closer camera angle; the baker's oven remains visible"
+        }
+        different_phase = {
+            "scene_index": 3,
+            "visual": "a quiet 17th-century London lane at night, aftermath in the story, "
+                      "show the changed street after the event"
+        }
+        different_setting = {
+            "scene_index": 4,
+            "visual": "a riverside view of 1666 London, context in the story, "
+                      "show boats beside the river"
+        }
+        self.assertEqual(background_cache_key(first), background_cache_key(matching_coverage))
+        self.assertNotEqual(background_cache_key(first), background_cache_key(different_phase))
+        self.assertNotEqual(background_cache_key(first), background_cache_key(different_setting))
+
+    def test_scene_background_cache_reuses_one_ai_plate_for_matching_coverage(self):
+        import tempfile
+        from worker.render import assign_scene_background, background_generation_summary
+
+        scenes = [
+            {"scene_index": 0, "visual": "a quiet lane, context in the story, establish the setting"},
+            {"scene_index": 1, "visual": "a quiet lane, context in the story, show a closer view"},
+            {"scene_index": 2, "visual": "a quiet lane, context in the story, show the figure turning"},
+        ]
+        cache = {}
+        state = {"quota_exhausted": False, "unique_generated_plates": 0, "failed_keys": {}}
+        with tempfile.TemporaryDirectory() as folder:
+            def fake_generate(scene, project, destination):
+                Path(destination).write_bytes(b"mock-painterly-background")
+                return str(destination)
+
+            with patch("worker.render.cloudflare_ai_configured", return_value=True):
+                with patch("worker.render.generate_cloudflare_background", side_effect=fake_generate) as generate:
+                    for scene in scenes:
+                        assign_scene_background(scene, {"aspect_ratio": "16:9"}, Path(folder), cache, state)
+
+        self.assertEqual(generate.call_count, 1)
+        self.assertTrue(all(scene.get("ai_background_path") for scene in scenes))
+        self.assertTrue(all(scene["background_generation"]["status"] == "generated" for scene in scenes))
+        summary = background_generation_summary(scenes, True)
+        self.assertEqual(summary["generated_scenes"], 3)
+        self.assertEqual(summary["fallback_scenes"], 0)
+        self.assertEqual(summary["unique_generated_plates"], 1)
+        self.assertEqual(summary["reused_scenes"], 2)
+
     def test_background_setting_is_dominant_and_does_not_mix_locations(self):
         from worker.render import scene_background_mode
         self.assertEqual(scene_background_mode("A ship carries a map through the sea", 0), 2)
