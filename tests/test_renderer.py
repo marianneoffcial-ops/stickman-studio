@@ -17,6 +17,118 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertEqual(scene_transport_kind("An aircraft flies over the coast"), "sea")
         self.assertEqual(scene_transport_kind("A quiet archive interior"), "none")
 
+    def test_background_cache_key_reuses_only_matching_setting_and_story_phase(self):
+        from worker.render import background_cache_key
+
+        first = {
+            "scene_index": 0,
+            "visual": "a quiet 17th-century London lane at night, context in the story, "
+                      "establish the ordinary world; a baker's oven is clearly visible"
+        }
+        matching_coverage = {
+            "scene_index": 24,
+            "visual": "a quiet 17th-century London lane at night, context in the story, "
+                      "show the street from a closer camera angle; the baker's oven remains visible"
+        }
+        different_phase = {
+            "scene_index": 3,
+            "visual": "a quiet 17th-century London lane at night, aftermath in the story, "
+                      "show the changed street after the event"
+        }
+        different_setting = {
+            "scene_index": 4,
+            "visual": "a riverside view of 1666 London, context in the story, "
+                      "show boats beside the river"
+        }
+        self.assertEqual(background_cache_key(first), background_cache_key(matching_coverage))
+        self.assertEqual(
+            background_cache_key({"visual": "a quiet lane, preparation in the story, another beat"}),
+            background_cache_key({"visual": "a quiet lane, context in the story, first beat"}),
+        )
+        self.assertEqual(
+            background_cache_key({"visual": "a quiet lane, discovery in the story, another beat"}),
+            background_cache_key({"visual": "a quiet lane, journey in the story, first beat"}),
+        )
+        self.assertNotEqual(background_cache_key(first), background_cache_key(different_phase))
+        self.assertNotEqual(background_cache_key(first), background_cache_key(different_setting))
+
+    def test_scene_background_cache_reuses_one_ai_plate_for_matching_coverage(self):
+        import tempfile
+        from worker.render import assign_scene_background, background_generation_summary
+
+        scenes = [
+            {"scene_index": 0, "visual": "a quiet lane, context in the story, establish the setting"},
+            {"scene_index": 1, "visual": "a quiet lane, context in the story, show a closer view"},
+            {"scene_index": 2, "visual": "a quiet lane, context in the story, show the figure turning"},
+        ]
+        cache = {}
+        state = {"quota_exhausted": False, "unique_generated_plates": 0, "failed_keys": {}}
+        with tempfile.TemporaryDirectory() as folder:
+            def fake_generate(scene, project, destination):
+                Path(destination).write_bytes(b"mock-painterly-background")
+                return str(destination)
+
+            with patch("worker.render.cloudflare_ai_configured", return_value=True):
+                with patch("worker.render.generate_cloudflare_background", side_effect=fake_generate) as generate:
+                    for scene in scenes:
+                        assign_scene_background(scene, {"aspect_ratio": "16:9"}, Path(folder), cache, state)
+
+        self.assertEqual(generate.call_count, 1)
+        self.assertTrue(all(scene.get("ai_background_path") for scene in scenes))
+        self.assertTrue(all(scene["background_generation"]["status"] == "generated" for scene in scenes))
+        summary = background_generation_summary(scenes, True)
+        self.assertEqual(summary["generated_scenes"], 3)
+        self.assertEqual(summary["fallback_scenes"], 0)
+        self.assertEqual(summary["unique_generated_plates"], 1)
+        self.assertEqual(summary["reused_scenes"], 2)
+
+    def test_150_scene_story_switches_to_location_cache_before_free_quota_cap(self):
+        import tempfile
+        from worker.render import (
+            assign_scene_background,
+            background_generation_summary,
+            choose_background_cache_granularity,
+        )
+
+        # Twelve possible subject domains with six recurring locations each.
+        settings = [f"domain {domain} researched location {location}"
+                    for domain in range(12) for location in range(6)]
+        stages = ["context", "journey", "decision", "aftermath"]
+        scenes = []
+        for index in range(150):
+            setting = settings[index % len(settings)]
+            stage = stages[(index // len(settings)) % len(stages)]
+            scenes.append({
+                "scene_index": index,
+                "visual": f"{setting}, {stage} in the story, one clear coverage beat"
+            })
+
+        granularity = choose_background_cache_granularity(scenes)
+        self.assertEqual(granularity, "setting")
+        cache = {}
+        state = {
+            "quota_exhausted": False,
+            "unique_generated_plates": 0,
+            "failed_keys": {},
+            "cache_granularity": granularity,
+        }
+        with tempfile.TemporaryDirectory() as folder:
+            def fake_generate(scene, project, destination):
+                Path(destination).write_bytes(b"mock-painterly-background")
+                return str(destination)
+
+            with patch("worker.render.cloudflare_ai_configured", return_value=True):
+                with patch("worker.render.generate_cloudflare_background", side_effect=fake_generate) as generate:
+                    for scene in scenes:
+                        assign_scene_background(scene, {"aspect_ratio": "16:9"}, Path(folder), cache, state)
+
+        summary = background_generation_summary(scenes, True)
+        self.assertEqual(generate.call_count, 72)
+        self.assertEqual(summary["generated_scenes"], 150)
+        self.assertEqual(summary["fallback_scenes"], 0)
+        self.assertEqual(summary["unique_generated_plates"], 72)
+        self.assertEqual(summary["reused_scenes"], 78)
+
     def test_background_setting_is_dominant_and_does_not_mix_locations(self):
         from worker.render import scene_background_mode
         self.assertEqual(scene_background_mode("A ship carries a map through the sea", 0), 2)
@@ -184,6 +296,19 @@ class RenderSmokeTests(unittest.TestCase):
             self.assertLessEqual(last[2], width)
             self.assertLessEqual(last[3], height)
             self.assertGreater(first[2] - first[0], width * .90)
+
+    def test_reused_background_plates_get_deterministic_distinct_scene_framing(self):
+        from worker.render import camera_crop_box
+        width, height = 1920, 1080
+        first = camera_crop_box(width, height, "wide establishing shot", 12, 48, 0)
+        second = camera_crop_box(width, height, "wide establishing shot", 12, 48, 1)
+        repeated = camera_crop_box(width, height, "wide establishing shot", 12, 48, 1)
+        self.assertNotEqual(first, second)
+        self.assertEqual(second, repeated)
+        self.assertGreaterEqual(second[0], 0)
+        self.assertGreaterEqual(second[1], 0)
+        self.assertLessEqual(second[2], width)
+        self.assertLessEqual(second[3], height)
 
     def test_scene_transition_cross_dissolves_without_changing_frame_size(self):
         from worker.render import blend_scene_transition
@@ -523,6 +648,10 @@ class RenderSmokeTests(unittest.TestCase):
             self.assertLessEqual(height, 768)
             tiles = ((width + 511) // 512) * ((height + 511) // 512)
             self.assertLessEqual(tiles, 2, ratio)
+        from worker.render import cloudflare_background_dimensions
+        self.assertEqual(cloudflare_background_dimensions("16:9", 60), (768, 432))
+        self.assertEqual(cloudflare_background_dimensions("16:9", 600), (512, 288))
+        self.assertEqual(cloudflare_background_dimensions("9:16", 600), (288, 512))
 
     def test_cloudflare_daily_quota_error_is_detected(self):
         from worker.render import cloudflare_quota_exhausted
