@@ -41,6 +41,14 @@ class RenderSmokeTests(unittest.TestCase):
                       "show boats beside the river"
         }
         self.assertEqual(background_cache_key(first), background_cache_key(matching_coverage))
+        self.assertEqual(
+            background_cache_key({"visual": "a quiet lane, preparation in the story, another beat"}),
+            background_cache_key({"visual": "a quiet lane, context in the story, first beat"}),
+        )
+        self.assertEqual(
+            background_cache_key({"visual": "a quiet lane, discovery in the story, another beat"}),
+            background_cache_key({"visual": "a quiet lane, journey in the story, first beat"}),
+        )
         self.assertNotEqual(background_cache_key(first), background_cache_key(different_phase))
         self.assertNotEqual(background_cache_key(first), background_cache_key(different_setting))
 
@@ -74,13 +82,18 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertEqual(summary["unique_generated_plates"], 1)
         self.assertEqual(summary["reused_scenes"], 2)
 
-    def test_150_scene_story_fits_under_the_50_plate_free_quota_cap(self):
+    def test_150_scene_story_switches_to_location_cache_before_free_quota_cap(self):
         import tempfile
-        from worker.render import assign_scene_background, background_generation_summary
+        from worker.render import (
+            assign_scene_background,
+            background_generation_summary,
+            choose_background_cache_granularity,
+        )
 
-        settings = [f"researched location {index}" for index in range(6)]
-        stages = ["context", "preparation", "journey", "discovery",
-                  "decision", "turning point", "aftermath", "legacy"]
+        # Twelve possible subject domains with six recurring locations each.
+        settings = [f"domain {domain} researched location {location}"
+                    for domain in range(12) for location in range(6)]
+        stages = ["context", "journey", "decision", "aftermath"]
         scenes = []
         for index in range(150):
             setting = settings[index % len(settings)]
@@ -90,8 +103,15 @@ class RenderSmokeTests(unittest.TestCase):
                 "visual": f"{setting}, {stage} in the story, one clear coverage beat"
             })
 
+        granularity = choose_background_cache_granularity(scenes)
+        self.assertEqual(granularity, "setting")
         cache = {}
-        state = {"quota_exhausted": False, "unique_generated_plates": 0, "failed_keys": {}}
+        state = {
+            "quota_exhausted": False,
+            "unique_generated_plates": 0,
+            "failed_keys": {},
+            "cache_granularity": granularity,
+        }
         with tempfile.TemporaryDirectory() as folder:
             def fake_generate(scene, project, destination):
                 Path(destination).write_bytes(b"mock-painterly-background")
@@ -103,11 +123,11 @@ class RenderSmokeTests(unittest.TestCase):
                         assign_scene_background(scene, {"aspect_ratio": "16:9"}, Path(folder), cache, state)
 
         summary = background_generation_summary(scenes, True)
-        self.assertEqual(generate.call_count, 48)
+        self.assertEqual(generate.call_count, 72)
         self.assertEqual(summary["generated_scenes"], 150)
         self.assertEqual(summary["fallback_scenes"], 0)
-        self.assertEqual(summary["unique_generated_plates"], 48)
-        self.assertEqual(summary["reused_scenes"], 102)
+        self.assertEqual(summary["unique_generated_plates"], 72)
+        self.assertEqual(summary["reused_scenes"], 78)
 
     def test_background_setting_is_dominant_and_does_not_mix_locations(self):
         from worker.render import scene_background_mode
@@ -628,6 +648,10 @@ class RenderSmokeTests(unittest.TestCase):
             self.assertLessEqual(height, 768)
             tiles = ((width + 511) // 512) * ((height + 511) // 512)
             self.assertLessEqual(tiles, 2, ratio)
+        from worker.render import cloudflare_background_dimensions
+        self.assertEqual(cloudflare_background_dimensions("16:9", 60), (768, 432))
+        self.assertEqual(cloudflare_background_dimensions("16:9", 600), (512, 288))
+        self.assertEqual(cloudflare_background_dimensions("9:16", 600), (288, 512))
 
     def test_cloudflare_daily_quota_error_is_detected(self):
         from worker.render import cloudflare_quota_exhausted
