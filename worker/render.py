@@ -5,6 +5,7 @@ from array import array
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageOps
 
 FPS=12
+MAX_UNIQUE_BACKGROUND_PLATES=50
 INK=(29,30,27)
 PAPER=(220,211,190)
 PALETTE=[(204,194,170),(173,177,153),(166,169,164),(216,207,185),(151,158,145)]
@@ -1075,11 +1076,12 @@ def _multipart_form_data(fields):
 
 
 def generate_cloudflare_background(scene, project, destination):
-    """Generate a story-specific FLUX.2 Klein 4B environment plate within the free quota.
+    """Generate one story-specific FLUX.2 Klein 4B environment plate.
 
-    FLUX.2 accepts explicit dimensions. The selected canvas uses at most two 512px
-    billing tiles, leaving enough of the 10,000-neuron daily free allocation for
-    the 150 long-form scenes plus the 15-scene Short. No paid fallback is enabled.
+    The render loop caches plates by the story setting and narrative phase, so
+    coverage shots can reuse one coherent painted location with different camera
+    framing and character action. A per-video cap prevents accidental quota
+    exhaustion; no paid fallback is enabled.
     """
     if not cloudflare_ai_configured():
         return None
@@ -1277,6 +1279,88 @@ def _prepare_scene_voice(text,destination,scene_dir,ffmpeg,clip_duration,scene_i
             destination=fitted
             speech_seconds=_audio_seconds(destination)
     return destination,speech_seconds,engine
+def background_cache_key(scene):
+    """Group coverage shots that share the same researched setting and story phase."""
+    visual = re.sub(r"\s+", " ", str((scene or {}).get("visual", ""))).strip()
+    match = re.match(
+        r"^(.*?),\s*(context|preparation|journey|discovery|decision|turning point|aftermath|legacy)\s+in the story\b",
+        visual,
+        flags=re.I,
+    )
+    if match:
+        return (match.group(1).strip().casefold(), match.group(2).strip().casefold())
+    # Custom storyboards may not use the research engine's stage grammar. In that
+    # case, reuse only exact normalized environment descriptions, never across
+    # unrelated settings.
+    return ("custom", _background_environment_text(visual).casefold())
+
+
+def assign_scene_background(scene, project, scene_dir, cache, state):
+    """Attach an AI-painted background, reusing a matching location/phase plate."""
+    provider = "Cloudflare Workers AI FLUX.2 Klein 4B"
+    scene_index = int(scene.get("scene_index", 0))
+    scene["background_generation"] = {"provider": provider, "status": "fallback"}
+
+    if not cloudflare_ai_configured():
+        scene["background_generation"]["error"] = "Cloudflare credentials are not configured."
+        return
+
+    key = background_cache_key(scene)
+    if key in cache:
+        generated, source_scene_index = cache[key]
+        scene["ai_background_path"] = generated
+        scene["background_generation"] = {
+            "provider": provider,
+            "status": "generated",
+            "reused": True,
+            "source_scene_index": source_scene_index,
+        }
+        return
+
+    if key in state["failed_keys"]:
+        scene["background_generation"]["error"] = state["failed_keys"][key]
+        return
+    if state["quota_exhausted"]:
+        scene["background_generation"]["error"] = (
+            "Cloudflare's daily free AI quota was exhausted earlier in this render; "
+            "procedural fallback used."
+        )
+        return
+    if state["unique_generated_plates"] >= MAX_UNIQUE_BACKGROUND_PLATES:
+        error = (
+            f"Per-video free-quota safety cap reached ({MAX_UNIQUE_BACKGROUND_PLATES} unique "
+            "background plates); procedural fallback used."
+        )
+        state["failed_keys"][key] = error
+        scene["background_generation"]["error"] = error
+        return
+
+    destination = scene_dir / f"ai_background_{scene_index:03d}.jpg"
+    try:
+        generated = generate_cloudflare_background(scene, project, destination)
+        if not generated:
+            error = "No background image was returned; procedural fallback used."
+            state["failed_keys"][key] = error
+            scene["background_generation"]["error"] = error
+            return
+        cache[key] = (generated, scene_index)
+        state["unique_generated_plates"] += 1
+        scene["ai_background_path"] = generated
+        scene["background_generation"] = {
+            "provider": provider,
+            "status": "generated",
+            "reused": False,
+            "source_scene_index": scene_index,
+        }
+    except Exception as exc:
+        error = str(exc)[:240]
+        state["failed_keys"][key] = error
+        scene["ai_background_error"] = error
+        scene["background_generation"]["error"] = error
+        if cloudflare_quota_exhausted(exc):
+            state["quota_exhausted"] = True
+
+
 def background_generation_summary(scenes, configured):
     """Return truthful, non-secret per-scene status for optional AI background generation."""
     results = []
@@ -1288,11 +1372,14 @@ def background_generation_summary(scenes, configured):
             item["error"] = str(generation["error"])[:240]
         results.append(item)
     generated = sum(1 for item in results if item["status"] == "generated")
+    reused = sum(1 for item in results if item.get("reused"))
     return {
         "provider": "Cloudflare Workers AI FLUX.2 Klein 4B",
         "configured": bool(configured),
         "generated_scenes": generated,
         "fallback_scenes": len(results) - generated,
+        "unique_generated_plates": generated - reused,
+        "reused_scenes": reused,
         "total_scenes": len(results),
         "scenes": results,
     }
@@ -1305,34 +1392,13 @@ def render_project(project,outdir:Path,progress_callback=None):
     voice_engine=None
     previous_scene_frame=None
     background_engine = "procedural illustrated backgrounds"
-    quota_exhausted = False
+    background_cache = {}
+    background_state = {"quota_exhausted": False, "unique_generated_plates": 0, "failed_keys": {}}
     for i,scene in enumerate(project["scenes"]):
         scene["scene_index"]=i
-        scene["background_generation"] = {"provider": "Cloudflare Workers AI FLUX.2 Klein 4B", "status": "fallback"}
-        if quota_exhausted:
-            scene["background_generation"]["error"] = (
-                "Cloudflare's daily free AI quota was exhausted earlier in this render; "
-                "procedural fallback used."
-            )
-        elif cloudflare_ai_configured():
-            ai_plate = sd/f"ai_background_{i:03d}.jpg"
-            try:
-                generated = generate_cloudflare_background(scene, project, ai_plate)
-                if generated:
-                    scene["ai_background_path"] = generated
-                    scene["background_generation"] = {"provider": "Cloudflare Workers AI FLUX.2 Klein 4B", "status": "generated"}
-                    background_engine = "Cloudflare Workers AI FLUX.2 Klein 4B backgrounds with procedural stickman animation"
-                else:
-                    scene["background_generation"]["error"] = "No background image was returned; procedural fallback used."
-            except Exception as exc:
-                # Free-tier throttling, network errors or malformed responses must never
-                # prevent a complete video; keep the local scene renderer as a fallback.
-                scene["ai_background_error"] = str(exc)[:240]
-                scene["background_generation"]["error"] = str(exc)[:240]
-                if cloudflare_quota_exhausted(exc):
-                    quota_exhausted = True
-        else:
-            scene["background_generation"]["error"] = "Cloudflare credentials are not configured."
+        assign_scene_background(scene, project, sd, background_cache, background_state)
+        if scene["background_generation"]["status"] == "generated":
+            background_engine = "Cloudflare Workers AI FLUX.2 Klein 4B backgrounds with procedural stickman animation"
         wav=sd/f"voice_{i:03d}.wav"
         # Keep clip duration locked to the requested four-second beat (or final remainder).
         duration=float(scene["duration"])
