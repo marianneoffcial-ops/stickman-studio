@@ -852,8 +852,8 @@ def scene_composition(width,height,camera="",frame=0,total_frames=1):
     return scale,x_fraction,y_fraction
 
 
-def camera_crop_box(width,height,camera="",frame=0,total_frames=1):
-    """Return a gentle per-frame camera crop for restrained cinematic movement."""
+def camera_crop_box(width,height,camera="",frame=0,total_frames=1,scene_index=0):
+    """Return a gentle per-frame crop with a deterministic scene-level framing variant."""
     camera=(camera or "").lower()
     progress=max(0.0,min(1.0,frame/max(1,total_frames-1)))
     zoom=1.0
@@ -877,6 +877,13 @@ def camera_crop_box(width,height,camera="",frame=0,total_frames=1):
         zoom=1.0+0.018*progress
     elif "wide silhouette" in camera:
         zoom=1.0+0.012*progress
+    # A reused environment plate can still provide distinct coverage shots.
+    # The deterministic scene-level offset changes framing, not image identity,
+    # and therefore introduces no frame-to-frame jitter or flicker.
+    variant=int(scene_index)%5
+    pan_x += (variant-2)*.007
+    pan_y += ((variant%3)-1)*.004
+    zoom *= 1.0 + (variant%3)*.003
     crop_w=width/zoom
     crop_h=height/zoom
     center_x=width*(.5+pan_x)
@@ -1191,7 +1198,7 @@ def draw_frame(scene,project,frame,total_frames,out):
     dark=Image.new("RGB",(w,h),(15,16,15)); im=Image.composite(im,dark,vign)
     # A restrained crop animation gives each semantic shot camera movement
     # without changing the requested output dimensions or requiring 3D/GPU tools.
-    crop=camera_crop_box(w,h,camera,frame,total_frames)
+    crop=camera_crop_box(w,h,camera,frame,total_frames,int(scene.get("scene_index",0)))
     im=im.crop(crop).resize((w,h),Image.Resampling.LANCZOS)
     # Keep the public video dimensions unchanged; only the drawing pass is larger.
     im=im.resize((output_w,output_h),Image.Resampling.LANCZOS)
