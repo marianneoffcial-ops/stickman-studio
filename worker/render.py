@@ -5,7 +5,7 @@ from array import array
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageOps
 
 FPS=12
-MAX_UNIQUE_BACKGROUND_PLATES=50
+MAX_UNIQUE_BACKGROUND_PLATES=100
 INK=(29,30,27)
 PAPER=(220,211,190)
 PALETTE=[(204,194,170),(173,177,153),(166,169,164),(216,207,185),(151,158,145)]
@@ -24,11 +24,12 @@ def dimensions(ratio):
     except Exception:
         return (1280,720)
 
-def cloudflare_background_dimensions(aspect_ratio):
-    """Choose a low-cost FLUX.2 canvas that needs at most two 512px tiles."""
+def cloudflare_background_dimensions(aspect_ratio, duration_seconds=None):
+    """Keep short-form plates detailed; use one 512px billing tile for long-form."""
     width, height = dimensions(aspect_ratio)
     ratio = width / float(height)
-    long_side = 768 if ratio >= 1.5 or ratio <= (1.0 / 1.5) else 512
+    long_form = int(duration_seconds or 0) >= 300
+    long_side = 512 if long_form else (768 if ratio >= 1.5 or ratio <= (1.0 / 1.5) else 512)
     if ratio >= 1:
         out_width = long_side
         out_height = max(256, int(round((long_side / ratio) / 8.0) * 8))
@@ -1095,7 +1096,7 @@ def generate_cloudflare_background(scene, project, destination):
     account = os.environ["CLOUDFLARE_ACCOUNT_ID"].strip()
     token = os.environ["CLOUDFLARE_API_TOKEN"].strip()
     url = f"https://api.cloudflare.com/client/v4/accounts/{account}/ai/run/@cf/black-forest-labs/flux-2-klein-4b"
-    width, height = cloudflare_background_dimensions(project.get("aspect_ratio", "16:9"))
+    width, height = cloudflare_background_dimensions(project.get("aspect_ratio", "16:9"), project.get("duration_seconds", 0))
     fields = {
         "prompt": cloudflare_background_prompt(scene, project.get("aspect_ratio", "16:9")),
         "width": width,
@@ -1286,8 +1287,8 @@ def _prepare_scene_voice(text,destination,scene_dir,ffmpeg,clip_duration,scene_i
             destination=fitted
             speech_seconds=_audio_seconds(destination)
     return destination,speech_seconds,engine
-def background_cache_key(scene):
-    """Group coverage shots that share the same researched setting and story phase."""
+def background_cache_key(scene, granularity="phase"):
+    """Group coverage shots by a researched setting and one of four broad story phases."""
     visual = re.sub(r"\s+", " ", str((scene or {}).get("visual", ""))).strip()
     match = re.match(
         r"^(.*?),\s*(context|preparation|journey|discovery|decision|turning point|aftermath|legacy)\s+in the story\b",
@@ -1295,11 +1296,31 @@ def background_cache_key(scene):
         flags=re.I,
     )
     if match:
-        return (match.group(1).strip().casefold(), match.group(2).strip().casefold())
+        setting = match.group(1).strip().casefold()
+        stage = match.group(2).strip().casefold()
+        if granularity == "setting":
+            return (setting,)
+        phase = {
+            "context": "setup",
+            "preparation": "setup",
+            "journey": "development",
+            "discovery": "development",
+            "decision": "turning",
+            "turning point": "turning",
+            "aftermath": "resolution",
+            "legacy": "resolution",
+        }.get(stage, stage)
+        return (setting, phase)
     # Custom storyboards may not use the research engine's stage grammar. In that
     # case, reuse only exact normalized environment descriptions, never across
     # unrelated settings.
     return ("custom", _background_environment_text(visual).casefold())
+
+
+def choose_background_cache_granularity(scenes):
+    """Fall back from phase-level to location-level reuse before exceeding free quota."""
+    phase_keys = {background_cache_key(scene, "phase") for scene in (scenes or [])}
+    return "setting" if len(phase_keys) > MAX_UNIQUE_BACKGROUND_PLATES else "phase"
 
 
 def assign_scene_background(scene, project, scene_dir, cache, state):
@@ -1312,7 +1333,7 @@ def assign_scene_background(scene, project, scene_dir, cache, state):
         scene["background_generation"]["error"] = "Cloudflare credentials are not configured."
         return
 
-    key = background_cache_key(scene)
+    key = background_cache_key(scene, state.get("cache_granularity", "phase"))
     if key in cache:
         generated, source_scene_index = cache[key]
         scene["ai_background_path"] = generated
@@ -1404,7 +1425,13 @@ def render_project(project,outdir:Path,progress_callback=None):
     previous_scene_frame=None
     background_engine = "procedural illustrated backgrounds"
     background_cache = {}
-    background_state = {"quota_exhausted": False, "unique_generated_plates": 0, "failed_keys": {}}
+    cache_granularity = choose_background_cache_granularity(project["scenes"])
+    background_state = {
+        "quota_exhausted": False,
+        "unique_generated_plates": 0,
+        "failed_keys": {},
+        "cache_granularity": cache_granularity,
+    }
     for i,scene in enumerate(project["scenes"]):
         scene["scene_index"]=i
         assign_scene_background(scene, project, sd, background_cache, background_state)
@@ -1478,6 +1505,7 @@ def render_project(project,outdir:Path,progress_callback=None):
          "-c:v","copy","-af","apad","-c:a","aac","-b:a","192k","-shortest","-movflags","+faststart",str(final)])
     project["voice_engine"]=voice_engine
     project["background_engine"]=background_engine
+    project["background_cache_granularity"] = cache_granularity
     project["background_generation"] = background_generation_summary(project["scenes"], cloudflare_ai_configured())
     # Matching illustrated 16:9 thumbnail with the recurring character and a <=4-word headline.
     thumb=outdir/"thumbnail.jpg"
