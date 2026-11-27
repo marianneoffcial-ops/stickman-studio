@@ -896,11 +896,10 @@ def camera_crop_box(width,height,camera="",frame=0,total_frames=1,scene_index=0)
 
 
 def blend_scene_transition(previous,current,frame,transition_frames=3):
-    """Cross-dissolve the opening frames of a scene from the prior scene's final frame."""
-    if previous is None or transition_frames <= 0 or frame >= transition_frames:
-        return current
-    progress=(frame+1)/transition_frames
-    return Image.blend(previous.convert("RGB"),current.convert("RGB"),progress)
+    """Hard-cut scene changes so the recurring character never appears as a ghost duplicate."""
+    # A full-frame dissolve blends the outgoing and incoming stick figures together.
+    # The brief requires one stable character, so preserve the new scene frame intact.
+    return current
 
 
 def atmosphere_particles(scene,frame,total_frames,width,height):
@@ -1417,6 +1416,13 @@ def background_generation_summary(scenes, configured):
     }
 
 
+def thumbnail_character_layout(width=1280,height=720):
+    """Place a full-body recurring character safely inside the fixed 16:9 thumbnail."""
+    sx=width/1280.0
+    sy=height/720.0
+    return int(round(300*sx)),int(round(420*sy)),1.5*min(sx,sy)
+
+
 def render_project(project,outdir:Path,progress_callback=None):
     ffmpeg=shutil.which("ffmpeg")
     if not ffmpeg: raise RuntimeError("FFmpeg is not installed in the cloud worker")
@@ -1530,8 +1536,9 @@ def render_project(project,outdir:Path,progress_callback=None):
     name=(first_scene.get("characters") or ["Narrator"])[0]
     color=project.get("characters",{}).get(name,{}).get("color","#34465a")
     rgb=tuple(int(color[k:k+2],16) for k in (1,3,5))
-    # Keep the thumbnail hero close to the scale used in the actual scenes.
-    draw_person(td,300,660,1.8,rgb,0,0,name,"observe")
+    # Keep the entire thumbnail hero visible with safe head and foot margins.
+    thumb_x,thumb_y,thumb_scale=thumbnail_character_layout(1280,720)
+    draw_person(td,thumb_x,thumb_y,thumb_scale,rgb,0,0,name,"observe")
     words=re.findall(r"[A-Za-z0-9']+",project.get("thumbnail_headline",project.get("title","STICKMAN STORY")).upper())[:4]
     headline=" ".join(words) or "STICKMAN STORY"
     # Slightly irregular parchment panel and serif lettering feel like part of the ink illustration.
