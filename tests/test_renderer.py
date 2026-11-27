@@ -310,19 +310,31 @@ class RenderSmokeTests(unittest.TestCase):
         self.assertLessEqual(second[2], width)
         self.assertLessEqual(second[3], height)
 
-    def test_scene_transition_cross_dissolves_without_changing_frame_size(self):
+    def test_scene_transition_hard_cuts_to_prevent_duplicate_characters(self):
         from worker.render import blend_scene_transition
         previous = Image.new("RGB", (32, 24), (0, 0, 0))
         current = Image.new("RGB", (32, 24), (255, 255, 255))
-        first = blend_scene_transition(previous, current, 0, 3)
-        middle = blend_scene_transition(previous, current, 1, 3)
-        final = blend_scene_transition(previous, current, 2, 3)
-        self.assertEqual(first.size, (32, 24))
-        self.assertEqual(first.getpixel((0, 0)), (85, 85, 85))
-        self.assertEqual(middle.getpixel((0, 0)), (170, 170, 170))
-        self.assertEqual(final.getpixel((0, 0)), (255, 255, 255))
-        self.assertEqual(blend_scene_transition(previous, current, 3, 3).getpixel((0, 0)), (255, 255, 255))
+        for frame in range(4):
+            result = blend_scene_transition(previous, current, frame, 3)
+            self.assertEqual(result.size, (32, 24))
+            self.assertEqual(result.getpixel((0, 0)), (255, 255, 255))
         self.assertEqual(blend_scene_transition(None, current, 0, 3).getpixel((0, 0)), (255, 255, 255))
+
+    def test_thumbnail_character_layout_keeps_full_body_inside_16_9_frame(self):
+        from worker.render import draw_person, thumbnail_character_layout
+        from PIL import Image, ImageDraw, ImageChops
+        background = Image.new("RGB", (1280, 720), (255, 255, 255))
+        x, y, scale = thumbnail_character_layout(1280, 720)
+        draw_person(ImageDraw.Draw(background), x, y, scale, (52, 70, 90), 0.0,
+                    role="Narrator", action="observe")
+        bounds = ImageChops.difference(
+            background, Image.new("RGB", background.size, (255, 255, 255))
+        ).getbbox()
+        self.assertIsNotNone(bounds)
+        self.assertGreaterEqual(bounds[0], 0)
+        self.assertGreaterEqual(bounds[1], 24)
+        self.assertLessEqual(bounds[2], 1280)
+        self.assertLessEqual(bounds[3], 696)
 
     def test_draw_person_accepts_narrative_expression_styles(self):
         from worker.render import draw_person
